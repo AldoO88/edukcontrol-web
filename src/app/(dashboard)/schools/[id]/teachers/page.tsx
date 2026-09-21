@@ -221,30 +221,30 @@ export default function SchoolTeachersPage() {
             >
               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
                 <CardBody>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-12 h-12 bg-emerald-100 rounded-xl shrink-0">
-                        <span className="text-emerald-600 font-bold text-lg">
-                          {teacher.name.charAt(0)}{(teacher.last_name || "").charAt(0)}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-text-primary truncate">
-                          {teacher.name} {teacher.last_name}
-                        </h3>
-                        <p className="text-sm text-text-secondary">
-                          {teacher.phoneNumber}
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center justify-center w-12 h-12 bg-sky-100 rounded-xl shrink-0">
+                      <span className="text-sky-600 font-bold text-lg">
+                        {teacher.name.charAt(0)}{(teacher.last_name || "").charAt(0)}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-text-primary truncate">
+                        {teacher.name} {teacher.last_name}
+                      </h3>
+                      <p className="text-sm text-text-secondary">
+                        {teacher.phoneNumber}
+                      </p>
+                      {teacher.email && (
+                        <p className="text-xs text-text-muted truncate">
+                          {teacher.email}
                         </p>
-                        {teacher.email && (
-                          <p className="text-xs text-text-muted truncate">
-                            {teacher.email}
-                          </p>
-                        )}
+                      )}
+                      <div className="mt-1.5">
+                        <Badge variant={teacher.isActive ? "emerald" : "rose"}>
+                          {teacher.isActive ? "Activo" : "Inactivo"}
+                        </Badge>
                       </div>
                     </div>
-                    <Badge variant={teacher.isActive ? "emerald" : "rose"}>
-                      {teacher.isActive ? "Activo" : "Inactivo"}
-                    </Badge>
                   </div>
                   {teacher.academicPreparation && teacher.academicPreparation.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
