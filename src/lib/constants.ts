@@ -58,7 +58,10 @@ export const ENDPOINTS = {
   ATTENDANCE_LOGS: "/api/attendance/logs",
 
   // Credentials
-  CREDENTIALS: "/api/credentials",
+  CREDENTIALS_PDF: (schoolYearId: string, ids?: string) =>
+    `/api/students/credentials?school_year_id=${schoolYearId}${
+      ids ? `&ids=${ids}` : ""
+    }`,
 
   // Dashboard
   DASHBOARD_SUPER_ADMIN: "/api/dashboard/super-admin",
