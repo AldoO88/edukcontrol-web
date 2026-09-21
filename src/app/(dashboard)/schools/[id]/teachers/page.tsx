@@ -1,6 +1,6 @@
 // Página de Maestros a nivel Escuela
 // Lista TODOS los maestros de la escuela (activos e inactivos) para historial.
-// Esta es la ruta principal de maestros; la ruta year-level es para asignación a ciclos.
+// Al clickear un maestro, abre modal con detalle y opción de editar.
 
 "use client";
 
@@ -11,13 +11,16 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Modal } from "@/components/ui/Modal";
+import { MultiSelect } from "@/components/ui/MultiSelect";
+import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
 import type { User } from "@/lib/types";
-import { Users, Search } from "lucide-react";
+import { Users, Search, Pencil } from "lucide-react";
 
 type FilterStatus = "all" | "active" | "inactive";
 
@@ -25,6 +28,24 @@ const STATUS_OPTIONS = [
   { value: "all", label: "Todos" },
   { value: "active", label: "Activos" },
   { value: "inactive", label: "Inactivos" },
+];
+
+const ACADEMIC_OPTIONS = [
+  { value: "Licenciatura", label: "Licenciatura" },
+  { value: "Licenciatura en Educación", label: "Licenciatura en Educación" },
+  { value: "Maestría", label: "Maestría" },
+  { value: "Maestría en Educación", label: "Maestría en Educación" },
+  { value: "Doctorado", label: "Doctorado" },
+  { value: "Doctorado en Educación", label: "Doctorado en Educación" },
+  { value: "Especialidad", label: "Especialidad" },
+  { value: "Técnico", label: "Técnico" },
+  { value: "Otro", label: "Otro" },
+];
+
+const SEX_OPTIONS = [
+  { value: "", label: "No especificado" },
+  { value: "M", label: "Masculino" },
+  { value: "F", label: "Femenino" },
 ];
 
 export default function SchoolTeachersPage() {
@@ -36,6 +57,20 @@ export default function SchoolTeachersPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
+
+  // Modal states
+  const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Edit form states
+  const [editName, setEditName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editSex, setEditSex] = useState("");
+  const [editAcademic, setEditAcademic] = useState<string[]>([]);
 
   const fetchTeachers = async () => {
     try {
@@ -53,6 +88,53 @@ export default function SchoolTeachersPage() {
   useEffect(() => {
     fetchTeachers();
   }, [schoolId]);
+
+  const openDetail = (teacher: User) => {
+    setSelectedTeacher(teacher);
+    setIsEditing(false);
+    setSaveError(null);
+    setEditName(teacher.name);
+    setEditLastName(teacher.last_name || "");
+    setEditPhone(teacher.phoneNumber);
+    setEditEmail(teacher.email || "");
+    setEditSex(teacher.sex || "");
+    setEditAcademic(teacher.academicPreparation || []);
+  };
+
+  const closeModal = () => {
+    setSelectedTeacher(null);
+    setIsEditing(false);
+    setSaveError(null);
+  };
+
+  const handleSave = async () => {
+    if (!selectedTeacher) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const updated = await api.put<{ teacher: User }>(
+        ENDPOINTS.DASHBOARD_UPDATE_TEACHER(schoolId, selectedTeacher._id),
+        {
+          name: editName,
+          last_name: editLastName,
+          phoneNumber: editPhone,
+          email: editEmail || undefined,
+          sex: editSex || undefined,
+          academicPreparation: editAcademic,
+        }
+      );
+      // Update local state
+      setTeachers((prev) =>
+        prev.map((t) => (t._id === selectedTeacher._id ? updated.teacher : t))
+      );
+      setSelectedTeacher(updated.teacher);
+      setIsEditing(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Error al guardar");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoading) {
     return <LoadingState message="Cargando maestros..." height="page" />;
@@ -142,38 +224,210 @@ export default function SchoolTeachersPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((teacher) => (
-            <Card key={teacher._id}>
-              <CardBody>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-12 h-12 bg-emerald-100 rounded-xl shrink-0">
-                      <span className="text-emerald-600 font-bold text-lg">
-                        {teacher.name.charAt(0)}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-text-primary truncate">
-                        {teacher.name} {teacher.last_name}
-                      </h3>
-                      <p className="text-sm text-text-secondary">
-                        {teacher.phoneNumber}
-                      </p>
-                      {teacher.email && (
-                        <p className="text-xs text-text-muted truncate">
-                          {teacher.email}
+            <button
+              key={teacher._id}
+              onClick={() => openDetail(teacher)}
+              className="text-left"
+            >
+              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                <CardBody>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-12 h-12 bg-emerald-100 rounded-xl shrink-0">
+                        <span className="text-emerald-600 font-bold text-lg">
+                          {teacher.name.charAt(0)}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-text-primary truncate">
+                          {teacher.name} {teacher.last_name}
+                        </h3>
+                        <p className="text-sm text-text-secondary">
+                          {teacher.phoneNumber}
                         </p>
+                        {teacher.email && (
+                          <p className="text-xs text-text-muted truncate">
+                            {teacher.email}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={teacher.isActive ? "emerald" : "rose"}>
+                      {teacher.isActive ? "Activo" : "Inactivo"}
+                    </Badge>
+                  </div>
+                  {teacher.academicPreparation && teacher.academicPreparation.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {teacher.academicPreparation.slice(0, 2).map((prep) => (
+                        <span
+                          key={prep}
+                          className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600"
+                        >
+                          {prep}
+                        </span>
+                      ))}
+                      {teacher.academicPreparation.length > 2 && (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                          +{teacher.academicPreparation.length - 2}
+                        </span>
                       )}
                     </div>
-                  </div>
-                  <Badge variant={teacher.isActive ? "emerald" : "rose"}>
-                    {teacher.isActive ? "Activo" : "Inactivo"}
-                  </Badge>
-                </div>
-              </CardBody>
-            </Card>
+                  )}
+                </CardBody>
+              </Card>
+            </button>
           ))}
         </div>
       )}
+
+      {/* Modal de Detalle/Edición */}
+      <Modal
+        isOpen={!!selectedTeacher}
+        onClose={closeModal}
+        title={isEditing ? "Editar Maestro" : "Detalle del Maestro"}
+        size="lg"
+      >
+        {selectedTeacher && (
+          <div className="space-y-4">
+            {saveError && (
+              <div className="p-3 rounded-xl bg-error-light text-error text-sm">
+                {saveError}
+              </div>
+            )}
+
+            {/* Nombre */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-semibold text-text-primary">Nombre(s)</label>
+                {isEditing ? (
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                  />
+                ) : (
+                  <p className="text-text-secondary mt-1">{selectedTeacher.name}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-text-primary">Apellido(s)</label>
+                {isEditing ? (
+                  <Input
+                    value={editLastName}
+                    onChange={(e) => setEditLastName(e.target.value)}
+                  />
+                ) : (
+                  <p className="text-text-secondary mt-1">{selectedTeacher.last_name || "—"}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Teléfono */}
+            <div>
+              <label className="text-sm font-semibold text-text-primary">Teléfono</label>
+              {isEditing ? (
+                <Input
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                />
+              ) : (
+                <p className="text-text-secondary mt-1">{selectedTeacher.phoneNumber}</p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="text-sm font-semibold text-text-primary">Email</label>
+              {isEditing ? (
+                <Input
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                />
+              ) : (
+                <p className="text-text-secondary mt-1">{selectedTeacher.email || "—"}</p>
+              )}
+            </div>
+
+            {/* Sexo */}
+            <div>
+              <label className="text-sm font-semibold text-text-primary">Sexo</label>
+              {isEditing ? (
+                <Select
+                  options={SEX_OPTIONS}
+                  value={editSex}
+                  onChange={(e) => setEditSex(e.target.value)}
+                />
+              ) : (
+                <p className="text-text-secondary mt-1">
+                  {selectedTeacher.sex === "M"
+                    ? "Masculino"
+                    : selectedTeacher.sex === "F"
+                      ? "Femenino"
+                      : "No especificado"}
+                </p>
+              )}
+            </div>
+
+            {/* Preparación Académica */}
+            <div>
+              <label className="text-sm font-semibold text-text-primary">Preparación Académica</label>
+              {isEditing ? (
+                <MultiSelect
+                  options={ACADEMIC_OPTIONS}
+                  value={editAcademic}
+                  onChange={setEditAcademic}
+                />
+              ) : (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {selectedTeacher.academicPreparation && selectedTeacher.academicPreparation.length > 0 ? (
+                    selectedTeacher.academicPreparation.map((prep) => (
+                      <span
+                        key={prep}
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent/10 text-accent-dark"
+                      >
+                        {prep}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-text-secondary">Sin información</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Estado */}
+            <div>
+              <label className="text-sm font-semibold text-text-primary">Estado</label>
+              <div className="mt-1">
+                <Badge variant={selectedTeacher.isActive ? "emerald" : "rose"}>
+                  {selectedTeacher.isActive ? "Activo" : "Inactivo"}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-divider">
+              {isEditing ? (
+                <>
+                  <Button variant="ghost" onClick={() => setIsEditing(false)}>
+                    Cancelar
+                  </Button>
+                  <Button variant="sky" onClick={handleSave} isLoading={isSaving}>
+                    Guardar
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="sky"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Pencil size={16} className="mr-1.5" />
+                  Editar
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

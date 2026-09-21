@@ -11,6 +11,7 @@ export interface User {
   school?: string | School;
   isActive: boolean;
   sex?: string | null;
+  academicPreparation?: string[];
 }
 
 export type UserRole =
