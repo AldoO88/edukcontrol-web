@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { OnboardingWizard } from "@/components/ui/OnboardingWizard";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
@@ -192,6 +193,11 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      <OnboardingWizard
+        schoolsTotal={data.schools.total}
+        usersThisMonth={data.users.thisMonth}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
