@@ -1,6 +1,13 @@
 // TypeScript types para EdukControl Web
 // Tipos base del backend
 
+export interface AcademicRecord {
+  type: "Licenciatura" | "Especialidad" | "Maestría" | "Doctorado" | "Posdoctorado";
+  careerName: string;
+  institution: string;
+  status: "pasante" | "titulado";
+}
+
 export interface User {
   _id: string;
   email?: string;
@@ -11,7 +18,7 @@ export interface User {
   school?: string | School;
   isActive: boolean;
   sex?: string | null;
-  academicPreparation?: string[];
+  academicPreparation?: AcademicRecord[];
 }
 
 export type UserRole =

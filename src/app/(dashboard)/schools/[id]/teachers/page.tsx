@@ -12,14 +12,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
-import { MultiSelect } from "@/components/ui/MultiSelect";
+import { AcademicRecordTable } from "@/components/ui/AcademicRecordTable";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { User } from "@/lib/types";
+import type { User, AcademicRecord } from "@/lib/types";
 import { Users, Search, Pencil } from "lucide-react";
 
 type FilterStatus = "all" | "active" | "inactive";
@@ -28,18 +28,6 @@ const STATUS_OPTIONS = [
   { value: "all", label: "Todos" },
   { value: "active", label: "Activos" },
   { value: "inactive", label: "Inactivos" },
-];
-
-const ACADEMIC_OPTIONS = [
-  { value: "Licenciatura", label: "Licenciatura" },
-  { value: "Licenciatura en Educación", label: "Licenciatura en Educación" },
-  { value: "Maestría", label: "Maestría" },
-  { value: "Maestría en Educación", label: "Maestría en Educación" },
-  { value: "Doctorado", label: "Doctorado" },
-  { value: "Doctorado en Educación", label: "Doctorado en Educación" },
-  { value: "Especialidad", label: "Especialidad" },
-  { value: "Técnico", label: "Técnico" },
-  { value: "Otro", label: "Otro" },
 ];
 
 const SEX_OPTIONS = [
@@ -70,7 +58,7 @@ export default function SchoolTeachersPage() {
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editSex, setEditSex] = useState("");
-  const [editAcademic, setEditAcademic] = useState<string[]>([]);
+  const [editAcademic, setEditAcademic] = useState<AcademicRecord[]>([]);
 
   const fetchTeachers = async () => {
     try {
@@ -123,7 +111,6 @@ export default function SchoolTeachersPage() {
           academicPreparation: editAcademic,
         }
       );
-      // Update local state
       setTeachers((prev) =>
         prev.map((t) => (t._id === selectedTeacher._id ? updated.teacher : t))
       );
@@ -258,12 +245,12 @@ export default function SchoolTeachersPage() {
                   </div>
                   {teacher.academicPreparation && teacher.academicPreparation.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {teacher.academicPreparation.slice(0, 2).map((prep) => (
+                      {teacher.academicPreparation.slice(0, 2).map((prep, idx) => (
                         <span
-                          key={prep}
+                          key={idx}
                           className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600"
                         >
-                          {prep}
+                          {prep.type}
                         </span>
                       ))}
                       {teacher.academicPreparation.length > 2 && (
@@ -368,31 +355,18 @@ export default function SchoolTeachersPage() {
             </div>
 
             {/* Preparación Académica */}
-            <div>
-              <label className="text-sm font-semibold text-text-primary">Preparación Académica</label>
-              {isEditing ? (
-                <MultiSelect
-                  options={ACADEMIC_OPTIONS}
-                  value={editAcademic}
-                  onChange={setEditAcademic}
-                />
-              ) : (
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {selectedTeacher.academicPreparation && selectedTeacher.academicPreparation.length > 0 ? (
-                    selectedTeacher.academicPreparation.map((prep) => (
-                      <span
-                        key={prep}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent/10 text-accent-dark"
-                      >
-                        {prep}
-                      </span>
-                    ))
-                  ) : (
-                    <p className="text-text-secondary">Sin información</p>
-                  )}
-                </div>
-              )}
-            </div>
+            {isEditing ? (
+              <AcademicRecordTable
+                value={editAcademic}
+                onChange={setEditAcademic}
+              />
+            ) : (
+              <AcademicRecordTable
+                value={selectedTeacher.academicPreparation || []}
+                onChange={() => {}}
+                readonly
+              />
+            )}
 
             {/* Estado */}
             <div>

@@ -10,25 +10,14 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { MultiSelect } from "@/components/ui/MultiSelect";
+import { AcademicRecordTable } from "@/components/ui/AcademicRecordTable";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
+import type { AcademicRecord } from "@/lib/types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-
-const ACADEMIC_OPTIONS = [
-  { value: "Licenciatura", label: "Licenciatura" },
-  { value: "Licenciatura en Educación", label: "Licenciatura en Educación" },
-  { value: "Maestría", label: "Maestría" },
-  { value: "Maestría en Educación", label: "Maestría en Educación" },
-  { value: "Doctorado", label: "Doctorado" },
-  { value: "Doctorado en Educación", label: "Doctorado en Educación" },
-  { value: "Especialidad", label: "Especialidad" },
-  { value: "Técnico", label: "Técnico" },
-  { value: "Otro", label: "Otro" },
-];
 
 const teacherSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
@@ -36,7 +25,6 @@ const teacherSchema = z.object({
   phoneNumber: z.string().regex(/^\d{10}$/, "Teléfono debe tener 10 dígitos"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   sex: z.enum(["M", "F", ""]).optional(),
-  academicPreparation: z.array(z.string()).optional(),
 });
 
 type TeacherFormData = z.infer<typeof teacherSchema>;
@@ -47,12 +35,11 @@ export default function NewTeacherPage() {
   const schoolId = params.id as string;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [academicPrep, setAcademicPrep] = useState<string[]>([]);
+  const [academicPrep, setAcademicPrep] = useState<AcademicRecord[]>([]);
 
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<TeacherFormData>({
     resolver: zodResolver(teacherSchema),
@@ -131,14 +118,9 @@ export default function NewTeacherPage() {
               ]}
               {...register("sex")}
             />
-            <MultiSelect
-              label="Preparación Académica"
-              options={ACADEMIC_OPTIONS}
+            <AcademicRecordTable
               value={academicPrep}
-              onChange={(val) => {
-                setAcademicPrep(val);
-                setValue("academicPreparation", val);
-              }}
+              onChange={setAcademicPrep}
             />
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="ghost" onClick={() => router.back()}>
