@@ -61,6 +61,8 @@ export const ENDPOINTS = {
 
   // Dashboard
   DASHBOARD_SUPER_ADMIN: "/api/dashboard/super-admin",
+  DASHBOARD_SETUP_STATUS: (schoolId: string) =>
+    `/api/dashboard/super-admin/schools/${schoolId}/setup-status`,
 } as const;
 
 // Días de la semana (convención JavaScript: 0=domingo)

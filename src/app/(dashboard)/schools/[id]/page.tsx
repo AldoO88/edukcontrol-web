@@ -26,6 +26,7 @@ import {
   Pencil,
   Upload,
   X,
+  ArrowRight,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -234,6 +235,30 @@ export default function SchoolOverviewPage() {
           </div>
         </CardBody>
       </Card>
+
+      {/* Wizard de configuración - link destacado */}
+      <Link href={`/schools/${schoolId}/setup-wizard`}>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-accent/5 to-accent/10 border-accent/20">
+          <CardBody>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-accent text-white">
+                <ClipboardList size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-text-primary">
+                  Asistente de Configuración
+                </h3>
+                <p className="text-sm text-text-secondary">
+                  Ver el progreso de configuración y completar piezas faltantes.
+                </p>
+              </div>
+              <span className="text-sm font-medium text-accent-dark flex items-center">
+                Abrir <ArrowRight size={14} className="ml-1" />
+              </span>
+            </div>
+          </CardBody>
+        </Card>
+      </Link>
 
       {/* Links de acceso rápido */}
       <div>
