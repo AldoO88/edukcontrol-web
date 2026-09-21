@@ -32,8 +32,8 @@ const STATUS_OPTIONS = [
 
 const SEX_OPTIONS = [
   { value: "", label: "No especificado" },
-  { value: "M", label: "Masculino" },
-  { value: "F", label: "Femenino" },
+  { value: "male", label: "Masculino" },
+  { value: "female", label: "Femenino" },
 ];
 
 export default function SchoolTeachersPage() {
@@ -345,9 +345,9 @@ export default function SchoolTeachersPage() {
                 />
               ) : (
                 <p className="text-text-secondary mt-1">
-                  {selectedTeacher.sex === "M"
+                  {selectedTeacher.sex === "male"
                     ? "Masculino"
-                    : selectedTeacher.sex === "F"
+                    : selectedTeacher.sex === "female"
                       ? "Femenino"
                       : "No especificado"}
                 </p>

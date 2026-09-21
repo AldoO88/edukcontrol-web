@@ -113,8 +113,8 @@ export default function NewTeacherPage() {
               label="Sexo (opcional)"
               options={[
                 { value: "", label: "No especificado" },
-                { value: "M", label: "Masculino" },
-                { value: "F", label: "Femenino" },
+                { value: "male", label: "Masculino" },
+                { value: "female", label: "Femenino" },
               ]}
               {...register("sex")}
             />
