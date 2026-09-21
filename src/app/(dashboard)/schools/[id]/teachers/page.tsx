@@ -58,6 +58,7 @@ export default function SchoolTeachersPage() {
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editSex, setEditSex] = useState("");
+  const [editActive, setEditActive] = useState(true);
   const [editAcademic, setEditAcademic] = useState<AcademicRecord[]>([]);
 
   const fetchTeachers = async () => {
@@ -86,6 +87,7 @@ export default function SchoolTeachersPage() {
     setEditPhone(teacher.phoneNumber);
     setEditEmail(teacher.email || "");
     setEditSex(teacher.sex || "");
+    setEditActive(teacher.isActive);
     setEditAcademic(teacher.academicPreparation || []);
   };
 
@@ -108,6 +110,7 @@ export default function SchoolTeachersPage() {
           phoneNumber: editPhone,
           email: editEmail || undefined,
           sex: editSex || undefined,
+          isActive: editActive,
           academicPreparation: editAcademic,
         }
       );
@@ -371,11 +374,32 @@ export default function SchoolTeachersPage() {
             {/* Estado */}
             <div>
               <label className="text-sm font-semibold text-text-primary">Estado</label>
-              <div className="mt-1">
-                <Badge variant={selectedTeacher.isActive ? "emerald" : "rose"}>
-                  {selectedTeacher.isActive ? "Activo" : "Inactivo"}
-                </Badge>
-              </div>
+              {isEditing ? (
+                <div className="flex items-center gap-3 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditActive(!editActive)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      editActive ? "bg-emerald-500" : "bg-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        editActive ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-text-secondary">
+                    {editActive ? "Activo" : "Inactivo"}
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-1">
+                  <Badge variant={selectedTeacher.isActive ? "emerald" : "rose"}>
+                    {selectedTeacher.isActive ? "Activo" : "Inactivo"}
+                  </Badge>
+                </div>
+              )}
             </div>
 
             {/* Acciones */}
