@@ -40,7 +40,7 @@ const superAdminSections: NavSection[] = [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "Escuelas", href: "/schools", icon: School },
       { label: "Usuarios", href: "/users", icon: Users },
-      { label: "Configuración Global", href: "/users", icon: Settings },
+      { label: "Configuración Global", href: "/settings", icon: Settings },
     ],
   },
 ];
