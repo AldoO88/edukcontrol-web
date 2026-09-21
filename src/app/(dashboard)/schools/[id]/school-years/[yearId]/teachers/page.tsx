@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -15,30 +15,29 @@ import type { User } from "@/lib/types";
 import { Users } from "lucide-react";
 
 export default function TeachersPage() {
-  const router = useRouter();
   const params = useParams();
-  const yearId = params.yearId as string;
+  const schoolId = params.id as string;
+
   const [teachers, setTeachers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchTeachers() {
-      try {
-        // Los maestros se obtienen vía teacher-subjects o se filtran del signup
-        // Por ahora usamos el endpoint de teacher-subjects para listar
-        const res = await api.get<{ items: User[] }>(
-          `${ENDPOINTS.STUDENTS}?limit=1&school_year_id=${yearId}`
-        );
-        // TODO: Implementar endpoint específico de teachers
-        setTeachers([]);
-      } catch {
-        // Error silencioso
-      } finally {
-        setIsLoading(false);
-      }
+  const fetchTeachers = async () => {
+    try {
+      const res = await api.get<{ items: User[] }>(
+        `${ENDPOINTS.DASHBOARD_TEACHERS(schoolId)}`
+      );
+      setTeachers(res.items || []);
+    } catch {
+      // Error silencioso
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
     fetchTeachers();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId]);
 
   if (isLoading) {
     return (
@@ -52,7 +51,7 @@ export default function TeachersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Maestros"
-        subtitle="Gestión del personal docente"
+        subtitle="Personal docente registrado en la escuela"
         action={{
           label: "Registrar Maestro",
           href: "/teachers/new",
@@ -73,16 +72,18 @@ export default function TeachersPage() {
               <CardBody>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-12 h-12 bg-emerald-100 rounded-xl">
+                    <div className="flex items-center justify-center w-12 h-12 bg-emerald-100 rounded-xl shrink-0">
                       <span className="text-emerald-600 font-bold text-lg">
                         {teacher.name.charAt(0)}
                       </span>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-text-primary">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-text-primary truncate">
                         {teacher.name} {teacher.last_name}
                       </h3>
-                      <p className="text-sm text-text-secondary">{teacher.phoneNumber}</p>
+                      <p className="text-sm text-text-secondary">
+                        {teacher.phoneNumber}
+                      </p>
                     </div>
                   </div>
                   <Badge variant={teacher.isActive ? "emerald" : "rose"}>
