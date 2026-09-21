@@ -53,6 +53,7 @@ export const ENDPOINTS = {
 
   // School Calendar
   SCHOOL_CALENDAR: "/api/school-calendar",
+  SCHOOL_CALENDAR_WEEKENDS: "/api/school-calendar/weekends",
 
   // Attendance
   ATTENDANCE_LOGS: "/api/attendance/logs",
