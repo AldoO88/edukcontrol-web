@@ -228,12 +228,16 @@ export default function SchoolOverviewPage() {
               <Image
                 src={school.logoUrl}
                 alt={`Logo de ${school.name}`}
+                width={80}
+                height={80}
                 className="w-20 h-20 rounded-xl object-cover"
               />
             ) : logoPreview ? (
               <Image
                 src={logoPreview}
                 alt="Preview del logo"
+                width={80}
+                height={80}
                 className="w-20 h-20 rounded-xl object-cover"
               />
             ) : (
@@ -424,6 +428,8 @@ export default function SchoolOverviewPage() {
                 <Image
                   src={logoPreview}
                   alt="Preview del logo"
+                  width={96}
+                  height={96}
                   className="w-24 h-24 object-cover rounded-xl border border-border"
                 />
                 <button
@@ -439,6 +445,8 @@ export default function SchoolOverviewPage() {
                 <Image
                   src={school.logoUrl}
                   alt="Logo actual"
+                  width={96}
+                  height={96}
                   className="w-24 h-24 object-cover rounded-xl border border-border"
                 />
                 <button
