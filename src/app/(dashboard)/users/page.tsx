@@ -15,6 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Users } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const userSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
@@ -110,22 +111,15 @@ export default function UsersPage() {
 
       <Card>
         <CardBody>
-          <div className="flex items-center justify-center py-12 text-text-secondary">
-            <div className="text-center">
-              <Users size={48} className="mx-auto mb-4 text-text-muted" />
-              <p className="text-lg font-medium">Gestión de Usuarios</p>
-              <p className="text-sm mt-1">
-                Crea y administra usuarios administradores, directores, maestros y demás personal.
-              </p>
-              <Button
-                variant="sky"
-                className="mt-4"
-                onClick={() => setIsModalOpen(true)}
-              >
-                Crear Primer Usuario
-              </Button>
-            </div>
-          </div>
+          <EmptyState
+            icon={<Users size={48} />}
+            title="Gestión de Usuarios"
+            description="Crea y administra usuarios administradores, directores, maestros y demás personal."
+            action={{
+              label: "Crear Primer Usuario",
+              onClick: () => setIsModalOpen(true),
+            }}
+          />
         </CardBody>
       </Card>
 

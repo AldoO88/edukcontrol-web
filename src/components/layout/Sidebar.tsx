@@ -1,5 +1,6 @@
 // Sidebar de navegación
 // Menú lateral para el panel de administración
+// Generación dinámica según el rol del usuario.
 
 "use client";
 
@@ -12,13 +13,19 @@ import {
   Users,
   BookOpen,
   Settings,
+  ListChecks,
+  CalendarOff,
+  ClipboardList,
+  GraduationCap as Maestro,
+  type LucideIcon,
 } from "lucide-react";
+import { useAuth } from "@/lib/hooks/useAuth";
+import type { UserRole } from "@/lib/types";
 
 interface NavItem {
   label: string;
   href: string;
-  icon: React.ReactNode;
-  badge?: number;
+  icon: LucideIcon;
 }
 
 interface NavSection {
@@ -26,16 +33,23 @@ interface NavSection {
   items: NavItem[];
 }
 
-// Sidebar principal (fuera del detalle de escuela)
-const MAIN_NAV_SECTIONS: NavSection[] = [
+const superAdminSections: NavSection[] = [
   {
-    title: "Módulos Globales",
+    title: "Administración Global",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
-      { label: "Escuelas", href: "/schools", icon: <School size={20} /> },
-      { label: "Usuarios", href: "/users", icon: <Users size={20} /> },
-      { label: "Catálogos", href: "/schools", icon: <BookOpen size={20} /> },
-      { label: "Configuración Global", href: "/users", icon: <Settings size={20} /> },
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Escuelas", href: "/schools", icon: School },
+      { label: "Usuarios", href: "/users", icon: Users },
+      { label: "Configuración Global", href: "/users", icon: Settings },
+    ],
+  },
+];
+
+const adminSections: NavSection[] = [
+  {
+    title: "Operación",
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
 ];
@@ -44,10 +58,16 @@ interface SidebarProps {
   isCollapsed?: boolean;
 }
 
-export function Sidebar({ isCollapsed = false }: SidebarProps) {
+export function Sidebar({ isCollapsed = false }: SidebarProps = {}) {
   const pathname = usePathname();
+  const { user } = useAuth();
 
-  const sections = MAIN_NAV_SECTIONS;
+  // Determinar secciones según rol
+  const role: UserRole | undefined = user?.role;
+  let sections: NavSection[] = adminSections;
+  if (role === "super_admin") {
+    sections = superAdminSections;
+  }
 
   return (
     <aside
@@ -60,13 +80,20 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-divider">
-        <div className="flex items-center justify-center w-9 h-9 bg-accent rounded-xl shadow-sm">
+        <div className="flex items-center justify-center w-9 h-9 bg-accent rounded-xl shadow-sm shrink-0">
           <GraduationCap size={20} className="text-white" />
         </div>
         {!isCollapsed && (
-          <span className="text-lg font-bold text-accent tracking-tight">
-            EdukControl
-          </span>
+          <div className="flex flex-col">
+            <span className="text-lg font-bold text-accent tracking-tight">
+              EdukControl
+            </span>
+            {user?.role && (
+              <span className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">
+                {user.role.replace("_", " ")}
+              </span>
+            )}
+          </div>
         )}
       </div>
 
@@ -81,7 +108,10 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
             )}
             <ul className="space-y-0.5">
               {section.items.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                const isActive =
+                  pathname === item.href ||
+                  pathname.startsWith(item.href + "/");
+                const Icon = item.icon;
                 return (
                   <li key={item.href}>
                     <Link
@@ -89,14 +119,19 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
                       className={`
                         flex items-center gap-3 px-4 py-2.5 text-sm font-medium
                         transition-colors rounded-r-lg
-                        ${isActive
-                          ? "bg-accent/10 text-accent-dark border-r-2 border-accent-dark"
-                          : "text-text-secondary hover:bg-slate-50 hover:text-text-primary"
+                        ${
+                          isActive
+                            ? "bg-accent/10 text-accent-dark border-r-2 border-accent-dark"
+                            : "text-text-secondary hover:bg-slate-50 hover:text-text-primary"
                         }
                       `}
                     >
-                      <span className={isActive ? "text-accent-dark" : "text-text-muted"}>
-                        {item.icon}
+                      <span
+                        className={
+                          isActive ? "text-accent-dark" : "text-text-muted"
+                        }
+                      >
+                        <Icon size={20} />
                       </span>
                       {!isCollapsed && <span>{item.label}</span>}
                     </Link>

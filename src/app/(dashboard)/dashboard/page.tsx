@@ -10,6 +10,8 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
@@ -22,6 +24,8 @@ import {
   Search,
   ArrowRight,
   Settings,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 
 interface SchoolListItem {
@@ -47,9 +51,28 @@ interface DashboardData {
   schoolsList: SchoolListItem[];
 }
 
+interface PendingTaskIssue {
+  kind: string;
+  message: string;
+}
+
+interface PendingTask {
+  school_id: string;
+  school_name: string;
+  school_year_id: string | null;
+  school_year_name: string | null;
+  issues: PendingTaskIssue[];
+}
+
+interface PendingTasksData {
+  tasks: PendingTask[];
+  total_schools: number;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [pendingTasks, setPendingTasks] = useState<PendingTasksData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [shiftFilter, setShiftFilter] = useState<string>("all");
@@ -58,8 +81,12 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchDashboard() {
       try {
-        const res = await api.get<DashboardData>(ENDPOINTS.DASHBOARD_SUPER_ADMIN);
-        setData(res);
+        const [dashRes, tasksRes] = await Promise.all([
+          api.get<DashboardData>(ENDPOINTS.DASHBOARD_SUPER_ADMIN),
+          api.get<PendingTasksData>(ENDPOINTS.DASHBOARD_PENDING_TASKS),
+        ]);
+        setData(dashRes);
+        setPendingTasks(tasksRes);
       } catch {
         // Error silencioso
       } finally {
@@ -94,19 +121,18 @@ export default function DashboardPage() {
   }, [data, searchQuery, shiftFilter, statusFilter]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <LoadingState message="Cargando dashboard..." height="page" />;
   }
 
   if (!data) {
     return (
-      <EmptyState
-        icon={<SchoolIcon size={48} />}
+      <ErrorState
         title="No se pudieron cargar los datos"
-        description="Intenta de nuevo más tarde."
+        message="Intenta de nuevo más tarde."
+        action={{
+          label: "Reintentar",
+          onClick: () => window.location.reload(),
+        }}
       />
     );
   }
@@ -192,6 +218,92 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* Pending Tasks Section */}
+      {pendingTasks && pendingTasks.tasks.length > 0 && (
+        <Card>
+          <CardBody>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
+                  <AlertTriangle
+                    size={20}
+                    className="text-amber-600"
+                  />
+                  Tareas Pendientes
+                </h2>
+                <p className="text-sm text-text-secondary">
+                  {pendingTasks.tasks.length} escuela
+                  {pendingTasks.tasks.length === 1 ? "" : "s"} con piezas de
+                  configuracion faltantes
+                </p>
+              </div>
+              <Badge variant="amber">{pendingTasks.tasks.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {pendingTasks.tasks.map((task) => (
+                <Link
+                  key={task.school_id}
+                  href={`/schools/${task.school_id}/school-years${
+                    task.school_year_id ? `/${task.school_year_id}` : ""
+                  }`}
+                  className="block p-3 border border-border rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center justify-center w-10 h-10 bg-amber-50 rounded-lg shrink-0">
+                      <SchoolIcon size={18} className="text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-semibold text-text-primary text-sm">
+                          {task.school_name}
+                        </p>
+                        {task.school_year_name && (
+                          <Badge variant="slate">
+                            {task.school_year_name}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {task.issues.map((iss) => (
+                          <span
+                            key={iss.kind}
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800"
+                          >
+                            {iss.message}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <ArrowRight
+                      size={18}
+                      className="text-text-muted self-center shrink-0"
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {pendingTasks && pendingTasks.tasks.length === 0 && (
+        <Card>
+          <CardBody>
+            <div className="flex items-center gap-3 text-emerald-700 bg-emerald-50 p-3 rounded-xl">
+              <CheckCircle2 size={20} />
+              <div>
+                <p className="font-semibold text-sm">
+                  Todas las escuelas están completamente configuradas
+                </p>
+                <p className="text-xs text-emerald-700">
+                  No hay tareas pendientes
+                </p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Schools Table Section */}
       <Card>
