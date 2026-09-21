@@ -225,7 +225,7 @@ export default function SchoolTeachersPage() {
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-12 h-12 bg-emerald-100 rounded-xl shrink-0">
                         <span className="text-emerald-600 font-bold text-lg">
-                          {teacher.name.charAt(0)}
+                          {teacher.name.charAt(0)}{(teacher.last_name || "").charAt(0)}
                         </span>
                       </div>
                       <div className="min-w-0">
