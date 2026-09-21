@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { redirect, useParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -36,6 +36,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CreateSchoolYearModal } from "@/components/school-years/CreateSchoolYearModal";
+import Image from "next/image";
 
 const editSchoolSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
@@ -168,7 +169,7 @@ export default function SchoolOverviewPage() {
           label: "Volver al listado",
           onClick: () => {
             if (typeof window !== "undefined") {
-              window.location.href = "/schools";
+              redirect("/schools");
             }
           },
         }}
@@ -192,34 +193,28 @@ export default function SchoolOverviewPage() {
       icon: <BookOpen size={20} />,
       color: "text-rose-600",
       bgColor: "bg-rose-100",
-      href: activeYear
-        ? `/schools/${schoolId}/school-years/${activeYear._id}/subjects`
-        : `/schools/${schoolId}/school-years`,
+      href: `/schools/${schoolId}/subjects`,
     },
     {
       label: "Turnos",
       icon: <Clock size={20} />,
       color: "text-amber-600",
       bgColor: "bg-amber-100",
-      href: activeYear
-        ? `/schools/${schoolId}/school-years/${activeYear._id}/shifts`
-        : `/schools/${schoolId}/school-years`,
+      href: `/schools/${schoolId}/shifts`,
     },
     {
       label: "Grupos",
       icon: <ClipboardList size={20} />,
       color: "text-violet-600",
       bgColor: "bg-violet-100",
-      href: activeYear
-        ? `/schools/${schoolId}/school-years/${activeYear._id}/groups`
-        : `/schools/${schoolId}/school-years`,
+      href: `/schools/${schoolId}/groups`,
     },
     {
       label: "Usuarios",
       icon: <GraduationCap size={20} />,
       color: "text-blue-600",
       bgColor: "bg-blue-100",
-      href: "/users",
+      href: `/schools/${schoolId}/users`,
     },
   ];
 
@@ -230,13 +225,13 @@ export default function SchoolOverviewPage() {
         <CardBody>
           <div className="flex items-start gap-4">
             {school.logoUrl && !logoPreview ? (
-              <img
+              <Image
                 src={school.logoUrl}
                 alt={`Logo de ${school.name}`}
                 className="w-20 h-20 rounded-xl object-cover"
               />
             ) : logoPreview ? (
-              <img
+              <Image
                 src={logoPreview}
                 alt="Preview del logo"
                 className="w-20 h-20 rounded-xl object-cover"
@@ -388,11 +383,6 @@ export default function SchoolOverviewPage() {
         <h3 className="text-lg font-semibold text-text-primary mb-4">
           Configuración de la Escuela
         </h3>
-        {!activeYear && (
-          <p className="text-sm text-text-secondary mb-3">
-            Las configuraciones requieren un ciclo escolar activo. Las rutas llevarán al listado de ciclos.
-          </p>
-        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {configLinks.map((link) => (
             <Link key={link.label} href={link.href}>
@@ -431,7 +421,7 @@ export default function SchoolOverviewPage() {
             </label>
             {logoPreview ? (
               <div className="relative inline-block">
-                <img
+                <Image
                   src={logoPreview}
                   alt="Preview del logo"
                   className="w-24 h-24 object-cover rounded-xl border border-border"
@@ -446,7 +436,7 @@ export default function SchoolOverviewPage() {
               </div>
             ) : school?.logoUrl ? (
               <div className="relative inline-block">
-                <img
+                <Image
                   src={school.logoUrl}
                   alt="Logo actual"
                   className="w-24 h-24 object-cover rounded-xl border border-border"

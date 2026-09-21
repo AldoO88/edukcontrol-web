@@ -76,6 +76,8 @@ export const ENDPOINTS = {
     `/api/dashboard/super-admin/schools/${schoolId}/teacher-subjects`,
   DASHBOARD_UPDATE_TEACHER: (schoolId: string, teacherId: string) =>
     `/api/dashboard/super-admin/schools/${schoolId}/teachers/${teacherId}`,
+  DASHBOARD_USERS: (schoolId: string) =>
+    `/api/dashboard/super-admin/schools/${schoolId}/users`,
   DASHBOARD_PENDING_TASKS: "/api/dashboard/super-admin/pending-tasks",
 } as const;
 
