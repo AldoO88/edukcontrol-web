@@ -85,6 +85,7 @@ export interface Subject {
   code: string;
   name: string;
   grade?: number;
+  description?: string;
   educationalLevel?: string;
   macroCategory?: string;
   classificationType?: string;
