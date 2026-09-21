@@ -93,8 +93,8 @@ export default function StudentsPage() {
         title="Alumnos"
         subtitle="Gestión del alumnado"
         action={{
-          label: "Registrar Alumno",
-          href: "/students/new",
+          label: "Promover Ciclo (1→2→3)",
+          href: `/schools/${params.id}/school-years/${yearId}/students/promote`,
         }}
       />
 
