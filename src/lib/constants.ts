@@ -40,6 +40,7 @@ export const ENDPOINTS = {
 
   // Enrollments
   ENROLLMENTS: "/api/enrollments",
+  ENROLLMENTS_IMPORT: "/api/enrollments/import",
 
   // School Shifts
   SCHOOL_SHIFTS: "/api/school-shifts",

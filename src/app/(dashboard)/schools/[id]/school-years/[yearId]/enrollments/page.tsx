@@ -179,10 +179,21 @@ export default function EnrollmentsPage() {
         title="Matrícula"
         subtitle="Inscripciones de alumnos en grupos del ciclo"
         action={{
-          label: "Nueva Matrícula",
-          onClick: openCreateModal,
+          label: "Importar Excel",
+          href: `/schools/${schoolId}/school-years/${yearId}/enrollments/import`,
         }}
       />
+
+      <div className="flex justify-end -mt-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={openCreateModal}
+        >
+          <Plus size={14} className="mr-1.5" />
+          Nueva matrícula individual
+        </Button>
+      </div>
 
       {error && (
         <div className="p-3 rounded-xl bg-error-light text-error text-sm">
