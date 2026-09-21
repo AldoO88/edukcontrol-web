@@ -34,7 +34,7 @@ const DEFAULT_LABEL_BY_SECTION: Record<string, string> = {
   calendar: "Calendario",
   credentials: "Credenciales",
   setup: "Configuración",
-  "setup-wizard": "Asistente de Configuración",
+
   "teacher-subjects": "Asignar Materias",
   grading: "Calificaciones",
   periods: "Períodos",

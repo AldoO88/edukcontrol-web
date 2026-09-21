@@ -9,12 +9,13 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { School } from "@/lib/types";
+import type { School, SchoolYear } from "@/lib/types";
 import {
   School as SchoolIcon,
   Calendar,
@@ -27,11 +28,14 @@ import {
   Pencil,
   Upload,
   X,
+  Clock,
   ArrowRight,
+  AlertTriangle,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { CreateSchoolYearModal } from "@/components/school-years/CreateSchoolYearModal";
 
 const editSchoolSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
@@ -50,8 +54,10 @@ export default function SchoolOverviewPage() {
   const params = useParams();
   const schoolId = params.id as string;
   const [school, setSchool] = useState<School | null>(null);
+  const [years, setYears] = useState<SchoolYear[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isYearModalOpen, setIsYearModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -67,10 +73,14 @@ export default function SchoolOverviewPage() {
     resolver: zodResolver(editSchoolSchema),
   });
 
-  const fetchSchool = async () => {
+  const fetchData = async () => {
     try {
-      const res = await api.get<School>(`${ENDPOINTS.SCHOOLS}/${schoolId}`);
-      setSchool(res);
+      const [schoolRes, yearsRes] = await Promise.all([
+        api.get<School>(`${ENDPOINTS.SCHOOLS}/${schoolId}`),
+        api.get<{ items: SchoolYear[] }>(`${ENDPOINTS.SCHOOL_YEARS}?school=${schoolId}`),
+      ]);
+      setSchool(schoolRes);
+      setYears(yearsRes.items);
     } catch {
       // Error silencioso
     } finally {
@@ -79,7 +89,7 @@ export default function SchoolOverviewPage() {
   };
 
   useEffect(() => {
-    fetchSchool();
+    fetchData();
   }, [schoolId]);
 
   const openEditModal = () => {
@@ -122,7 +132,6 @@ export default function SchoolOverviewPage() {
     setEditError(null);
     setIsSubmitting(true);
     try {
-      // Update text fields
       await api.put(`${ENDPOINTS.SCHOOLS}/${schoolId}`, {
         name: data.name,
         cct: data.cct.toUpperCase(),
@@ -131,14 +140,13 @@ export default function SchoolOverviewPage() {
         phoneNumber: data.phoneNumber || undefined,
       });
 
-      // Upload logo if changed
       if (logoFile) {
         const formData = new FormData();
         formData.append("logo", logoFile);
         await api.upload(`${ENDPOINTS.SCHOOLS}/${schoolId}/logo`, formData);
       }
 
-      await fetchSchool();
+      await fetchData();
       setIsEditModalOpen(false);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Error al actualizar la escuela");
@@ -168,14 +176,53 @@ export default function SchoolOverviewPage() {
     );
   }
 
-  const hasActiveYear = !!school.current_school_year_id;
+  const activeYear = years.find((y) => y.isActive);
+  const recentYears = years.slice(0, 3);
 
-  const quickLinks = [
-    { label: "Ciclos Escolares", href: "school-years", icon: <Calendar size={20} />, color: "text-accent-dark", bgColor: "bg-accent/10" },
-    { label: "Maestros", href: "teachers", icon: <Users size={20} />, color: "text-emerald-600", bgColor: "bg-emerald-100" },
-    { label: "Alumnos", href: "students", icon: <GraduationCap size={20} />, color: "text-amber-600", bgColor: "bg-amber-100" },
-    { label: "Materias", href: "subjects", icon: <BookOpen size={20} />, color: "text-rose-600", bgColor: "bg-rose-100" },
-    { label: "Grupos", href: "groups", icon: <ClipboardList size={20} />, color: "text-violet-600", bgColor: "bg-violet-100" },
+  const configLinks = [
+    {
+      label: "Maestros",
+      icon: <Users size={20} />,
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-100",
+      href: activeYear
+        ? `/schools/${schoolId}/school-years/${activeYear._id}/teachers`
+        : `/schools/${schoolId}/school-years`,
+    },
+    {
+      label: "Materias",
+      icon: <BookOpen size={20} />,
+      color: "text-rose-600",
+      bgColor: "bg-rose-100",
+      href: activeYear
+        ? `/schools/${schoolId}/school-years/${activeYear._id}/subjects`
+        : `/schools/${schoolId}/school-years`,
+    },
+    {
+      label: "Turnos",
+      icon: <Clock size={20} />,
+      color: "text-amber-600",
+      bgColor: "bg-amber-100",
+      href: activeYear
+        ? `/schools/${schoolId}/school-years/${activeYear._id}/shifts`
+        : `/schools/${schoolId}/school-years`,
+    },
+    {
+      label: "Grupos",
+      icon: <ClipboardList size={20} />,
+      color: "text-violet-600",
+      bgColor: "bg-violet-100",
+      href: activeYear
+        ? `/schools/${schoolId}/school-years/${activeYear._id}/groups`
+        : `/schools/${schoolId}/school-years`,
+    },
+    {
+      label: "Usuarios",
+      icon: <GraduationCap size={20} />,
+      color: "text-blue-600",
+      bgColor: "bg-blue-100",
+      href: "/users",
+    },
   ];
 
   return (
@@ -225,8 +272,8 @@ export default function SchoolOverviewPage() {
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <Badge variant={hasActiveYear ? "emerald" : "slate"}>
-                {hasActiveYear ? "Con ciclo activo" : "Sin ciclo activo"}
+              <Badge variant={activeYear ? "emerald" : "slate"}>
+                {activeYear ? `Ciclo ${activeYear.name}` : "Sin ciclo activo"}
               </Badge>
               <Button
                 variant="ghost"
@@ -242,38 +289,115 @@ export default function SchoolOverviewPage() {
         </CardBody>
       </Card>
 
-      {/* Wizard de configuración - link destacado */}
-      <Link href={`/schools/${schoolId}/setup-wizard`}>
-        <Card className="hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-accent/5 to-accent/10 border-accent/20">
+      {/* Sin ciclo activo - alerta */}
+      {!activeYear && (
+        <Card className="border-amber-200 bg-amber-50">
           <CardBody>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-accent text-white">
-                <ClipboardList size={24} />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-text-primary">
-                  Asistente de Configuración
-                </h3>
-                <p className="text-sm text-text-secondary">
-                  Ver el progreso de configuración y completar piezas faltantes.
-                </p>
-              </div>
-              <span className="text-sm font-medium text-accent-dark flex items-center">
-                Abrir <ArrowRight size={14} className="ml-1" />
-              </span>
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={20} className="text-amber-600 shrink-0" />
+              <p className="text-sm text-amber-800">
+                No hay ciclo escolar activo.{" "}
+                <button
+                  onClick={() => setIsYearModalOpen(true)}
+                  className="font-semibold underline hover:text-amber-900"
+                >
+                  Crea uno para comenzar a configurar.
+                </button>
+              </p>
             </div>
           </CardBody>
         </Card>
-      </Link>
+      )}
 
-      {/* Links de acceso rápido */}
+      {/* Ciclos Escolares */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-text-primary">
+            Ciclos Escolares
+          </h3>
+          <div className="flex gap-2">
+            <Button
+              variant="sky"
+              size="sm"
+              onClick={() => setIsYearModalOpen(true)}
+            >
+              + Nuevo Ciclo
+            </Button>
+            {years.length > 3 && (
+              <Link
+                href={`/schools/${schoolId}/school-years`}
+                className="text-sm text-accent-dark hover:text-accent font-medium flex items-center"
+              >
+                Ver todos <ArrowRight size={14} className="ml-1" />
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {recentYears.length === 0 ? (
+          <EmptyState
+            icon={<Calendar size={48} />}
+            title="No hay ciclos escolares"
+            description="Crea tu primer ciclo escolar para comenzar."
+            action={{ label: "Crear Primer Ciclo", onClick: () => setIsYearModalOpen(true) }}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {recentYears.map((year) => (
+              <Link
+                key={year._id}
+                href={`/schools/${schoolId}/school-years/${year._id}`}
+              >
+                <Card
+                  className={`hover:shadow-md transition-shadow cursor-pointer ${
+                    year.isActive
+                      ? "ring-2 ring-emerald-500 border-emerald-200"
+                      : ""
+                  }`}
+                >
+                  <CardBody>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-text-primary">
+                            {year.name}
+                          </h4>
+                          {year.isActive && (
+                            <Badge variant="emerald">Activo</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-text-secondary">
+                          {new Date(year.startDate).toLocaleDateString("es-MX")} —{" "}
+                          {new Date(year.endDate).toLocaleDateString("es-MX")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <span className="text-sm text-accent-dark hover:text-accent font-medium flex items-center">
+                        Configurar <ArrowRight size={14} className="ml-1" />
+                      </span>
+                    </div>
+                  </CardBody>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Configuración de la Escuela */}
       <div>
         <h3 className="text-lg font-semibold text-text-primary mb-4">
           Configuración de la Escuela
         </h3>
+        {!activeYear && (
+          <p className="text-sm text-text-secondary mb-3">
+            Las configuraciones requieren un ciclo escolar activo. Las rutas llevarán al listado de ciclos.
+          </p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {quickLinks.map((link) => (
-            <Link key={link.href} href={`/schools/${schoolId}/${link.href}`}>
+          {configLinks.map((link) => (
+            <Link key={link.label} href={link.href}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardBody>
                   <div className="flex items-center gap-4">
@@ -396,6 +520,15 @@ export default function SchoolOverviewPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Create School Year Modal */}
+      <CreateSchoolYearModal
+        isOpen={isYearModalOpen}
+        onClose={() => setIsYearModalOpen(false)}
+        onCreated={fetchData}
+        schoolId={schoolId}
+        existingYears={years}
+      />
     </div>
   );
 }
