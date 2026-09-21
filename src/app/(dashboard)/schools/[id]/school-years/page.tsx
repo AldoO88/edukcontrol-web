@@ -10,6 +10,8 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
@@ -216,11 +218,7 @@ export default function SchoolYearsPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <LoadingState message="Cargando..." height="page" />;
   }
 
   const renderForm = (showCloneOption: boolean) => (
@@ -318,21 +316,30 @@ export default function SchoolYearsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {years.map((year) => (
-          <Card key={year._id}>
+          <Card
+            key={year._id}
+            className={
+              year.isActive
+                ? "ring-2 ring-emerald-500 border-emerald-200 shadow-sm"
+                : ""
+            }
+          >
             <CardBody>
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-text-primary text-lg">
-                    {year.name}
-                  </h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-text-primary text-lg">
+                      {year.name}
+                    </h3>
+                    {year.isActive && (
+                      <Badge variant="emerald">Activo</Badge>
+                    )}
+                  </div>
                   <p className="text-sm text-text-secondary mt-1">
                     {new Date(year.startDate).toLocaleDateString("es-MX")} —{" "}
                     {new Date(year.endDate).toLocaleDateString("es-MX")}
                   </p>
                 </div>
-                <Badge variant={year.isActive ? "emerald" : "slate"}>
-                  {year.isActive ? "Activo" : "Inactivo"}
-                </Badge>
               </div>
               <div className="mt-4 flex gap-2">
                 {!year.isActive && (
@@ -346,9 +353,10 @@ export default function SchoolYearsPage() {
                 )}
                 <Link
                   href={`/schools/${schoolId}/school-years/${year._id}`}
-                  className="text-sm text-accent-dark hover:text-accent font-medium"
+                  className="text-sm text-accent-dark hover:text-accent font-medium ml-auto flex items-center"
                 >
-                  Configurar →
+                  Configurar
+                  <span className="ml-1">→</span>
                 </Link>
               </div>
             </CardBody>

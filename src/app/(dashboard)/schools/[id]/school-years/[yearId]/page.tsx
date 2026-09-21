@@ -7,7 +7,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Spinner } from "@/components/ui/Spinner";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
@@ -158,30 +159,36 @@ export default function SchoolYearOverviewPage() {
       return null;
     }
     return (
-      <Card
-        className="hover:shadow-md transition-shadow cursor-pointer"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={openEditModal}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openEditModal();
+          }
+        }}
+        className="bg-white rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow cursor-pointer p-6"
       >
-        <CardBody>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center w-12 h-12 bg-amber-100 rounded-xl">
-              <CalendarOff size={20} className="text-amber-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-text-primary">Días no lectivos</p>
-              <p className="text-xs text-text-secondary">
-                {nonLectivoCount === 0
-                  ? "Todos los días son lectivos"
-                  : `${nonLectivoCount} día${nonLectivoCount === 1 ? "" : "s"} marcado${nonLectivoCount === 1 ? "" : "s"}`}
-              </p>
-            </div>
-            {nonLectivoCount > 0 && (
-              <Badge variant="amber">{nonLectivoCount}</Badge>
-            )}
-            <Edit3 size={16} className="text-text-secondary" />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center justify-center w-12 h-12 bg-amber-100 rounded-xl">
+            <CalendarOff size={20} className="text-amber-600" />
           </div>
-        </CardBody>
-      </Card>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-text-primary">Días no lectivos</p>
+            <p className="text-xs text-text-secondary">
+              {nonLectivoCount === 0
+                ? "Todos los días son lectivos"
+                : `${nonLectivoCount} día${nonLectivoCount === 1 ? "" : "s"} marcado${nonLectivoCount === 1 ? "" : "s"}`}
+            </p>
+          </div>
+          {nonLectivoCount > 0 && (
+            <Badge variant="amber">{nonLectivoCount}</Badge>
+          )}
+          <Edit3 size={16} className="text-text-secondary" />
+        </div>
+      </div>
     );
   };
 
@@ -256,15 +263,22 @@ export default function SchoolYearOverviewPage() {
       )}
 
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Spinner size="lg" />
-        </div>
+        <LoadingState message="Cargando ciclo escolar..." height="page" />
       )}
 
       {!isLoading && !schoolYear && (
-        <div className="text-center py-12 text-text-secondary">
-          No se encontró el ciclo escolar.
-        </div>
+        <ErrorState
+          title="Ciclo escolar no encontrado"
+          message="El ciclo escolar que buscas no existe o fue eliminado."
+          action={{
+            label: "Volver a ciclos",
+            onClick: () => {
+              if (typeof window !== "undefined") {
+                window.location.href = `/schools/${schoolId}/school-years`;
+              }
+            },
+          }}
+        />
       )}
 
       {/* Modal de edición de días no lectivos */}

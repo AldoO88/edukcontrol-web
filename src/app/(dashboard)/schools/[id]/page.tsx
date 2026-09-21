@@ -7,7 +7,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Spinner } from "@/components/ui/Spinner";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -147,18 +148,23 @@ export default function SchoolOverviewPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <LoadingState message="Cargando escuela..." height="page" />;
   }
 
   if (!school) {
     return (
-      <div className="text-center py-12 text-text-secondary">
-        No se encontró la escuela.
-      </div>
+      <ErrorState
+        title="Escuela no encontrada"
+        message="La escuela que buscas no existe o fue eliminada."
+        action={{
+          label: "Volver al listado",
+          onClick: () => {
+            if (typeof window !== "undefined") {
+              window.location.href = "/schools";
+            }
+          },
+        }}
+      />
     );
   }
 

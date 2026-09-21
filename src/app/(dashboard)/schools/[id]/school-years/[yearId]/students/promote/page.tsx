@@ -12,6 +12,8 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -150,11 +152,7 @@ export default function PromoteStudentsPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <LoadingState message="Cargando..." height="page" />;
   }
 
   const groupOptions = groups.map((g) => ({
