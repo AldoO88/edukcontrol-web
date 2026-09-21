@@ -59,8 +59,8 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-md">
-      {/* Logo y Branding */}
-      <div className="flex flex-col items-center mb-8">
+      {/* Logo mobile (visible solo en pantallas pequeñas, el hero muestra el logo en desktop) */}
+      <div className="flex flex-col items-center mb-8 lg:hidden">
         <div className="flex items-center justify-center w-14 h-14 bg-accent rounded-2xl shadow-sm mb-4">
           <GraduationCap size={28} className="text-white" />
         </div>
@@ -70,7 +70,7 @@ export function LoginForm() {
       </div>
 
       {/* Card del formulario */}
-      <div className="bg-white rounded-3xl border border-border shadow-lg p-8">
+      <div className="bg-card rounded-3xl border border-border shadow-lg p-8">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-text-primary">Bienvenido</h2>
           <p className="text-sm text-text-secondary mt-2 leading-relaxed">
