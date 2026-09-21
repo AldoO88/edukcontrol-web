@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -20,7 +21,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
 import type { User, AcademicRecord } from "@/lib/types";
-import { Users, Search, Pencil } from "lucide-react";
+import { Users, Search, Pencil, ChevronLeft } from "lucide-react";
 
 type FilterStatus = "all" | "active" | "inactive";
 
@@ -160,6 +161,14 @@ export default function SchoolTeachersPage() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href={`/schools/${schoolId}`}
+        className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-accent-dark transition-colors"
+      >
+        <ChevronLeft size={16} />
+        Volver a Escuela
+      </Link>
+
       <PageHeader
         title="Maestros"
         subtitle={`${teachers.length} registrado${teachers.length !== 1 ? "s" : ""} — ${activeCount} activo${activeCount !== 1 ? "s" : ""}, ${inactiveCount} inactivo${inactiveCount !== 1 ? "s" : ""}`}
