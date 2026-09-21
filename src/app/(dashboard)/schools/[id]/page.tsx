@@ -185,9 +185,7 @@ export default function SchoolOverviewPage() {
       icon: <Users size={20} />,
       color: "text-emerald-600",
       bgColor: "bg-emerald-100",
-      href: activeYear
-        ? `/schools/${schoolId}/school-years/${activeYear._id}/teachers`
-        : `/schools/${schoolId}/school-years`,
+      href: `/schools/${schoolId}/teachers`,
     },
     {
       label: "Materias",
