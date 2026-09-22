@@ -1,10 +1,10 @@
 // Página de Materias a nivel Escuela
-// Lista todas las materias del catálogo de la escuela (no depende de ciclo escolar).
-// Permite agregar materias con color e icono personalizados.
+// Lista todas las materias agrupadas por macroCategoría.
+// Permite crear y editar materias con color e icono personalizados.
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -27,7 +27,7 @@ import {
   SUBJECT_COLORS,
   hexToRgba,
 } from "@/lib/subjectIcons";
-import { BookOpen, Search, ChevronLeft, Plus, X } from "lucide-react";
+import { BookOpen, Search, ChevronLeft, Pencil } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -77,7 +77,10 @@ export default function SchoolSubjectsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -108,10 +111,29 @@ export default function SchoolSubjectsPage() {
     fetchSubjects();
   }, [schoolId]);
 
-  const openModal = () => {
+  const openCreateModal = () => {
+    setEditingSubject(null);
     reset({ educationalLevel: "BASIC" });
     setSelectedColor(null);
     setSelectedIcon(null);
+    setSubmitError(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (subject: Subject) => {
+    setEditingSubject(subject);
+    reset({
+      code: subject.code,
+      name: subject.name,
+      grade: subject.grade ? String(subject.grade) : "",
+      educationalLevel: (subject.educationalLevel as "BASIC" | "UPPER_SECONDARY" | "HIGHER") || "BASIC",
+      classificationType: subject.classificationType || "",
+      macroCategory: subject.macroCategory || "",
+      isTutoria: subject.isTutoria || false,
+      description: subject.description || "",
+    });
+    setSelectedColor(subject.color || null);
+    setSelectedIcon(subject.icon || null);
     setSubmitError(null);
     setIsModalOpen(true);
   };
@@ -120,7 +142,7 @@ export default function SchoolSubjectsPage() {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
-      await api.post(ENDPOINTS.SUBJECTS, {
+      const body = {
         ...data,
         code: data.code.toUpperCase().trim(),
         grade: data.grade ? Number(data.grade) : null,
@@ -129,16 +151,54 @@ export default function SchoolSubjectsPage() {
         isTutoria: data.isTutoria || false,
         color: selectedColor,
         icon: selectedIcon,
-        school: schoolId,
-      });
+      };
+
+      if (editingSubject) {
+        await api.put(`${ENDPOINTS.SUBJECTS}/${editingSubject._id}`, body);
+      } else {
+        await api.post(ENDPOINTS.SUBJECTS, { ...body, school: schoolId });
+      }
       await fetchSubjects();
       setIsModalOpen(false);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Error al crear la materia");
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : editingSubject
+            ? "Error al actualizar la materia"
+            : "Error al crear la materia"
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Agrupar por macroCategory
+  const grouped = useMemo(() => {
+    const filtered = subjects.filter((s) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.code.toLowerCase().includes(q) ||
+        (s.macroCategory && s.macroCategory.toLowerCase().includes(q))
+      );
+    });
+
+    const groups: Record<string, Subject[]> = {};
+    for (const s of filtered) {
+      const key = s.macroCategory || "Sin categoría";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(s);
+    }
+    // Ordenar categorías alfabétically, "Sin categoría" al final
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      if (a === "Sin categoría") return 1;
+      if (b === "Sin categoría") return -1;
+      return a.localeCompare(b);
+    });
+    return sortedKeys.map((key) => ({ category: key, items: groups[key] }));
+  }, [subjects, searchQuery]);
 
   if (isLoading) {
     return <LoadingState message="Cargando materias..." height="page" />;
@@ -154,15 +214,6 @@ export default function SchoolSubjectsPage() {
     );
   }
 
-  const filtered = subjects.filter((s) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      s.name.toLowerCase().includes(q) ||
-      s.code.toLowerCase().includes(q)
-    );
-  });
-
   return (
     <div className="space-y-6">
       <Link
@@ -176,14 +227,14 @@ export default function SchoolSubjectsPage() {
       <PageHeader
         title="Materias"
         subtitle={`${subjects.length} materia${subjects.length !== 1 ? "s" : ""} en el catálogo`}
-        action={{ label: "Nueva Materia", onClick: openModal }}
+        action={{ label: "Nueva Materia", onClick: openCreateModal }}
       />
 
       {subjects.length > 0 && (
         <Card>
           <CardBody>
             <Input
-              placeholder="Buscar por nombre o código..."
+              placeholder="Buscar por nombre, código o categoría..."
               icon={<Search size={18} />}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -197,60 +248,80 @@ export default function SchoolSubjectsPage() {
           icon={<BookOpen size={48} />}
           title="No hay materias registradas"
           description="Agrega materias al catálogo de la escuela."
-          action={{ label: "Nueva Materia", onClick: openModal }}
+          action={{ label: "Nueva Materia", onClick: openCreateModal }}
         />
-      ) : filtered.length === 0 ? (
+      ) : grouped.length === 0 ? (
         <EmptyState
           icon={<Search size={48} />}
           title="Sin resultados"
           description="No se encontraron materias con ese criterio."
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((subject) => {
-            const Icon = getSubjectIcon(subject.icon);
-            const color = subject.color || "#EF4444";
-            return (
-              <Card key={subject._id}>
-                <CardBody>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
-                        style={{ backgroundColor: hexToRgba(color, 0.1) }}
-                      >
-                        <Icon size={18} style={{ color }} />
+        grouped.map(({ category, items }) => (
+          <div key={category} className="space-y-3">
+            <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
+              {category}
+              <span className="text-xs font-normal text-text-muted bg-slate-100 px-2 py-0.5 rounded-full">
+                {items.length}
+              </span>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {items.map((subject) => {
+                const Icon = getSubjectIcon(subject.icon);
+                const color = subject.color || "#EF4444";
+                return (
+                  <Card key={subject._id} className="hover:shadow-md transition-shadow">
+                    <CardBody>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                            style={{ backgroundColor: hexToRgba(color, 0.1) }}
+                          >
+                            <Icon size={18} style={{ color }} />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-semibold text-text-primary truncate">
+                              {subject.name}
+                            </h4>
+                            <p className="text-sm text-text-secondary">
+                              {subject.code}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openEditModal(subject)}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 text-text-muted hover:text-accent-dark transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <Badge variant={subject.isActive ? "emerald" : "rose"}>
+                            {subject.isActive ? "Activa" : "Inactiva"}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-text-primary truncate">
-                          {subject.name}
-                        </h3>
-                        <p className="text-sm text-text-secondary">
-                          {subject.code}
-                        </p>
+                      <div className="flex flex-wrap gap-2 mt-2 text-xs text-text-muted">
+                        {subject.grade && <span>Grado {subject.grade}°</span>}
+                        {subject.isTutoria && (
+                          <span className="px-1.5 py-0.5 bg-slate-100 rounded-full">Tutoría</span>
+                        )}
                       </div>
-                    </div>
-                    <Badge variant={subject.isActive ? "emerald" : "rose"}>
-                      {subject.isActive ? "Activa" : "Inactiva"}
-                    </Badge>
-                  </div>
-                  {subject.grade && (
-                    <p className="text-xs text-text-muted mt-2">
-                      Grado {subject.grade}°
-                    </p>
-                  )}
-                </CardBody>
-              </Card>
-            );
-          })}
-        </div>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        ))
       )}
 
-      {/* Modal Nueva Materia */}
+      {/* Modal Nueva/Editar Materia */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Nueva Materia"
+        title={editingSubject ? "Editar Materia" : "Nueva Materia"}
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {submitError && (
@@ -388,7 +459,7 @@ export default function SchoolSubjectsPage() {
                 })()}
               </div>
               <span className="text-sm font-medium text-text-primary">
-                Materia
+                {editingSubject ? editingSubject.name : "Materia"}
               </span>
             </div>
           )}
@@ -398,7 +469,7 @@ export default function SchoolSubjectsPage() {
               Cancelar
             </Button>
             <Button type="submit" variant="sky" isLoading={isSubmitting}>
-              Crear
+              {editingSubject ? "Guardar" : "Crear"}
             </Button>
           </div>
         </form>
