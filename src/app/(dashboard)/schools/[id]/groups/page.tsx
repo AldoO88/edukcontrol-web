@@ -208,12 +208,11 @@ export default function SchoolGroupsPage() {
       <PageHeader
         title="Grupos"
         subtitle={`${groups.length} grupo${groups.length !== 1 ? "s" : ""}`}
-        action={
-          <Button onClick={openCreateModal}>
-            <Plus size={18} />
-            Nuevo Grupo
-          </Button>
-        }
+        action={{
+          label: "Nuevo Grupo",
+          onClick: openCreateModal,
+          icon: <Plus size={18} />,
+        }}
       />
 
       {groups.length > 0 && (
