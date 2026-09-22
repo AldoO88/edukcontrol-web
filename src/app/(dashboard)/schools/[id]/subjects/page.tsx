@@ -318,6 +318,18 @@ export default function SchoolSubjectsPage() {
                           <span className="px-1.5 py-0.5 bg-slate-100 rounded-full">Tutoría</span>
                         )}
                       </div>
+                      {subject.workshops && subject.workshops.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {subject.workshops.map((w, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
+                            >
+                              {w.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </CardBody>
                   </Card>
                 );
