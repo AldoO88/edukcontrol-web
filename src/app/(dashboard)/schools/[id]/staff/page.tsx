@@ -1,6 +1,6 @@
 // Página de Personal de la Escuela
-// Muestra todos los roles de personal agrupados: Docentes, Dirección, Prefectura, Trabajo Social.
-// Permite agregar usuarios directamente desde esta página.
+// Muestra todos los roles: Docentes, Dirección, Prefectura, Trabajo Social.
+// CRUD completo con modal que incluye preparación académica para docentes.
 
 "use client";
 
@@ -14,12 +14,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
+import { AcademicRecordTable } from "@/components/ui/AcademicRecordTable";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { User, UserRole } from "@/lib/types";
+import type { User, UserRole, AcademicRecord } from "@/lib/types";
 import {
   Shield,
   GraduationCap,
@@ -40,6 +41,17 @@ const STAFF_ROLES: { role: UserRole; label: string; color: string; bgColor: stri
   { role: "social_worker", label: "Trabajo Social", color: "text-rose-600", bgColor: "bg-rose-100" },
 ];
 
+const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin: "Super Admin",
+  admin: "Administrador",
+  principal: "Dirección",
+  registrar: "Secretaría",
+  teacher: "Docente",
+  prefect: "Prefecto",
+  social_worker: "Trabajo Social",
+  tutor: "Tutor",
+};
+
 const ROLE_BADGE_COLORS: Record<UserRole, string> = {
   super_admin: "bg-slate-100 text-slate-700",
   admin: "bg-blue-100 text-blue-700",
@@ -56,6 +68,7 @@ const staffSchema = z.object({
   last_name: z.string().min(1, "Apellido requerido"),
   phoneNumber: z.string().regex(/^\d{10}$/, "Teléfono debe tener 10 dígitos"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
+  sex: z.enum(["male", "female", ""]).optional(),
   role: z.string().min(1, "Rol requerido"),
 });
 
@@ -71,16 +84,16 @@ export default function SchoolStaffPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [defaultRole, setDefaultRole] = useState<UserRole>("principal");
+  const [defaultRole, setDefaultRole] = useState<UserRole>("teacher");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [academicPrep, setAcademicPrep] = useState<AcademicRecord[]>([]);
 
   const {
     register,
     handleSubmit,
     reset,
     watch,
-    setValue,
     formState: { errors },
   } = useForm<StaffFormData>({
     resolver: zodResolver(staffSchema),
@@ -108,7 +121,8 @@ export default function SchoolStaffPage() {
   const openModal = (role: UserRole) => {
     setDefaultRole(role);
     setSubmitError(null);
-    reset({ name: "", last_name: "", phoneNumber: "", email: "", role });
+    setAcademicPrep([]);
+    reset({ name: "", last_name: "", phoneNumber: "", email: "", sex: "", role });
     setIsModalOpen(true);
   };
 
@@ -121,8 +135,10 @@ export default function SchoolStaffPage() {
         last_name: data.last_name,
         phoneNumber: data.phoneNumber,
         email: data.email || undefined,
+        sex: data.sex || undefined,
         role: data.role,
         school: schoolId,
+        ...(data.role === "teacher" ? { academicPreparation: academicPrep } : {}),
       });
       setIsModalOpen(false);
       await fetchUsers();
@@ -130,7 +146,7 @@ export default function SchoolStaffPage() {
       const msg =
         err?.response?.data?.message ||
         err?.message ||
-        "Error al registrar el personal.";
+        "Error al guardar el personal.";
       setSubmitError(msg);
     } finally {
       setSubmitting(false);
@@ -167,6 +183,11 @@ export default function SchoolStaffPage() {
       <PageHeader
         title="Personal de la Escuela"
         subtitle={`${users.length} miembro${users.length !== 1 ? "s" : ""}`}
+        action={{
+          label: "Agregar Personal",
+          onClick: () => openModal(defaultRole),
+          icon: <Plus size={18} />,
+        }}
       />
 
       {STAFF_ROLES.map(({ role, label, color, bgColor, href }) => {
@@ -216,41 +237,42 @@ export default function SchoolStaffPage() {
                 {roleUsers.map((user) => (
                   <Card key={user._id}>
                     <CardBody>
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex items-center justify-center w-12 h-12 rounded-xl shrink-0 ${
-                              bgColor || "bg-slate-100"
-                            }`}
-                          >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`flex items-center justify-center w-12 h-12 rounded-xl shrink-0 ${bgColor}`}
+                        >
+                          <span className={`font-bold text-lg ${color}`}>
+                            {user.name.charAt(0)}
+                            {(user.last_name || "").charAt(0)}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-semibold text-text-primary truncate">
+                            {user.name} {user.last_name}
+                          </h4>
+                          <div className="flex items-center gap-1.5 text-sm text-text-secondary">
+                            <Phone size={12} className="text-text-muted" />
+                            {user.phoneNumber}
+                          </div>
+                          {user.email && (
+                            <div className="flex items-center gap-1.5 text-xs text-text-muted truncate">
+                              <Mail size={10} />
+                              {user.email}
+                            </div>
+                          )}
+                          <div className="mt-1.5">
                             <span
-                              className={`font-bold text-lg ${
-                                color || "text-slate-600"
-                              }`}
+                              className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${ROLE_BADGE_COLORS[user.role]}`}
                             >
-                              {user.name.charAt(0)}
-                              {(user.last_name || "").charAt(0)}
+                              {ROLE_LABELS[user.role]}
                             </span>
                           </div>
-                          <div className="min-w-0">
-                            <h4 className="font-semibold text-text-primary truncate">
-                              {user.name} {user.last_name}
-                            </h4>
-                            <div className="flex items-center gap-1.5 text-sm text-text-secondary">
-                              <Phone size={12} className="text-text-muted" />
-                              {user.phoneNumber}
-                            </div>
-                            {user.email && (
-                              <div className="flex items-center gap-1.5 text-xs text-text-muted truncate">
-                                <Mail size={10} />
-                                {user.email}
-                              </div>
-                            )}
-                          </div>
                         </div>
-                        <Badge variant={user.isActive ? "emerald" : "rose"}>
-                          {user.isActive ? "Activo" : "Inactivo"}
-                        </Badge>
+                        <div className="ml-auto">
+                          <Badge variant={user.isActive ? "emerald" : "rose"}>
+                            {user.isActive ? "Activo" : "Inactivo"}
+                          </Badge>
+                        </div>
                       </div>
                     </CardBody>
                   </Card>
@@ -266,6 +288,7 @@ export default function SchoolStaffPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Agregar Personal"
+        size="lg"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {submitError && (
@@ -294,12 +317,23 @@ export default function SchoolStaffPage() {
             />
           </div>
 
-          <Input
-            label="Teléfono"
-            placeholder="10 dígitos"
-            error={errors.phoneNumber?.message}
-            {...register("phoneNumber")}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Teléfono"
+              placeholder="10 dígitos"
+              error={errors.phoneNumber?.message}
+              {...register("phoneNumber")}
+            />
+            <Select
+              label="Sexo"
+              options={[
+                { value: "", label: "Seleccionar" },
+                { value: "male", label: "Masculino" },
+                { value: "female", label: "Femenino" },
+              ]}
+              {...register("sex")}
+            />
+          </div>
 
           <Input
             label="Email (opcional)"
@@ -307,6 +341,15 @@ export default function SchoolStaffPage() {
             error={errors.email?.message}
             {...register("email")}
           />
+
+          {selectedRole === "teacher" && (
+            <div className="border-t border-border pt-4">
+              <AcademicRecordTable
+                value={academicPrep}
+                onChange={setAcademicPrep}
+              />
+            </div>
+          )}
 
           <p className="text-xs text-text-muted">
             La cuenta se activa vía OTP. No se requiere contraseña.

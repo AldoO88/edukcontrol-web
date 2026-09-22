@@ -183,13 +183,6 @@ export default function SchoolOverviewPage() {
 
   const configLinks = [
     {
-      label: "Maestros",
-      icon: <Users size={20} />,
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-100",
-      href: `/schools/${schoolId}/teachers`,
-    },
-    {
       label: "Materias",
       icon: <BookOpen size={20} />,
       color: "text-rose-600",
