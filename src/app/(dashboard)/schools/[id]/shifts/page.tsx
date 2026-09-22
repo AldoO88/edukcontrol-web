@@ -307,6 +307,7 @@ export default function SchoolShiftsPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingTemplate ? "Editar Turno" : "Nuevo Turno"}
+        size="lg"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {submitError && (
@@ -404,7 +405,7 @@ export default function SchoolShiftsPage() {
                 </table>
               </div>
             )}
-            <div className="grid grid-cols-[1fr_80px_80px_auto_auto] gap-2 items-end">
+            <div className="grid grid-cols-[1fr_120px_120px_auto_auto] gap-2 items-end">
               <Input
                 label="Nombre"
                 placeholder="Módulo 1"
