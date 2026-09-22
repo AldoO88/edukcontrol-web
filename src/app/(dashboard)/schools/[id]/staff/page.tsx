@@ -38,7 +38,7 @@ const STAFF_ROLES: { role: UserRole; label: string; color: string; bgColor: stri
   { role: "teacher", label: "Docentes", color: "text-sky-600", bgColor: "bg-sky-100" },
   { role: "social_worker", label: "Trabajo Social", color: "text-rose-600", bgColor: "bg-rose-100" },
   { role: "prefect", label: "Prefectura", color: "text-violet-600", bgColor: "bg-violet-100" },
-  { role: "registrar", label: "Registro", color: "text-amber-600", bgColor: "bg-amber-100" },
+  { role: "registrar", label: "Control Escolar", color: "text-amber-600", bgColor: "bg-amber-100" },
 ];
 
 const ROLE_LABELS: Record<UserRole, string> = {
