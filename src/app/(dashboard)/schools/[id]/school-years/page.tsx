@@ -67,7 +67,7 @@ export default function SchoolYearsPage() {
         <CreateSchoolYearModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onCreated={fetchYears}
+          onCreated={() => fetchYears()}
           schoolId={schoolId}
           existingYears={years}
         />
@@ -145,7 +145,7 @@ export default function SchoolYearsPage() {
       <CreateSchoolYearModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onCreated={fetchYears}
+        onCreated={() => fetchYears()}
         schoolId={schoolId}
         existingYears={years}
       />

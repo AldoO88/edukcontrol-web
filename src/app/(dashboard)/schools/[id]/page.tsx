@@ -37,6 +37,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CreateSchoolYearModal } from "@/components/school-years/CreateSchoolYearModal";
+import { ConfigWizard } from "@/components/school-years/ConfigWizard";
 import Image from "next/image";
 
 const editSchoolSchema = z.object({
@@ -60,6 +61,9 @@ export default function SchoolOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isYearModalOpen, setIsYearModalOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardYearId, setWizardYearId] = useState("");
+  const [wizardYearName, setWizardYearName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -522,9 +526,32 @@ export default function SchoolOverviewPage() {
       <CreateSchoolYearModal
         isOpen={isYearModalOpen}
         onClose={() => setIsYearModalOpen(false)}
-        onCreated={fetchData}
+        onCreated={(yearId) => {
+          setIsYearModalOpen(false);
+          const yearName = years.length > 0
+            ? `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`
+            : `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+          // Find the year we just created from the name input or use a default
+          setWizardYearId(yearId);
+          setWizardYearName(yearName);
+          setIsWizardOpen(true);
+          fetchData();
+        }}
         schoolId={schoolId}
         existingYears={years}
+      />
+
+      {/* Config Wizard */}
+      <ConfigWizard
+        isOpen={isWizardOpen}
+        onClose={() => {
+          setIsWizardOpen(false);
+          fetchData();
+        }}
+        schoolId={schoolId}
+        schoolYearId={wizardYearId}
+        schoolYearName={wizardYearName}
+        onCompleted={fetchData}
       />
     </div>
   );
