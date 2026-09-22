@@ -38,6 +38,8 @@ const subjectSchema = z.object({
   grade: z.string().optional(),
   educationalLevel: z.enum(["BASIC", "UPPER_SECONDARY", "HIGHER"]),
   classificationType: z.string().optional(),
+  macroCategory: z.string().optional(),
+  isTutoria: z.boolean().optional(),
   description: z.string().optional(),
 });
 
@@ -123,6 +125,8 @@ export default function SchoolSubjectsPage() {
         code: data.code.toUpperCase().trim(),
         grade: data.grade ? Number(data.grade) : null,
         classificationType: data.classificationType || "DISCIPLINE",
+        macroCategory: data.macroCategory || null,
+        isTutoria: data.isTutoria || false,
         color: selectedColor,
         icon: selectedIcon,
         school: schoolId,
@@ -288,6 +292,24 @@ export default function SchoolSubjectsPage() {
             options={CLASS_OPTIONS}
             {...register("classificationType")}
           />
+
+          <Input
+            label="Macro Categoría"
+            placeholder="Ej. Sociocognitivo, Formación integral..."
+            {...register("macroCategory")}
+          />
+
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-semibold text-text-primary">Es Tutoría</label>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                {...register("isTutoria")}
+              />
+              <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500" />
+            </label>
+          </div>
 
           {/* Color Picker */}
           <div className="flex flex-col gap-1.5">
