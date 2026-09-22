@@ -1,5 +1,5 @@
 // Página de Personal de la Escuela
-// Muestra todos los roles: Docentes, Dirección, Prefectura, Trabajo Social.
+// Muestra todos los roles: Dirección, Docentes, Trabajo Social, Prefectura, Control Escolar.
 // CRUD completo con modal que incluye preparación académica para docentes.
 
 "use client";
@@ -28,6 +28,7 @@ import {
   Plus,
   Phone,
   Mail,
+  Pencil,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,7 +46,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: "Super Admin",
   admin: "Administrador",
   principal: "Dirección",
-  registrar: "Secretaría",
+  registrar: "Control Escolar",
   teacher: "Docente",
   prefect: "Prefecto",
   social_worker: "Trabajo Social",
@@ -84,6 +85,7 @@ export default function SchoolStaffPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [defaultRole, setDefaultRole] = useState<UserRole>("teacher");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -118,7 +120,8 @@ export default function SchoolStaffPage() {
     fetchUsers();
   }, [schoolId]);
 
-  const openModal = (role: UserRole) => {
+  const openCreateModal = (role: UserRole) => {
+    setEditingUser(null);
     setDefaultRole(role);
     setSubmitError(null);
     setAcademicPrep([]);
@@ -126,20 +129,50 @@ export default function SchoolStaffPage() {
     setIsModalOpen(true);
   };
 
+  const openEditModal = (user: User) => {
+    setEditingUser(user);
+    setSubmitError(null);
+    setAcademicPrep(user.academicPreparation || []);
+    reset({
+      name: user.name,
+      last_name: user.last_name || "",
+      phoneNumber: user.phoneNumber,
+      email: user.email || "",
+      sex: (user.sex as "male" | "female" | "") || "",
+      role: user.role,
+    });
+    setIsModalOpen(true);
+  };
+
   const onSubmit = async (data: StaffFormData) => {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await api.post(ENDPOINTS.SIGNUP, {
-        name: data.name,
-        last_name: data.last_name,
-        phoneNumber: data.phoneNumber,
-        email: data.email || undefined,
-        sex: data.sex || undefined,
-        role: data.role,
-        school: schoolId,
-        ...(data.role === "teacher" ? { academicPreparation: academicPrep } : {}),
-      });
+      if (editingUser) {
+        await api.put(
+          ENDPOINTS.DASHBOARD_UPDATE_USER(schoolId, editingUser._id),
+          {
+            name: data.name,
+            last_name: data.last_name,
+            phoneNumber: data.phoneNumber,
+            email: data.email || undefined,
+            sex: data.sex || undefined,
+            role: data.role,
+            ...(data.role === "teacher" ? { academicPreparation: academicPrep } : {}),
+          }
+        );
+      } else {
+        await api.post(ENDPOINTS.SIGNUP, {
+          name: data.name,
+          last_name: data.last_name,
+          phoneNumber: data.phoneNumber,
+          email: data.email || undefined,
+          sex: data.sex || undefined,
+          role: data.role,
+          school: schoolId,
+          ...(data.role === "teacher" ? { academicPreparation: academicPrep } : {}),
+        });
+      }
       setIsModalOpen(false);
       await fetchUsers();
     } catch (err: any) {
@@ -185,7 +218,7 @@ export default function SchoolStaffPage() {
         subtitle={`${users.length} miembro${users.length !== 1 ? "s" : ""}`}
         action={{
           label: "Agregar Personal",
-          onClick: () => openModal(defaultRole),
+          onClick: () => openCreateModal(defaultRole),
           icon: <Plus size={18} />,
         }}
       />
@@ -221,7 +254,14 @@ export default function SchoolStaffPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {roleUsers.map((user) => (
-                  <Card key={user._id}>
+                  <Card key={user._id} className="group relative">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(user)}
+                      className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-slate-100 text-text-muted hover:text-accent-dark transition-all cursor-pointer"
+                    >
+                      <Pencil size={14} />
+                    </button>
                     <CardBody>
                       <div className="flex items-start gap-3">
                         <div
@@ -269,11 +309,11 @@ export default function SchoolStaffPage() {
         );
       })}
 
-      {/* Modal Agregar Personal */}
+      {/* Modal Agregar/Editar Personal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Agregar Personal"
+        title={editingUser ? "Editar Personal" : "Agregar Personal"}
         size="lg"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -338,7 +378,9 @@ export default function SchoolStaffPage() {
           )}
 
           <p className="text-xs text-text-muted">
-            La cuenta se activa vía OTP. No se requiere contraseña.
+            {editingUser
+              ? "Los cambios se guardarán inmediatamente."
+              : "La cuenta se activa vía OTP. No se requiere contraseña."}
           </p>
 
           <div className="flex justify-end gap-3 pt-4">
@@ -346,7 +388,7 @@ export default function SchoolStaffPage() {
               Cancelar
             </Button>
             <Button type="submit" variant="sky" isLoading={submitting}>
-              Agregar
+              {editingUser ? "Guardar" : "Agregar"}
             </Button>
           </div>
         </form>

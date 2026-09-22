@@ -87,6 +87,8 @@ export const ENDPOINTS = {
     `/api/dashboard/super-admin/schools/${schoolId}/teacher-subjects`,
   DASHBOARD_UPDATE_TEACHER: (schoolId: string, teacherId: string) =>
     `/api/dashboard/super-admin/schools/${schoolId}/teachers/${teacherId}`,
+  DASHBOARD_UPDATE_USER: (schoolId: string, userId: string) =>
+    `/api/dashboard/super-admin/schools/${schoolId}/users/${userId}`,
   DASHBOARD_USERS: (schoolId: string) =>
     `/api/dashboard/super-admin/schools/${schoolId}/users`,
   DASHBOARD_WORKSHOPS: (schoolId: string) =>
