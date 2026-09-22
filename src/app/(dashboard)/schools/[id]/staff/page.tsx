@@ -194,34 +194,28 @@ export default function SchoolStaffPage() {
         const roleUsers = getUsersByRole(role);
         return (
           <div key={role} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${bgColor}`}>
-                  {role === "teacher" ? (
-                    <GraduationCap size={16} className={color} />
-                  ) : (
-                    <Shield size={16} className={color} />
-                  )}
-                </div>
-                <h3 className="text-lg font-semibold text-text-primary">
-                  {label}
-                </h3>
-                <span className="text-sm text-text-muted">
-                  ({roleUsers.length})
-                </span>
-                {href && (
-                  <Link
-                    href={`/schools/${schoolId}/${href}`}
-                    className="text-xs text-accent-dark hover:text-accent font-medium flex items-center"
-                  >
-                    Ver gestión completa <ArrowRight size={12} className="ml-0.5" />
-                  </Link>
+            <div className="flex items-center gap-3">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${bgColor}`}>
+                {role === "teacher" ? (
+                  <GraduationCap size={16} className={color} />
+                ) : (
+                  <Shield size={16} className={color} />
                 )}
               </div>
-              <Button variant="sky" size="sm" onClick={() => openModal(role)}>
-                <Plus size={16} />
-                Agregar
-              </Button>
+              <h3 className="text-lg font-semibold text-text-primary">
+                {label}
+              </h3>
+              <span className="text-sm text-text-muted">
+                ({roleUsers.length})
+              </span>
+              {href && (
+                <Link
+                  href={`/schools/${schoolId}/${href}`}
+                  className="text-xs text-accent-dark hover:text-accent font-medium flex items-center"
+                >
+                  Ver gestión completa <ArrowRight size={12} className="ml-0.5" />
+                </Link>
+              )}
             </div>
 
             {roleUsers.length === 0 ? (
