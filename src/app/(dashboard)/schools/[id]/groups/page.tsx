@@ -244,12 +244,10 @@ export default function SchoolGroupsPage() {
           icon={<ClipboardList size={48} />}
           title="No hay grupos registrados"
           description="Crea el primer grupo para esta escuela."
-          action={
-            <Button onClick={openCreateModal}>
-              <Plus size={18} />
-              Crear Grupo
-            </Button>
-          }
+          action={{
+            label: "Crear Grupo",
+            onClick: openCreateModal,
+          }}
         />
       ) : filtered.length === 0 ? (
         <EmptyState

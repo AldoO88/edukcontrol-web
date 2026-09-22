@@ -482,7 +482,7 @@ export default function SchoolShiftsPage() {
               </div>
               <Button
                 type="button"
-                variant={editingBlockIdx !== null ? "outline" : "sky"}
+                variant={editingBlockIdx !== null ? "secondary" : "sky"}
                 size="sm"
                 onClick={addBlock}
                 disabled={!blockName.trim() || !blockStart || !blockEnd}
