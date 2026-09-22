@@ -23,6 +23,10 @@ export const ENDPOINTS = {
   GROUP_STUDENTS: (id: string) => `/api/groups/${id}/students`,
   GROUP_SCHEDULE: (id: string) => `/api/groups/${id}/schedule`,
 
+  // Group Templates (school-level, no year)
+  GROUP_TEMPLATES: "/api/group-templates",
+  GROUP_TEMPLATE_BY_ID: (id: string) => `/api/group-templates/${id}`,
+
   // Subjects
   SUBJECTS: "/api/subjects",
 

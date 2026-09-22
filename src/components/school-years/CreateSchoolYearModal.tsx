@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { SchoolYear, ShiftTemplate } from "@/lib/types";
+import type { SchoolYear, ShiftTemplate, GroupTemplate } from "@/lib/types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,6 +30,7 @@ const schoolYearSchema = z.object({
   endDate: z.string().min(1, "Fecha de fin requerida"),
   cloneFromPrevious: z.boolean().optional(),
   copyShiftTemplates: z.boolean().optional(),
+  copyGroupTemplates: z.boolean().optional(),
   nonLectivoWeekdays: z.array(z.number().min(0).max(6)).optional(),
 });
 
@@ -39,6 +40,7 @@ type FormShape = {
   endDate: string;
   cloneFromPrevious?: boolean;
   copyShiftTemplates?: boolean;
+  copyGroupTemplates?: boolean;
   nonLectivoWeekdays?: number[];
 };
 
@@ -124,6 +126,7 @@ export function CreateSchoolYearModal({
     defaultValues: {
       cloneFromPrevious: true,
       copyShiftTemplates: true,
+      copyGroupTemplates: true,
       nonLectivoWeekdays: [],
     },
   });
@@ -188,6 +191,26 @@ export function CreateSchoolYearModal({
           }
         } catch {
           console.warn("[CreateSchoolYearModal] Failed to copy shift templates");
+        }
+      }
+
+      // Copiar plantillas de grupos al nuevo ciclo
+      if (data.copyGroupTemplates) {
+        try {
+          const groupTplRes = await api.get<{ items: GroupTemplate[] }>(ENDPOINTS.GROUP_TEMPLATES);
+          const groupTemplates = groupTplRes.items || [];
+          for (const tpl of groupTemplates) {
+            await api.post(ENDPOINTS.GROUPS, {
+              school: schoolId,
+              school_year_id: newYear._id,
+              grade: tpl.grade,
+              section: tpl.section,
+              shift: tpl.shift,
+              type: tpl.type,
+            });
+          }
+        } catch {
+          console.warn("[CreateSchoolYearModal] Failed to copy group templates");
         }
       }
 
@@ -259,6 +282,15 @@ export function CreateSchoolYearModal({
             {...register("copyShiftTemplates")}
           />
           <span>Copiar turnos desde plantillas</span>
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="rounded border-border text-accent focus:ring-accent"
+            {...register("copyGroupTemplates")}
+          />
+          <span>Copiar grupos desde plantillas</span>
         </label>
 
         <div className="flex justify-end gap-3 pt-4">

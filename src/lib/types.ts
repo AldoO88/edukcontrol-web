@@ -87,6 +87,15 @@ export interface Group {
   head_teacher_id?: string | User;
 }
 
+export interface GroupTemplate {
+  _id: string;
+  school: string;
+  grade: number;
+  section: string;
+  shift: "matutino" | "vespertino";
+  type: "regular" | "taller";
+}
+
 export interface Subject {
   _id: string;
   school: string;

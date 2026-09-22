@@ -1,5 +1,6 @@
-// Página de Grupos a nivel Escuela
-// Lista todos los grupos de la escuela, permite crear/editar.
+// Página de Plantillas de Grupo a nivel Escuela
+// CRUD de GroupTemplates (sin ciclo escolar).
+// Al crear un SchoolYear, se clonan como Groups del año.
 
 "use client";
 
@@ -18,7 +19,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { Group, SchoolYear } from "@/lib/types";
+import type { GroupTemplate } from "@/lib/types";
 import {
   ClipboardList,
   Search,
@@ -30,14 +31,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-const groupSchema = z.object({
+const templateSchema = z.object({
   grade: z.string().min(1, "Grado requerido"),
   section: z.string().min(1, "Sección requerida"),
   shift: z.string().min(1, "Turno requerido"),
-  school_year_id: z.string().min(1, "Ciclo escolar requerido"),
 });
 
-type GroupFormData = z.infer<typeof groupSchema>;
+type TemplateFormData = z.infer<typeof templateSchema>;
 
 const gradeOptions = [
   { value: "", label: "Seleccionar grado" },
@@ -56,14 +56,14 @@ export default function SchoolGroupsPage() {
   const params = useParams();
   const schoolId = params.id as string;
 
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [years, setYears] = useState<SchoolYear[]>([]);
+  const [templates, setTemplates] = useState<GroupTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [yearFilter, setYearFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<GroupTemplate | null>(
+    null
+  );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -72,65 +72,46 @@ export default function SchoolGroupsPage() {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<GroupFormData>({
-    resolver: zodResolver(groupSchema),
+  } = useForm<TemplateFormData>({
+    resolver: zodResolver(templateSchema),
   });
 
-  const fetchData = async () => {
+  const fetchTemplates = async () => {
     try {
-      const [groupsRes, yearsRes] = await Promise.all([
-        api.get<{ items: Group[] }>(
-          yearFilter
-            ? `${ENDPOINTS.DASHBOARD_GROUPS(schoolId)}?yearId=${yearFilter}`
-            : ENDPOINTS.DASHBOARD_GROUPS(schoolId)
-        ),
-        api.get<{ items: SchoolYear[] }>(
-          `${ENDPOINTS.SCHOOL_YEARS}?school=${schoolId}`
-        ),
-      ]);
-      setGroups(groupsRes.items || []);
-      setYears(yearsRes.items || []);
+      const res = await api.get<{ items: GroupTemplate[] }>(
+        ENDPOINTS.GROUP_TEMPLATES
+      );
+      setTemplates(res.items || []);
     } catch {
-      setError("Error al cargar los grupos.");
+      setError("Error al cargar las plantillas de grupo.");
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, [schoolId, yearFilter]);
+    fetchTemplates();
+  }, [schoolId]);
 
   const openCreateModal = () => {
-    setEditingGroup(null);
+    setEditingTemplate(null);
     setSubmitError(null);
-    const activeYear = years.find((y) => y.isActive);
+    reset({ grade: "", section: "", shift: "" });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (tpl: GroupTemplate) => {
+    setEditingTemplate(tpl);
+    setSubmitError(null);
     reset({
-      grade: "",
-      section: "",
-      shift: "",
-      school_year_id: activeYear?._id || "",
+      grade: String(tpl.grade),
+      section: tpl.section,
+      shift: tpl.shift,
     });
     setIsModalOpen(true);
   };
 
-  const openEditModal = (group: Group) => {
-    setEditingGroup(group);
-    setSubmitError(null);
-    const yearId =
-      typeof group.school_year_id === "object"
-        ? group.school_year_id._id
-        : group.school_year_id;
-    reset({
-      grade: String(group.grade),
-      section: group.section,
-      shift: group.shift,
-      school_year_id: yearId,
-    });
-    setIsModalOpen(true);
-  };
-
-  const onSubmit = async (data: GroupFormData) => {
+  const onSubmit = async (data: TemplateFormData) => {
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -138,25 +119,21 @@ export default function SchoolGroupsPage() {
         grade: parseInt(data.grade, 10),
         section: data.section.toUpperCase().trim(),
         shift: data.shift,
-        school_year_id: data.school_year_id,
-        type: "regular",
+        school: schoolId,
       };
 
-      if (editingGroup) {
-        await api.put(
-          ENDPOINTS.DASHBOARD_UPDATE_GROUP(schoolId, editingGroup._id),
-          body
-        );
+      if (editingTemplate) {
+        await api.put(ENDPOINTS.GROUP_TEMPLATE_BY_ID(editingTemplate._id), body);
       } else {
-        await api.post(ENDPOINTS.DASHBOARD_CREATE_GROUP(schoolId), body);
+        await api.post(ENDPOINTS.GROUP_TEMPLATES, body);
       }
       setIsModalOpen(false);
-      await fetchData();
+      await fetchTemplates();
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
         err?.message ||
-        "Error al guardar el grupo.";
+        "Error al guardar la plantilla.";
       setSubmitError(msg);
     } finally {
       setSubmitting(false);
@@ -164,7 +141,9 @@ export default function SchoolGroupsPage() {
   };
 
   if (isLoading) {
-    return <LoadingState message="Cargando grupos..." height="page" />;
+    return (
+      <LoadingState message="Cargando plantillas de grupo..." height="page" />
+    );
   }
 
   if (error) {
@@ -172,28 +151,17 @@ export default function SchoolGroupsPage() {
       <ErrorState
         title="Error"
         message={error}
-        action={{ label: "Reintentar", onClick: fetchData }}
+        action={{ label: "Reintentar", onClick: fetchTemplates }}
       />
     );
   }
 
-  const filtered = groups.filter((g) => {
-    if (g.type === "taller") return false;
+  const filtered = templates.filter((t) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    const gradeStr = `${g.grade}° ${g.section}`;
-    return gradeStr.toLowerCase().includes(q);
+    const label = `${t.grade}° ${t.section}`;
+    return label.toLowerCase().includes(q);
   });
-
-  const yearOptions = [
-    { value: "", label: "Todos los ciclos" },
-    ...years.map((y) => ({ value: y._id, label: y.name })),
-  ];
-
-  const modalYearOptions = years.map((y) => ({
-    value: y._id,
-    label: `${y.name}${y.isActive ? " (activo)" : ""}`,
-  }));
 
   return (
     <div className="space-y-6">
@@ -206,8 +174,8 @@ export default function SchoolGroupsPage() {
       </Link>
 
       <PageHeader
-        title="Grupos"
-        subtitle={`${groups.length} grupo${groups.length !== 1 ? "s" : ""}`}
+        title="Plantillas de Grupo"
+        subtitle={`${templates.length} grupo${templates.length !== 1 ? "s" : ""} definido${templates.length !== 1 ? "s" : ""}`}
         action={{
           label: "Nuevo Grupo",
           onClick: openCreateModal,
@@ -215,35 +183,24 @@ export default function SchoolGroupsPage() {
         }}
       />
 
-      {groups.length > 0 && (
+      {templates.length > 0 && (
         <Card>
           <CardBody>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <Input
-                  placeholder="Buscar por grado o sección..."
-                  icon={<Search size={18} />}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="w-full sm:w-48">
-                <Select
-                  options={yearOptions}
-                  value={yearFilter}
-                  onChange={(e) => setYearFilter(e.target.value)}
-                />
-              </div>
-            </div>
+            <Input
+              placeholder="Buscar por grado o sección..."
+              icon={<Search size={18} />}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </CardBody>
         </Card>
       )}
 
-      {groups.length === 0 ? (
+      {templates.length === 0 ? (
         <EmptyState
           icon={<ClipboardList size={48} />}
-          title="No hay grupos registrados"
-          description="Crea el primer grupo para esta escuela."
+          title="No hay plantillas de grupo"
+          description="Crea los grupos que tendrá esta escuela. Al crear un ciclo escolar, se copiarán automáticamente."
           action={{
             label: "Crear Grupo",
             onClick: openCreateModal,
@@ -253,61 +210,46 @@ export default function SchoolGroupsPage() {
         <EmptyState
           icon={<Search size={48} />}
           title="Sin resultados"
-          description="No se encontraron grupos con ese criterio."
+          description="No se encontraron plantillas con ese criterio."
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((group) => {
-            const yearName =
-              typeof group.school_year_id === "object"
-                ? group.school_year_id.name
-                : "";
-            return (
-              <Card key={group._id} className="group relative">
-                <button
-                  type="button"
-                  onClick={() => openEditModal(group)}
-                  className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-slate-100 text-text-muted hover:text-accent-dark transition-all cursor-pointer"
-                >
-                  <Pencil size={14} />
-                </button>
-                <CardBody>
-                  <div className="flex items-start gap-3">
-                    <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-xl shrink-0">
-                      <ClipboardList size={18} className="text-violet-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-text-primary truncate">
-                        {group.grade}° {group.section}
-                      </h3>
-                      <p className="text-sm text-text-secondary capitalize">
-                        {group.shift}
-                      </p>
-                      {yearName && (
-                        <p className="text-xs text-text-muted mt-1">
-                          {yearName}
-                        </p>
-                      )}
-                      <div className="mt-2">
-                        <Badge
-                          variant={group.type === "taller" ? "amber" : "slate"}
-                        >
-                          {group.type === "taller" ? "Taller" : "Regular"}
-                        </Badge>
-                      </div>
+          {filtered.map((tpl) => (
+            <Card key={tpl._id} className="group relative">
+              <button
+                type="button"
+                onClick={() => openEditModal(tpl)}
+                className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-slate-100 text-text-muted hover:text-accent-dark transition-all cursor-pointer"
+              >
+                <Pencil size={14} />
+              </button>
+              <CardBody>
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-xl shrink-0">
+                    <ClipboardList size={18} className="text-violet-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-text-primary truncate">
+                      {tpl.grade}° {tpl.section}
+                    </h3>
+                    <p className="text-sm text-text-secondary capitalize">
+                      {tpl.shift}
+                    </p>
+                    <div className="mt-2">
+                      <Badge variant="slate">Regular</Badge>
                     </div>
                   </div>
-                </CardBody>
-              </Card>
-            );
-          })}
+                </div>
+              </CardBody>
+            </Card>
+          ))}
         </div>
       )}
 
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingGroup ? "Editar Grupo" : "Nuevo Grupo"}
+        title={editingTemplate ? "Editar Grupo" : "Nuevo Grupo"}
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {submitError && (
@@ -331,27 +273,19 @@ export default function SchoolGroupsPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Turno"
-              options={shiftOptions}
-              error={errors.shift?.message}
-              {...register("shift")}
-            />
-            <Select
-              label="Ciclo Escolar"
-              options={modalYearOptions}
-              error={errors.school_year_id?.message}
-              {...register("school_year_id")}
-            />
-          </div>
+          <Select
+            label="Turno"
+            options={shiftOptions}
+            error={errors.shift?.message}
+            {...register("shift")}
+          />
 
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
             <Button type="submit" variant="sky" isLoading={submitting}>
-              {editingGroup ? "Guardar" : "Crear"}
+              {editingTemplate ? "Guardar" : "Crear"}
             </Button>
           </div>
         </form>
