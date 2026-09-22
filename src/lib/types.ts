@@ -51,6 +51,7 @@ export interface SchoolYear {
   startDate: string;
   endDate: string;
   isActive: boolean;
+  workingDays?: number[];
 }
 
 export interface Student {
