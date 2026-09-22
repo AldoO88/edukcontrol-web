@@ -173,7 +173,7 @@ export function ConfigWizard({
   const handleFinish = async () => {
     setIsProcessing(true);
     try {
-      // 1. Clone selected shifts
+      // 1. Clone selected shifts (best-effort)
       const selectedShiftData = shiftTemplates.filter((s) => selectedShifts.has(s._id));
       for (const tpl of selectedShiftData) {
         await api.post(ENDPOINTS.SCHOOL_SHIFTS, {
@@ -191,19 +191,17 @@ export function ConfigWizard({
             isBreak: b.isBreak,
           })),
           school: schoolId,
-        });
+        }).catch(() => {});
       }
 
-      // 2. Apply subject toggles
+      // 2. Apply subject toggles (best-effort)
       for (const subj of subjects) {
-        const original = shiftTemplates.length > 0 ? subjects.find((s) => s._id === subj._id) : null;
-        // Only update if changed
         await api.put(`${ENDPOINTS.SUBJECTS}/${subj._id}`, {
           isActive: subj.isActive,
         }).catch(() => {});
       }
 
-      // 3. Apply staff toggles
+      // 3. Apply staff toggles (best-effort)
       for (const u of staff) {
         await api.put(
           ENDPOINTS.DASHBOARD_UPDATE_USER(schoolId, u._id),
@@ -211,7 +209,7 @@ export function ConfigWizard({
         ).catch(() => {});
       }
 
-      // 4. Clone selected groups
+      // 4. Clone selected groups (best-effort)
       const selectedGroupData = groupTemplates.filter((g) => selectedGroups.has(g._id));
       for (const tpl of selectedGroupData) {
         await api.post(ENDPOINTS.GROUPS, {
@@ -221,10 +219,10 @@ export function ConfigWizard({
           section: tpl.section,
           shift: tpl.shift,
           type: tpl.type,
-        });
+        }).catch(() => {});
       }
 
-      // 5. Activate the school year
+      // 5. Activate the school year (must succeed)
       await api.post(`/api/school-years/${schoolYearId}/activate`);
 
       onCompleted();
