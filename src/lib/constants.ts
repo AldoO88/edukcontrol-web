@@ -73,6 +73,12 @@ export const ENDPOINTS = {
     `/api/dashboard/super-admin/schools/${schoolId}/teachers`,
   DASHBOARD_GROUPS: (schoolId: string) =>
     `/api/dashboard/super-admin/schools/${schoolId}/groups`,
+  DASHBOARD_CREATE_GROUP: (schoolId: string) =>
+    `/api/dashboard/super-admin/schools/${schoolId}/groups`,
+  DASHBOARD_UPDATE_GROUP: (schoolId: string, groupId: string) =>
+    `/api/dashboard/super-admin/schools/${schoolId}/groups/${groupId}`,
+  DASHBOARD_DELETE_GROUP: (schoolId: string, groupId: string) =>
+    `/api/dashboard/super-admin/schools/${schoolId}/groups/${groupId}`,
   DASHBOARD_TEACHER_SUBJECTS: (schoolId: string) =>
     `/api/dashboard/super-admin/schools/${schoolId}/teacher-subjects`,
   DASHBOARD_UPDATE_TEACHER: (schoolId: string, teacherId: string) =>
