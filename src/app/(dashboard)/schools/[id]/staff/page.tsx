@@ -1,5 +1,5 @@
 // Página de Personal de la Escuela
-// Muestra Dirección, Prefectura y Trabajo Social agrupados por rol.
+// Muestra todos los roles de personal agrupados: Docentes, Dirección, Prefectura, Trabajo Social.
 // Permite agregar usuarios directamente desde esta página.
 
 "use client";
@@ -22,16 +22,19 @@ import { ENDPOINTS } from "@/lib/constants";
 import type { User, UserRole } from "@/lib/types";
 import {
   Shield,
+  GraduationCap,
   ChevronLeft,
   Plus,
   Phone,
   Mail,
+  ArrowRight,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-const STAFF_ROLES: { role: UserRole; label: string; color: string; bgColor: string }[] = [
+const STAFF_ROLES: { role: UserRole; label: string; color: string; bgColor: string; href?: string }[] = [
+  { role: "teacher", label: "Docentes", color: "text-sky-600", bgColor: "bg-sky-100", href: "teachers" },
   { role: "principal", label: "Dirección", color: "text-emerald-600", bgColor: "bg-emerald-100" },
   { role: "prefect", label: "Prefectura", color: "text-violet-600", bgColor: "bg-violet-100" },
   { role: "social_worker", label: "Trabajo Social", color: "text-rose-600", bgColor: "bg-rose-100" },
@@ -166,14 +169,18 @@ export default function SchoolStaffPage() {
         subtitle={`${users.length} miembro${users.length !== 1 ? "s" : ""}`}
       />
 
-      {STAFF_ROLES.map(({ role, label, color, bgColor }) => {
+      {STAFF_ROLES.map(({ role, label, color, bgColor, href }) => {
         const roleUsers = getUsersByRole(role);
         return (
           <div key={role} className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${bgColor}`}>
-                  <Shield size={16} className={color} />
+                  {role === "teacher" ? (
+                    <GraduationCap size={16} className={color} />
+                  ) : (
+                    <Shield size={16} className={color} />
+                  )}
                 </div>
                 <h3 className="text-lg font-semibold text-text-primary">
                   {label}
@@ -181,6 +188,14 @@ export default function SchoolStaffPage() {
                 <span className="text-sm text-text-muted">
                   ({roleUsers.length})
                 </span>
+                {href && (
+                  <Link
+                    href={`/schools/${schoolId}/${href}`}
+                    className="text-xs text-accent-dark hover:text-accent font-medium flex items-center"
+                  >
+                    Ver gestión completa <ArrowRight size={12} className="ml-0.5" />
+                  </Link>
+                )}
               </div>
               <Button variant="sky" size="sm" onClick={() => openModal(role)}>
                 <Plus size={16} />
