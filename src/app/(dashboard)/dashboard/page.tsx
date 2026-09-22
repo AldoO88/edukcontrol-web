@@ -244,8 +244,8 @@ export default function DashboardPage() {
               {pendingTasks.tasks.map((task) => (
                 <Link
                   key={task.school_id}
-                  href={`/schools/${task.school_id}/school-years${
-                    task.school_year_id ? `/${task.school_year_id}` : ""
+                  href={`/schools/${task.school_id}${
+                    task.school_year_id ? `/school-years/${task.school_year_id}` : ""
                   }`}
                   className="block p-3 border border-border rounded-xl hover:bg-slate-50 transition-colors"
                 >
@@ -453,7 +453,7 @@ export default function DashboardPage() {
                               <ArrowRight size={14} className="ml-1" />
                             </Button>
                           </Link>
-                          <Link href={`/schools/${school._id}/school-years`}>
+                          <Link href={`/schools/${school._id}`}>
                             <Button variant="ghost" size="sm">
                               <Settings size={14} />
                             </Button>

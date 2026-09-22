@@ -336,23 +336,13 @@ export default function SchoolOverviewPage() {
           <h3 className="text-lg font-semibold text-text-primary">
             Ciclos Escolares
           </h3>
-          <div className="flex gap-2">
-            <Button
-              variant="sky"
-              size="sm"
-              onClick={() => setIsYearModalOpen(true)}
-            >
-              + Nuevo Ciclo
-            </Button>
-            {years.length > 3 && (
-              <Link
-                href={`/schools/${schoolId}/school-years`}
-                className="text-sm text-accent-dark hover:text-accent font-medium flex items-center"
-              >
-                Ver todos <ArrowRight size={14} className="ml-1" />
-              </Link>
-            )}
-          </div>
+          <Button
+            variant="sky"
+            size="sm"
+            onClick={() => setIsYearModalOpen(true)}
+          >
+            + Nuevo Ciclo
+          </Button>
         </div>
 
         {recentYears.length === 0 ? (

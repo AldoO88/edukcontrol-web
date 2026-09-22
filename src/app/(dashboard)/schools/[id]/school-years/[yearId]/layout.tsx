@@ -73,7 +73,7 @@ export default function SchoolYearDetailLayout({
       {/* Header con botón volver y nombre del ciclo */}
       <div className="flex items-center gap-4">
         <Link
-          href={`/schools/${schoolId}/school-years`}
+          href={`/schools/${schoolId}`}
           className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-slate-100 transition-colors text-text-secondary"
         >
           <ArrowLeft size={20} />

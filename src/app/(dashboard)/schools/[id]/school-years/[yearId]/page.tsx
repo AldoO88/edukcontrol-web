@@ -274,7 +274,7 @@ export default function SchoolYearOverviewPage() {
             label: "Volver a ciclos",
             onClick: () => {
               if (typeof window !== "undefined") {
-                window.location.href = `/schools/${schoolId}/school-years`;
+                window.location.href = `/schools/${schoolId}`;
               }
             },
           }}
