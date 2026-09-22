@@ -28,17 +28,17 @@ import {
   Plus,
   Phone,
   Mail,
-  ArrowRight,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-const STAFF_ROLES: { role: UserRole; label: string; color: string; bgColor: string; href?: string }[] = [
-  { role: "teacher", label: "Docentes", color: "text-sky-600", bgColor: "bg-sky-100", href: "teachers" },
+const STAFF_ROLES: { role: UserRole; label: string; color: string; bgColor: string }[] = [
   { role: "principal", label: "Dirección", color: "text-emerald-600", bgColor: "bg-emerald-100" },
-  { role: "prefect", label: "Prefectura", color: "text-violet-600", bgColor: "bg-violet-100" },
+  { role: "teacher", label: "Docentes", color: "text-sky-600", bgColor: "bg-sky-100" },
   { role: "social_worker", label: "Trabajo Social", color: "text-rose-600", bgColor: "bg-rose-100" },
+  { role: "prefect", label: "Prefectura", color: "text-violet-600", bgColor: "bg-violet-100" },
+  { role: "registrar", label: "Registro", color: "text-amber-600", bgColor: "bg-amber-100" },
 ];
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -190,7 +190,7 @@ export default function SchoolStaffPage() {
         }}
       />
 
-      {STAFF_ROLES.map(({ role, label, color, bgColor, href }) => {
+      {STAFF_ROLES.map(({ role, label, color, bgColor }) => {
         const roleUsers = getUsersByRole(role);
         return (
           <div key={role} className="space-y-3">
@@ -208,14 +208,6 @@ export default function SchoolStaffPage() {
               <span className="text-sm text-text-muted">
                 ({roleUsers.length})
               </span>
-              {href && (
-                <Link
-                  href={`/schools/${schoolId}/${href}`}
-                  className="text-xs text-accent-dark hover:text-accent font-medium flex items-center"
-                >
-                  Ver gestión completa <ArrowRight size={12} className="ml-0.5" />
-                </Link>
-              )}
             </div>
 
             {roleUsers.length === 0 ? (
