@@ -70,6 +70,8 @@ export default function SchoolGroupsPage() {
   }
 
   const filtered = groups.filter((g) => {
+    // Excluir grupos tipo taller — se gestionan en /workshops
+    if (g.type === "taller") return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     const gradeStr = `${g.grade}° ${g.section}`;

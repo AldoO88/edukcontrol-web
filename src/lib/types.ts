@@ -102,6 +102,7 @@ export interface Subject {
   isTutoria?: boolean;
   color?: string;
   icon?: string;
+  workshops?: { name: string }[];
 }
 
 export interface TeacherSubject {

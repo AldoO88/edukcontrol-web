@@ -27,7 +27,7 @@ import {
   SUBJECT_COLORS,
   hexToRgba,
 } from "@/lib/subjectIcons";
-import { BookOpen, Search, ChevronLeft, Pencil } from "lucide-react";
+import { BookOpen, Search, ChevronLeft, Pencil, Plus, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -85,16 +85,21 @@ export default function SchoolSubjectsPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
+  const [workshopName, setWorkshopName] = useState("");
+  const [workshops, setWorkshops] = useState<{ name: string }[]>([]);
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<SubjectFormData>({
     resolver: zodResolver(subjectSchema),
     defaultValues: { educationalLevel: "BASIC" },
   });
+
+  const watchedClassification = watch("classificationType");
 
   const fetchSubjects = async () => {
     try {
@@ -116,6 +121,8 @@ export default function SchoolSubjectsPage() {
     reset({ educationalLevel: "BASIC" });
     setSelectedColor(null);
     setSelectedIcon(null);
+    setWorkshops([]);
+    setWorkshopName("");
     setSubmitError(null);
     setIsModalOpen(true);
   };
@@ -134,6 +141,8 @@ export default function SchoolSubjectsPage() {
     });
     setSelectedColor(subject.color || null);
     setSelectedIcon(subject.icon || null);
+    setWorkshops(subject.workshops || []);
+    setWorkshopName("");
     setSubmitError(null);
     setIsModalOpen(true);
   };
@@ -151,6 +160,7 @@ export default function SchoolSubjectsPage() {
         isTutoria: data.isTutoria || false,
         color: selectedColor,
         icon: selectedIcon,
+        workshops: data.classificationType === "WORKSHOP" ? workshops : [],
       };
 
       if (editingSubject) {
@@ -363,6 +373,71 @@ export default function SchoolSubjectsPage() {
             options={CLASS_OPTIONS}
             {...register("classificationType")}
           />
+
+          {/* Talleres — solo si classificationType === "WORKSHOP" */}
+          {watchedClassification === "WORKSHOP" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-text-primary">
+                Talleres que ofrece esta materia
+              </label>
+              <p className="text-xs text-text-muted">
+                Agrega los nombres de los talleres (ej. Electrónica, Informática)
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={workshopName}
+                  onChange={(e) => setWorkshopName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const trimmed = workshopName.trim();
+                      if (trimmed && !workshops.some((w) => w.name === trimmed.toUpperCase())) {
+                        setWorkshops([...workshops, { name: trimmed.toUpperCase() }]);
+                        setWorkshopName("");
+                      }
+                    }
+                  }}
+                  placeholder="Nombre del taller"
+                  className="flex-1 px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                />
+                <Button
+                  type="button"
+                  variant="sky"
+                  size="sm"
+                  onClick={() => {
+                    const trimmed = workshopName.trim();
+                    if (trimmed && !workshops.some((w) => w.name === trimmed.toUpperCase())) {
+                      setWorkshops([...workshops, { name: trimmed.toUpperCase() }]);
+                      setWorkshopName("");
+                    }
+                  }}
+                  disabled={!workshopName.trim()}
+                >
+                  <Plus size={16} />
+                </Button>
+              </div>
+              {workshops.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {workshops.map((w, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-medium"
+                    >
+                      {w.name}
+                      <button
+                        type="button"
+                        onClick={() => setWorkshops(workshops.filter((_, i) => i !== idx))}
+                        className="hover:text-amber-900"
+                      >
+                        <X size={14} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <Input
             label="Macro Categoría"
