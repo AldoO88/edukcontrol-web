@@ -31,6 +31,7 @@ import {
   Clock,
   ArrowRight,
   AlertTriangle,
+  Shield,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -215,6 +216,13 @@ export default function SchoolOverviewPage() {
       color: "text-blue-600",
       bgColor: "bg-blue-100",
       href: `/schools/${schoolId}/users`,
+    },
+    {
+      label: "Personal",
+      icon: <Shield size={20} />,
+      color: "text-indigo-600",
+      bgColor: "bg-indigo-100",
+      href: `/schools/${schoolId}/staff`,
     },
   ];
 
