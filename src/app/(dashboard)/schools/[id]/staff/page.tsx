@@ -368,14 +368,12 @@ export default function SchoolStaffPage() {
             {...register("email")}
           />
 
-          {selectedRole === "teacher" && (
-            <div className="border-t border-border pt-4">
-              <AcademicRecordTable
-                value={academicPrep}
-                onChange={setAcademicPrep}
-              />
-            </div>
-          )}
+          <div className="border-t border-border pt-4">
+            <AcademicRecordTable
+              value={academicPrep}
+              onChange={setAcademicPrep}
+            />
+          </div>
 
           <p className="text-xs text-text-muted">
             {editingUser
