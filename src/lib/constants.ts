@@ -17,6 +17,7 @@ export const ENDPOINTS = {
   // School Years
   SCHOOL_YEARS: "/api/school-years",
   SCHOOL_YEAR_ACTIVATE: (id: string) => `/api/school-years/${id}/activate`,
+  SCHOOL_YEAR_DEACTIVATE: (id: string) => `/api/school-years/${id}/deactivate`,
 
   // Groups
   GROUPS: "/api/groups",

@@ -13,7 +13,7 @@ import type { SchoolYear } from "@/lib/types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, Calendar } from "lucide-react";
+import { Plus, Trash2, Calendar, AlertTriangle } from "lucide-react";
 
 const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
@@ -50,6 +50,8 @@ export function CreateSchoolYearModal({
   const [error, setError] = useState<string | null>(null);
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [nonSchoolDays, setNonSchoolDays] = useState<NonSchoolDay[]>([]);
+
+  const hasActiveYear = existingYears.some((y) => y.isActive);
 
   const {
     register,
@@ -93,6 +95,12 @@ export function CreateSchoolYearModal({
 
   const onSubmit = async (data: FormShape) => {
     setError(null);
+
+    if (hasActiveYear) {
+      setError("Ya existe un ciclo activo. Cierra el ciclo actual antes de crear uno nuevo.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const newYear = await api.post<{ _id: string }>(ENDPOINTS.SCHOOL_YEARS, {
@@ -259,11 +267,18 @@ export function CreateSchoolYearModal({
           )}
         </div>
 
+        {hasActiveYear && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 text-amber-700 text-sm">
+            <AlertTriangle size={16} />
+            Ya existe un ciclo activo. Cierra el ciclo actual antes de crear uno nuevo.
+          </div>
+        )}
+
         <div className="flex justify-end gap-3 pt-2 border-t border-border">
           <Button variant="ghost" onClick={handleClose}>
             Cancelar
           </Button>
-          <Button type="submit" variant="sky" isLoading={isSubmitting}>
+          <Button type="submit" variant="sky" isLoading={isSubmitting} disabled={hasActiveYear}>
             {existingYears.length === 0 ? "Crear Primer Ciclo" : "Crear"}
           </Button>
         </div>

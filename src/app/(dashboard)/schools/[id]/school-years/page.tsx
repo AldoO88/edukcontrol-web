@@ -14,7 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
 import type { SchoolYear } from "@/lib/types";
-import { Calendar } from "lucide-react";
+import { Calendar, XCircle } from "lucide-react";
 import { CreateSchoolYearModal } from "@/components/school-years/CreateSchoolYearModal";
 
 export default function SchoolYearsPage() {
@@ -48,6 +48,15 @@ export default function SchoolYearsPage() {
       fetchYears();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al activar el ciclo");
+    }
+  };
+
+  const handleDeactivate = async (id: string) => {
+    try {
+      await api.post(ENDPOINTS.SCHOOL_YEAR_DEACTIVATE(id));
+      fetchYears();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cerrar el ciclo");
     }
   };
 
@@ -120,7 +129,16 @@ export default function SchoolYearsPage() {
                 </div>
               </div>
               <div className="mt-4 flex gap-2">
-                {!year.isActive && (
+                {year.isActive ? (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => handleDeactivate(year._id)}
+                  >
+                    <XCircle size={14} className="mr-1" />
+                    Cerrar Ciclo
+                  </Button>
+                ) : (
                   <Button
                     variant="sky"
                     size="sm"
