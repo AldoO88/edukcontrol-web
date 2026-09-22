@@ -158,7 +158,7 @@ export default function SchoolStaffPage() {
             email: data.email || undefined,
             sex: data.sex || undefined,
             role: data.role,
-            ...(data.role === "teacher" ? { academicPreparation: academicPrep } : {}),
+            academicPreparation: academicPrep,
           }
         );
       } else {
@@ -170,7 +170,7 @@ export default function SchoolStaffPage() {
           sex: data.sex || undefined,
           role: data.role,
           school: schoolId,
-          ...(data.role === "teacher" ? { academicPreparation: academicPrep } : {}),
+          academicPreparation: academicPrep,
         });
       }
       setIsModalOpen(false);
