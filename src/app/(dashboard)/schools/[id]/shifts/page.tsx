@@ -60,6 +60,7 @@ export default function SchoolShiftsPage() {
   const [blockStart, setBlockStart] = useState("");
   const [blockEnd, setBlockEnd] = useState("");
   const [blockIsBreak, setBlockIsBreak] = useState(false);
+  const [editingBlockIdx, setEditingBlockIdx] = useState<number | null>(null);
 
   const {
     register,
@@ -119,15 +120,47 @@ export default function SchoolShiftsPage() {
 
   const addBlock = () => {
     if (!blockName.trim() || !blockStart || !blockEnd) return;
-    const newBlock = {
-      _id: `local_${Date.now()}`,
-      name: blockName.trim(),
-      startTime: blockStart,
-      endTime: blockEnd,
-      isBreak: blockIsBreak,
-      order: timeBlocks.length,
-    };
-    setTimeBlocks([...timeBlocks, newBlock]);
+    if (editingBlockIdx !== null) {
+      // Editar bloque existente
+      const updated = [...timeBlocks];
+      updated[editingBlockIdx] = {
+        ...updated[editingBlockIdx],
+        name: blockName.trim(),
+        startTime: blockStart,
+        endTime: blockEnd,
+        isBreak: blockIsBreak,
+      };
+      setTimeBlocks(updated);
+      setEditingBlockIdx(null);
+    } else {
+      // Agregar nuevo bloque
+      const newBlock = {
+        _id: `local_${Date.now()}`,
+        name: blockName.trim(),
+        startTime: blockStart,
+        endTime: blockEnd,
+        isBreak: blockIsBreak,
+        order: timeBlocks.length,
+      };
+      setTimeBlocks([...timeBlocks, newBlock]);
+    }
+    setBlockName("");
+    setBlockStart("");
+    setBlockEnd("");
+    setBlockIsBreak(false);
+  };
+
+  const editBlock = (idx: number) => {
+    const block = timeBlocks[idx];
+    setEditingBlockIdx(idx);
+    setBlockName(block.name);
+    setBlockStart(block.startTime);
+    setBlockEnd(block.endTime);
+    setBlockIsBreak(block.isBreak);
+  };
+
+  const cancelEditBlock = () => {
+    setEditingBlockIdx(null);
     setBlockName("");
     setBlockStart("");
     setBlockEnd("");
@@ -374,7 +407,7 @@ export default function SchoolShiftsPage() {
                       <th className="text-left px-3 py-2 font-semibold text-text-primary">Inicio</th>
                       <th className="text-left px-3 py-2 font-semibold text-text-primary">Fin</th>
                       <th className="text-left px-3 py-2 font-semibold text-text-primary">Tipo</th>
-                      <th className="w-10"></th>
+                      <th className="w-20"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -391,13 +424,22 @@ export default function SchoolShiftsPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2">
-                          <button
-                            type="button"
-                            onClick={() => removeBlock(idx)}
-                            className="p-1 rounded-lg hover:bg-error-light text-text-muted hover:text-error transition-colors"
-                          >
-                            <X size={14} />
-                          </button>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => editBlock(idx)}
+                              className="p-1 rounded-lg hover:bg-sky-100 text-text-muted hover:text-sky-600 transition-colors"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeBlock(idx)}
+                              className="p-1 rounded-lg hover:bg-error-light text-text-muted hover:text-error transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -440,13 +482,18 @@ export default function SchoolShiftsPage() {
               </div>
               <Button
                 type="button"
-                variant="sky"
+                variant={editingBlockIdx !== null ? "outline" : "sky"}
                 size="sm"
                 onClick={addBlock}
                 disabled={!blockName.trim() || !blockStart || !blockEnd}
               >
-                <Plus size={16} />
+                {editingBlockIdx !== null ? "Guardar" : <Plus size={16} />}
               </Button>
+              {editingBlockIdx !== null && (
+                <Button type="button" variant="ghost" size="sm" onClick={cancelEditBlock}>
+                  Cancelar
+                </Button>
+              )}
             </div>
           </div>
 
