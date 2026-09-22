@@ -32,6 +32,7 @@ import {
   ArrowRight,
   AlertTriangle,
   Shield,
+  XCircle,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -97,6 +98,24 @@ export default function SchoolOverviewPage() {
   useEffect(() => {
     fetchData();
   }, [schoolId]);
+
+  const handleActivateYear = async (id: string) => {
+    try {
+      await api.post(ENDPOINTS.SCHOOL_YEAR_ACTIVATE(id));
+      fetchData();
+    } catch (err) {
+      // Error silencioso
+    }
+  };
+
+  const handleDeactivateYear = async (id: string) => {
+    try {
+      await api.post(ENDPOINTS.SCHOOL_YEAR_DEACTIVATE(id));
+      fetchData();
+    } catch (err) {
+      // Error silencioso
+    }
+  };
 
   const openEditModal = () => {
     if (school) {
@@ -346,42 +365,59 @@ export default function SchoolOverviewPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {recentYears.map((year) => (
-              <Link
+              <Card
                 key={year._id}
-                href={`/schools/${schoolId}/school-years/${year._id}`}
+                className={`${
+                  year.isActive
+                    ? "ring-2 ring-emerald-500 border-emerald-200"
+                    : ""
+                }`}
               >
-                <Card
-                  className={`hover:shadow-md transition-shadow cursor-pointer ${
-                    year.isActive
-                      ? "ring-2 ring-emerald-500 border-emerald-200"
-                      : ""
-                  }`}
-                >
-                  <CardBody>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-text-primary">
-                            {year.name}
-                          </h4>
-                          {year.isActive && (
-                            <Badge variant="emerald">Activo</Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-text-secondary">
-                          {new Date(year.startDate).toLocaleDateString("es-MX")} —{" "}
-                          {new Date(year.endDate).toLocaleDateString("es-MX")}
-                        </p>
+                <CardBody>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-text-primary">
+                          {year.name}
+                        </h4>
+                        {year.isActive && (
+                          <Badge variant="emerald">Activo</Badge>
+                        )}
                       </div>
+                      <p className="text-sm text-text-secondary">
+                        {new Date(year.startDate).toLocaleDateString("es-MX")} —{" "}
+                        {new Date(year.endDate).toLocaleDateString("es-MX")}
+                      </p>
                     </div>
-                    <div className="mt-3">
-                      <span className="text-sm text-accent-dark hover:text-accent font-medium flex items-center">
-                        Configurar <ArrowRight size={14} className="ml-1" />
-                      </span>
-                    </div>
-                  </CardBody>
-                </Card>
-              </Link>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    {year.isActive ? (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleDeactivateYear(year._id)}
+                      >
+                        <XCircle size={14} className="mr-1" />
+                        Cerrar Ciclo
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="sky"
+                        size="sm"
+                        onClick={() => handleActivateYear(year._id)}
+                      >
+                        Activar
+                      </Button>
+                    )}
+                    <Link
+                      href={`/schools/${schoolId}/school-years/${year._id}`}
+                      className="text-sm text-accent-dark hover:text-accent font-medium ml-auto flex items-center"
+                    >
+                      Configurar <ArrowRight size={14} className="ml-1" />
+                    </Link>
+                  </div>
+                </CardBody>
+              </Card>
             ))}
           </div>
         )}
