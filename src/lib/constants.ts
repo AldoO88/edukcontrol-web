@@ -44,6 +44,7 @@ export const ENDPOINTS = {
 
   // School Shifts
   SCHOOL_SHIFTS: "/api/school-shifts",
+  SHIFT_TEMPLATES: "/api/shift-templates",
 
   // Class Schedules
   CLASS_SCHEDULES: "/api/class-schedules",

@@ -29,7 +29,6 @@ import {
   Upload,
   X,
   Clock,
-  Hammer,
   ArrowRight,
   AlertTriangle,
 } from "lucide-react";
@@ -195,13 +194,6 @@ export default function SchoolOverviewPage() {
       color: "text-rose-600",
       bgColor: "bg-rose-100",
       href: `/schools/${schoolId}/subjects`,
-    },
-    {
-      label: "Talleres",
-      icon: <Hammer size={20} />,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
-      href: `/schools/${schoolId}/workshops`,
     },
     {
       label: "Turnos",

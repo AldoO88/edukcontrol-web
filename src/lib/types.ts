@@ -137,6 +137,19 @@ export interface SchoolShift {
   isActive: boolean;
 }
 
+export interface ShiftTemplate {
+  _id: string;
+  school: string;
+  name: string;
+  shift: "matutino" | "vespertino";
+  startTime: string;
+  endTime: string;
+  moduleDurationMinutes: number;
+  timeBlocks: TimeBlock[];
+  gracePeriodMinutes: number;
+  isActive: boolean;
+}
+
 export interface TimeBlock {
   _id: string;
   name: string;

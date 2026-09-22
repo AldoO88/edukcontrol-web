@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { SchoolYear } from "@/lib/types";
+import type { SchoolYear, ShiftTemplate } from "@/lib/types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,6 +29,7 @@ const schoolYearSchema = z.object({
   startDate: z.string().min(1, "Fecha de inicio requerida"),
   endDate: z.string().min(1, "Fecha de fin requerida"),
   cloneFromPrevious: z.boolean().optional(),
+  copyShiftTemplates: z.boolean().optional(),
   nonLectivoWeekdays: z.array(z.number().min(0).max(6)).optional(),
 });
 
@@ -37,6 +38,7 @@ type FormShape = {
   startDate: string;
   endDate: string;
   cloneFromPrevious?: boolean;
+  copyShiftTemplates?: boolean;
   nonLectivoWeekdays?: number[];
 };
 
@@ -121,6 +123,7 @@ export function CreateSchoolYearModal({
     resolver: zodResolver(schoolYearSchema),
     defaultValues: {
       cloneFromPrevious: true,
+      copyShiftTemplates: true,
       nonLectivoWeekdays: [],
     },
   });
@@ -157,6 +160,34 @@ export function CreateSchoolYearModal({
           });
         } catch {
           console.warn("[CreateSchoolYearModal] Failed to mark non-lectivo days");
+        }
+      }
+
+      // Copiar plantillas de turnos al nuevo ciclo
+      if (data.copyShiftTemplates) {
+        try {
+          const templatesRes = await api.get<{ items: ShiftTemplate[] }>(ENDPOINTS.SHIFT_TEMPLATES);
+          const templates = templatesRes.items || [];
+          for (const tpl of templates) {
+            await api.post(ENDPOINTS.SCHOOL_SHIFTS, {
+              school_year_id: newYear._id,
+              name: tpl.name,
+              shift: tpl.shift,
+              startTime: tpl.startTime,
+              endTime: tpl.endTime,
+              moduleDurationMinutes: tpl.moduleDurationMinutes,
+              gracePeriodMinutes: tpl.gracePeriodMinutes,
+              timeBlocks: tpl.timeBlocks.map((b) => ({
+                name: b.name,
+                startTime: b.startTime,
+                endTime: b.endTime,
+                isBreak: b.isBreak,
+              })),
+              school: schoolId,
+            });
+          }
+        } catch {
+          console.warn("[CreateSchoolYearModal] Failed to copy shift templates");
         }
       }
 
@@ -220,6 +251,15 @@ export function CreateSchoolYearModal({
             <span>Clonar configuración del ciclo anterior</span>
           </label>
         )}
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="rounded border-border text-accent focus:ring-accent"
+            {...register("copyShiftTemplates")}
+          />
+          <span>Copiar turnos desde plantillas</span>
+        </label>
 
         <div className="flex justify-end gap-3 pt-4">
           <Button variant="ghost" onClick={handleClose}>
