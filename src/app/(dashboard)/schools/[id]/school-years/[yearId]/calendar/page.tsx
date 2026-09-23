@@ -13,7 +13,7 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
 import type { SchoolCalendarEntry, SchoolYear } from "@/lib/types";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, CalendarDays } from "lucide-react";
 
 const MONTH_NAMES = [
   "Ene", "Feb", "Mar", "Abr", "May", "Jun",
@@ -67,6 +67,7 @@ export default function CalendarPage() {
   const [entryName, setEntryName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingEntry, setEditingEntry] = useState<SchoolCalendarEntry | null>(null);
+  const [weekendOnly, setWeekendOnly] = useState(false);
 
   const entriesByDate = useMemo(() => {
     const map = new Map<string, SchoolCalendarEntry>();
@@ -104,6 +105,7 @@ export default function CalendarPage() {
     setDateFrom("");
     setDateTo("");
     setEntryName("");
+    setWeekendOnly(false);
     setIsModalOpen(true);
   };
 
@@ -135,6 +137,12 @@ export default function CalendarPage() {
         // Create entries for each day in range
         const current = new Date(start);
         while (current <= end) {
+          const dow = current.getDay(); // 0=Sun, 6=Sat
+          // If weekendOnly, skip weekdays
+          if (weekendOnly && dow !== 0 && dow !== 6) {
+            current.setDate(current.getDate() + 1);
+            continue;
+          }
           const dateStr = toKey(current.getFullYear(), current.getMonth(), current.getDate());
           await api.post(ENDPOINTS.SCHOOL_CALENDAR, {
             school: schoolId,
@@ -304,6 +312,32 @@ export default function CalendarPage() {
         title={editingEntry ? "Editar Día" : "Agregar Período"}
       >
         <div className="space-y-4">
+          {/* Quick action: mark weekends */}
+          {!editingEntry && (
+            <button
+              onClick={() => {
+                setSelectedType("non_lectivo");
+                if (schoolYear) {
+                  setDateFrom(new Date(schoolYear.startDate).toISOString().slice(0, 10));
+                  setDateTo(new Date(schoolYear.endDate).toISOString().slice(0, 10));
+                }
+                setWeekendOnly(true);
+                setEntryName("Fin de semana");
+              }}
+              className="w-full p-3 rounded-xl border-2 border-dashed border-slate-300 hover:border-sky-400 hover:bg-sky-50 transition-all text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 bg-sky-100 rounded-lg">
+                  <CalendarDays size={18} className="text-sky-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">Marcar fines de semana</p>
+                  <p className="text-xs text-text-secondary">Selecciona todos los sábados y domingos del ciclo como no lectivos</p>
+                </div>
+              </div>
+            </button>
+          )}
+
           {/* Type selector */}
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
@@ -351,6 +385,21 @@ export default function CalendarPage() {
               min={dateFrom || undefined}
             />
           </div>
+
+          {/* Weekend-only toggle */}
+          {!editingEntry && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={weekendOnly}
+                onChange={(e) => setWeekendOnly(e.target.checked)}
+                className="accent-sky-600 w-4 h-4"
+              />
+              <span className="text-sm text-text-secondary">
+                Solo sábados y domingos
+              </span>
+            </label>
+          )}
 
           <Input
             label="Nombre (opcional)"
