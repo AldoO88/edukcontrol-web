@@ -145,9 +145,9 @@ export default function SchoolYearOverviewPage() {
     { label: "Maestros", href: "teachers", icon: <Users size={20} />, color: "text-amber-600", bgColor: "bg-amber-100" },
     { label: "Asignar Materias", href: "teacher-subjects", icon: <UserCheck size={20} />, color: "text-violet-600", bgColor: "bg-violet-100" },
     { label: "Grupos", href: "groups", icon: <ClipboardList size={20} />, color: "text-rose-600", bgColor: "bg-rose-100" },
-    { label: "Períodos", href: "grading-periods", icon: <TrendingUp size={20} />, color: "text-sky-600", bgColor: "bg-sky-100" },
-    { label: "Alumnos", href: "students", icon: <GraduationCap size={20} />, color: "text-orange-600", bgColor: "bg-orange-100" },
     { label: "Inscripciones", href: "enrollments", icon: <FileText size={20} />, color: "text-teal-600", bgColor: "bg-teal-100" },
+    { label: "Alumnos", href: "students", icon: <GraduationCap size={20} />, color: "text-orange-600", bgColor: "bg-orange-100" },
+    { label: "Períodos", href: "grading-periods", icon: <TrendingUp size={20} />, color: "text-sky-600", bgColor: "bg-sky-100" },
     { label: "Horarios", href: "schedules", icon: <Bell size={20} />, color: "text-indigo-600", bgColor: "bg-indigo-100" },
     { label: "Credenciales", href: "credentials", icon: <Key size={20} />, color: "text-pink-600", bgColor: "bg-pink-100" },
   ];
