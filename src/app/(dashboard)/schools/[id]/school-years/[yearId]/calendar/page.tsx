@@ -1,33 +1,23 @@
-// Página de Calendario Escolar (SchoolCalendar)
-// CRUD de días festivos, vacaciones, suspensiones y días no lectivos.
-// El cronjob de auto-ausencias consulta este modelo antes de marcar
-// faltas para saber si un día es lectivo.
+// Página de Calendario Escolar — vista mensual tipo cuadrícula.
+// Click en un día → modal para marcar festivo, vacaciones, suspensión, etc.
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, CardBody } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Spinner } from "@/components/ui/Spinner";
-import { LoadingState } from "@/components/ui/LoadingState";
-import { ErrorState } from "@/components/ui/ErrorState";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
 import type { SchoolCalendarEntry } from "@/lib/types";
-import { Calendar, Pencil, Trash2 } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 
-// Tipo labels para mostrar al usuario
+const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
 const TYPE_LABELS: Record<SchoolCalendarEntry["type"], string> = {
   holiday: "Festivo",
   vacation: "Vacaciones",
@@ -35,26 +25,32 @@ const TYPE_LABELS: Record<SchoolCalendarEntry["type"], string> = {
   non_lectivo: "No lectivo",
 };
 
-// Colores por tipo (mismos del sistema de diseño)
 const TYPE_COLORS: Record<
   SchoolCalendarEntry["type"],
-  { bg: string; text: string; dot: string }
+  { bg: string; text: string; border: string }
 > = {
-  holiday: { bg: "bg-rose-100", text: "text-rose-700", dot: "bg-rose-500" },
-  vacation: { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" },
-  suspension: { bg: "bg-violet-100", text: "text-violet-700", dot: "bg-violet-500" },
-  non_lectivo: { bg: "bg-slate-100", text: "text-slate-700", dot: "bg-slate-500" },
+  holiday: { bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-300" },
+  vacation: { bg: "bg-amber-100", text: "text-amber-700", border: "border-amber-300" },
+  suspension: { bg: "bg-violet-100", text: "text-violet-700", border: "border-violet-300" },
+  non_lectivo: { bg: "bg-slate-200", text: "text-slate-600", border: "border-slate-300" },
 };
 
-const calendarSchema = z.object({
-  date: z.string().min(1, "Fecha requerida"),
-  type: z.enum(["holiday", "vacation", "suspension", "non_lectivo"], {
-    errorMap: () => ({ message: "Selecciona un tipo" }),
-  }),
-  name: z.string().max(120, "Máximo 120 caracteres").optional(),
-});
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
 
-type CalendarFormData = z.infer<typeof calendarSchema>;
+function getFirstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
+}
+
+function toKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function parseKey(key: string) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
 export default function CalendarPage() {
   const params = useParams();
@@ -63,40 +59,38 @@ export default function CalendarPage() {
 
   const [entries, setEntries] = useState<SchoolCalendarEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [editingEntry, setEditingEntry] = useState<SchoolCalendarEntry | null>(
-    null
-  );
-  const [deletingEntry, setDeletingEntry] = useState<SchoolCalendarEntry | null>(
-    null
-  );
-  const [filterType, setFilterType] = useState<string>("all");
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<CalendarFormData>({
-    resolver: zodResolver(calendarSchema),
-    defaultValues: { date: "", type: "holiday", name: "" },
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
   });
+
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedType, setSelectedType] = useState<SchoolCalendarEntry["type"]>("holiday");
+  const [selectedName, setSelectedName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingEntry, setExistingEntry] = useState<SchoolCalendarEntry | null>(null);
+
+  // Build lookup: date key → entry
+  const entriesByDate = useMemo(() => {
+    const map = new Map<string, SchoolCalendarEntry>();
+    for (const e of entries) {
+      const key = new Date(e.date).toISOString().slice(0, 10);
+      map.set(key, e);
+    }
+    return map;
+  }, [entries]);
 
   const fetchEntries = async () => {
     try {
       setIsLoading(true);
-      const params = new URLSearchParams();
-      params.append("school_year_id", yearId);
-      if (filterType !== "all") params.append("type", filterType);
-      const res = await api.get<{
-        items: SchoolCalendarEntry[];
-        total: number;
-      }>(`${ENDPOINTS.SCHOOL_CALENDAR}?${params.toString()}`);
+      const res = await api.get<{ items: SchoolCalendarEntry[] }>(
+        `${ENDPOINTS.SCHOOL_CALENDAR}?school_year_id=${yearId}`
+      );
       setEntries(res.items || []);
     } catch {
-      // Error silencioso
+      // silent
     } finally {
       setIsLoading(false);
     }
@@ -104,309 +98,277 @@ export default function CalendarPage() {
 
   useEffect(() => {
     fetchEntries();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearId, filterType]);
+  }, [yearId]);
 
-  const openCreateModal = () => {
-    setEditingEntry(null);
-    reset({
-      date: new Date().toISOString().slice(0, 10),
-      type: "holiday",
-      name: "",
-    });
-    setError(null);
+  const openDayModal = (dateKey: string) => {
+    setSelectedDate(dateKey);
+    const existing = entriesByDate.get(dateKey);
+    if (existing) {
+      setExistingEntry(existing);
+      setSelectedType(existing.type);
+      setSelectedName(existing.name || "");
+    } else {
+      setExistingEntry(null);
+      setSelectedType("holiday");
+      setSelectedName("");
+    }
     setIsModalOpen(true);
   };
 
-  const openEditModal = (entry: SchoolCalendarEntry) => {
-    setEditingEntry(entry);
-    const dateStr = new Date(entry.date).toISOString().slice(0, 10);
-    reset({
-      date: dateStr,
-      type: entry.type,
-      name: entry.name || "",
-    });
-    setError(null);
-    setIsModalOpen(true);
-  };
-
-  const onSubmit = async (data: CalendarFormData) => {
-    setError(null);
+  const handleSave = async () => {
     setIsSubmitting(true);
     try {
-      if (editingEntry) {
-        // Update — el backend solo permite type/name/is_active.
-        // Para cambiar la fecha hay que eliminar y crear de nuevo.
-        await api.put(`${ENDPOINTS.SCHOOL_CALENDAR}/${editingEntry._id}`, {
-          type: data.type,
-          name: data.name || null,
+      if (existingEntry) {
+        // Update type/name
+        await api.put(`${ENDPOINTS.SCHOOL_CALENDAR}/${existingEntry._id}`, {
+          type: selectedType,
+          name: selectedName || null,
         });
       } else {
         // Create
         await api.post(ENDPOINTS.SCHOOL_CALENDAR, {
           school: schoolId,
           school_year_id: yearId,
-          date: data.date,
-          type: data.type,
-          name: data.name || null,
+          date: selectedDate,
+          type: selectedType,
+          name: selectedName || null,
         });
       }
       setIsModalOpen(false);
-      setEditingEntry(null);
       fetchEntries();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al guardar el registro"
-      );
+    } catch {
+      // silent
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deletingEntry) return;
+    if (!existingEntry) return;
     try {
-      await api.delete(`${ENDPOINTS.SCHOOL_CALENDAR}/${deletingEntry._id}`);
-      setDeletingEntry(null);
+      await api.delete(`${ENDPOINTS.SCHOOL_CALENDAR}/${existingEntry._id}`);
+      setIsModalOpen(false);
       fetchEntries();
-    } catch (err) {
-      console.error("Error deleting calendar entry:", err);
-      setDeletingEntry(null);
+    } catch {
+      // silent
     }
   };
 
-  // Formatear fecha para mostrar
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("es-MX", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
+  const prevMonth = () => {
+    setCurrentMonth((prev) => {
+      if (prev.month === 0) return { year: prev.year - 1, month: 11 };
+      return { year: prev.year, month: prev.month - 1 };
     });
   };
 
-  // Agrupar por mes para mejor UX
-  const groupedByMonth = entries.reduce<
-    Record<string, SchoolCalendarEntry[]>
-  >((acc, entry) => {
-    const d = new Date(entry.date);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(entry);
-    return acc;
-  }, {});
-
-  const sortedMonths = Object.keys(groupedByMonth).sort();
-  const monthLabel = (key: string) => {
-    const [year, month] = key.split("-");
-    const d = new Date(parseInt(year), parseInt(month) - 1, 1);
-    return d.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+  const nextMonth = () => {
+    setCurrentMonth((prev) => {
+      if (prev.month === 11) return { year: prev.year + 1, month: 0 };
+      return { year: prev.year, month: prev.month + 1 };
+    });
   };
 
+  // Build calendar grid
+  const calendarDays = useMemo(() => {
+    const { year, month } = currentMonth;
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+    const cells: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    return cells;
+  }, [currentMonth]);
+
+  const monthLabel = new Date(currentMonth.year, currentMonth.month, 1).toLocaleDateString("es-MX", {
+    month: "long",
+    year: "numeric",
+  });
+
+  // Count by type for legend
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { holiday: 0, vacation: 0, suspension: 0, non_lectivo: 0 };
+    for (const e of entries) c[e.type] = (c[e.type] || 0) + 1;
+    return c;
+  }, [entries]);
+
   if (isLoading) {
-    return <LoadingState message="Cargando..." height="page" />;
+    return <LoadingState message="Cargando calendario..." height="page" />;
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Calendario Escolar"
-        subtitle="Días festivos, vacaciones, suspensiones y no lectivos (afectan el cron de ausencias)."
-        action={{
-          label: "Nuevo Día",
-          onClick: openCreateModal,
-        }}
+        subtitle="Haz click en un día para marcarlo como festivo, vacaciones, suspensión o no lectivo."
       />
 
-      {/* Filtros por tipo */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setFilterType("all")}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            filterType === "all"
-              ? "bg-accent text-white"
-              : "bg-slate-100 text-text-secondary hover:bg-slate-200"
-          }`}
-        >
-          Todos
-        </button>
-        {(Object.keys(TYPE_LABELS) as Array<keyof typeof TYPE_LABELS>).map(
-          (type) => {
-            const colors = TYPE_COLORS[type];
+      {/* Calendar */}
+      <div className="bg-white rounded-2xl border border-border shadow-sm p-4 sm:p-6">
+        {/* Month navigation */}
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={prevMonth}
+            className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <ChevronLeft size={20} className="text-text-secondary" />
+          </button>
+          <h3 className="text-lg font-semibold text-text-primary capitalize">
+            {monthLabel}
+          </h3>
+          <button
+            onClick={nextMonth}
+            className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <ChevronRight size={20} className="text-text-secondary" />
+          </button>
+        </div>
+
+        {/* Day headers */}
+        <div className="grid grid-cols-7 gap-1 mb-1">
+          {DAY_NAMES.map((name) => (
+            <div
+              key={name}
+              className="text-center text-xs font-semibold text-text-muted py-2"
+            >
+              {name}
+            </div>
+          ))}
+        </div>
+
+        {/* Day grid */}
+        <div className="grid grid-cols-7 gap-1">
+          {calendarDays.map((day, i) => {
+            if (day === null) {
+              return <div key={`empty-${i}`} className="aspect-square" />;
+            }
+
+            const dateKey = `${currentMonth.year}-${String(currentMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const entry = entriesByDate.get(dateKey);
+            const colors = entry ? TYPE_COLORS[entry.type] : null;
+            const isToday = dateKey === toKey(new Date());
+
             return (
               <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  filterType === type
-                    ? `${colors.bg} ${colors.text} ring-2 ring-current`
-                    : "bg-slate-100 text-text-secondary hover:bg-slate-200"
-                }`}
+                key={dateKey}
+                onClick={() => openDayModal(dateKey)}
+                className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm transition-all relative ${
+                  entry
+                    ? `${colors!.bg} ${colors!.text} font-semibold border ${colors!.border}`
+                    : "hover:bg-slate-100 text-text-primary"
+                } ${isToday ? "ring-2 ring-sky-500" : ""}`}
               >
-                {TYPE_LABELS[type]}
+                <span>{day}</span>
+                {entry && (
+                  <span className="text-[9px] leading-none mt-0.5 truncate max-w-full px-0.5">
+                    {TYPE_LABELS[entry.type]}
+                  </span>
+                )}
               </button>
-            );
-          }
-        )}
-      </div>
-
-      {error && (
-        <div className="p-3 rounded-xl bg-error-light text-error text-sm">
-          {error}
-        </div>
-      )}
-
-      {entries.length === 0 ? (
-        <EmptyState
-          icon={<Calendar size={48} />}
-          title="No hay días configurados"
-          description="Marca los días festivos, vacaciones y suspensiones del ciclo escolar. Esto evita que el cron de ausencias marque faltas esos días."
-          action={{
-            label: "Agregar Primer Día",
-            onClick: openCreateModal,
-          }}
-        />
-      ) : (
-        <div className="space-y-6">
-          {sortedMonths.map((monthKey) => {
-            const monthEntries = groupedByMonth[monthKey];
-            return (
-              <div key={monthKey}>
-                <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3">
-                  {monthLabel(monthKey)}
-                </h3>
-                <div className="space-y-2">
-                  {monthEntries.map((entry) => {
-                    const colors = TYPE_COLORS[entry.type];
-                    return (
-                      <Card key={entry._id}>
-                        <CardBody className="!p-4">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-slate-50 shrink-0">
-                                <span className="text-xs text-text-secondary uppercase font-medium">
-                                  {new Date(entry.date)
-                                    .toLocaleDateString("es-MX", {
-                                      month: "short",
-                                    })
-                                    .replace(".", "")}
-                                </span>
-                                <span className="text-2xl font-bold text-text-primary leading-none">
-                                  {new Date(entry.date).getDate()}
-                                </span>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span
-                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${colors.bg} ${colors.text}`}
-                                  >
-                                    {TYPE_LABELS[entry.type]}
-                                  </span>
-                                </div>
-                                {entry.name && (
-                                  <p className="font-medium text-text-primary truncate">
-                                    {entry.name}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                onClick={() => openEditModal(entry)}
-                                className="p-2 rounded-lg hover:bg-slate-100 text-text-secondary hover:text-accent-dark transition-colors"
-                                title="Editar"
-                              >
-                                <Pencil size={16} />
-                              </button>
-                              <button
-                                onClick={() => setDeletingEntry(entry)}
-                                className="p-2 rounded-lg hover:bg-error/10 text-text-secondary hover:text-error transition-colors"
-                                title="Eliminar"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        </CardBody>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* Modal de crear/editar */}
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3">
+        {(Object.keys(TYPE_LABELS) as Array<keyof typeof TYPE_LABELS>).map((type) => {
+          const colors = TYPE_COLORS[type];
+          return (
+            <div key={type} className="flex items-center gap-2">
+              <div className={`w-4 h-4 rounded ${colors.bg} border ${colors.border}`} />
+              <span className="text-sm text-text-secondary">
+                {TYPE_LABELS[type]}
+                {counts[type] > 0 && (
+                  <span className="ml-1 text-text-muted">({counts[type]})</span>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Day modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingEntry ? "Editar Día" : "Nuevo Día"}
+        title={existingEntry ? "Editar Día" : "Marcar Día"}
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {error && (
-            <div className="p-3 rounded-xl bg-error-light text-error text-sm">
-              {error}
-            </div>
-          )}
-
-          <Input
-            label="Fecha"
-            type="date"
-            error={errors.date?.message}
-            disabled={!!editingEntry}
-            {...register("date")}
-          />
-          {editingEntry && (
-            <p className="text-xs text-text-secondary -mt-2">
-              Para cambiar la fecha, elimina este registro y crea uno nuevo.
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">
+              Fecha
+            </label>
+            <p className="text-sm text-text-secondary">
+              {selectedDate &&
+                parseKey(selectedDate).toLocaleDateString("es-MX", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
             </p>
-          )}
+          </div>
 
-          <Select
-            label="Tipo"
-            options={[
-              { value: "holiday", label: "Festivo (día feriado oficial)" },
-              { value: "vacation", label: "Vacaciones (receso escolar)" },
-              { value: "suspension", label: "Suspensión (clima, seguridad, etc.)" },
-              { value: "non_lectivo", label: "No lectivo (fin de semana especial)" },
-            ]}
-            error={errors.type?.message}
-            {...register("type")}
-          />
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">
+              Tipo de día
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(TYPE_LABELS) as Array<keyof typeof TYPE_LABELS>).map(
+                (type) => {
+                  const colors = TYPE_COLORS[type];
+                  const isSelected = selectedType === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setSelectedType(type)}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                        isSelected
+                          ? `${colors.bg} ${colors.border} border-2`
+                          : "border-border hover:border-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`text-sm font-medium ${
+                          isSelected ? colors.text : "text-text-primary"
+                        }`}
+                      >
+                        {TYPE_LABELS[type]}
+                      </span>
+                    </button>
+                  );
+                }
+              )}
+            </div>
+          </div>
 
           <Input
-            label="Nombre descriptivo (opcional)"
-            placeholder="Día de muertos, Vacaciones de Navidad..."
-            error={errors.name?.message}
-            {...register("name")}
+            label="Nombre (opcional)"
+            placeholder="Día de muertos, Vacaciones navidad..."
+            value={selectedName}
+            onChange={(e) => setSelectedName(e.target.value)}
           />
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" variant="sky" isLoading={isSubmitting}>
-              {editingEntry ? "Guardar cambios" : "Crear"}
-            </Button>
+          <div className="flex justify-between pt-2">
+            {existingEntry ? (
+              <Button variant="danger" onClick={handleDelete}>
+                <Trash2 size={14} className="mr-1" />
+                Eliminar
+              </Button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button variant="sky" onClick={handleSave} isLoading={isSubmitting}>
+                {existingEntry ? "Guardar" : "Marcar"}
+              </Button>
+            </div>
           </div>
-        </form>
+        </div>
       </Modal>
-
-      {/* Confirm dialog de eliminar */}
-      <ConfirmDialog
-        isOpen={!!deletingEntry}
-        onClose={() => setDeletingEntry(null)}
-        onConfirm={handleDelete}
-        title="Eliminar día"
-        message={`¿Estás seguro de eliminar "${
-          deletingEntry?.name ||
-          TYPE_LABELS[deletingEntry?.type || "holiday"]
-        }" del ${deletingEntry ? formatDate(deletingEntry.date) : ""}?`}
-        confirmLabel="Eliminar"
-        cancelLabel="Cancelar"
-      />
     </div>
   );
 }
