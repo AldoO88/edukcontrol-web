@@ -169,7 +169,7 @@ export default function GroupsPage() {
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="font-semibold text-text-primary text-lg">
-                            {group.section}
+                            {group.grade}° {group.section}
                           </h3>
                           <p className="text-sm text-text-secondary mt-1">
                             {group.shift === "matutino" ? "Matutino" : "Vespertino"}
@@ -202,9 +202,7 @@ export default function GroupsPage() {
         onClose={() => setSelectedGroup(null)}
         title={
           selectedGroup
-            ? selectedGroup.type === "taller"
-              ? `${selectedGroup.section} — Alumnos`
-              : `${selectedGroup.grade}° ${selectedGroup.section} — Alumnos`
+            ? `${selectedGroup.grade}° ${selectedGroup.section} — Alumnos`
             : "Alumnos"
         }
       >

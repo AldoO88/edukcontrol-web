@@ -146,7 +146,7 @@ export default function AssignWorkshopPage() {
 
   const getTallerName = (groupId: string) => {
     const g = talleres.find((t) => t._id === groupId);
-    return g?.section || "Desconocido";
+    return g ? `${g.grade}° ${g.section}` : "Desconocido";
   };
 
   if (isLoading) {
@@ -209,7 +209,7 @@ export default function AssignWorkshopPage() {
                   <CardBody>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-text-primary">{count}</p>
-                      <p className="text-sm text-text-secondary">{t.section}</p>
+                      <p className="text-sm text-text-secondary">{t.grade}° {t.section}</p>
                     </div>
                   </CardBody>
                 </Card>
@@ -228,7 +228,7 @@ export default function AssignWorkshopPage() {
                   <Select
                     options={[
                       { value: "", label: "Seleccionar taller..." },
-                      ...talleres.map((t) => ({ value: t._id, label: t.section })),
+                      ...talleres.map((t) => ({ value: t._id, label: `${t.grade}° ${t.section}` })),
                     ]}
                     value={bulkTaller}
                     onChange={(e) => setBulkTaller(e.target.value)}
@@ -335,7 +335,7 @@ export default function AssignWorkshopPage() {
                               { value: "", label: "Sin taller" },
                               ...talleres.map((t) => ({
                                 value: t._id,
-                                label: t.section,
+                                label: `${t.grade}° ${t.section}`,
                               })),
                             ]}
                             value={student.workshop_group_id || ""}

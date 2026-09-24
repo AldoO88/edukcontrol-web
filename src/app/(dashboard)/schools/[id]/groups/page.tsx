@@ -305,7 +305,7 @@ export default function SchoolGroupsPage() {
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-semibold text-text-primary truncate">
-                            {tpl.section}
+                            {tpl.grade}° {tpl.section}
                           </h3>
                           <p className="text-sm text-text-secondary capitalize">
                             {tpl.shift}
@@ -363,29 +363,20 @@ export default function SchoolGroupsPage() {
             {...register("type")}
           />
 
-          {watchedType === "regular" ? (
-            <div className="grid grid-cols-2 gap-4">
-              <Select
-                label="Grado"
-                options={gradeOptions}
-                error={errors.grade?.message}
-                {...register("grade")}
-              />
-              <Input
-                label="Sección"
-                placeholder="A, B, C..."
-                error={errors.section?.message}
-                {...register("section")}
-              />
-            </div>
-          ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Grado"
+              options={gradeOptions}
+              error={errors.grade?.message}
+              {...register("grade")}
+            />
             <Input
-              label="Nombre del Taller"
-              placeholder="Electrónica, Informática..."
+              label={watchedType === "taller" ? "Nombre del Taller" : "Sección"}
+              placeholder={watchedType === "taller" ? "Ofimática, Electrónica..." : "A, B, C..."}
               error={errors.section?.message}
               {...register("section")}
             />
-          )}
+          </div>
 
           <Select
             label="Turno"
