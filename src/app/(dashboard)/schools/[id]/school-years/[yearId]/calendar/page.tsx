@@ -324,7 +324,10 @@ export default function CalendarPage() {
                 return (
                   <button
                     key={type}
-                    onClick={() => setSelectedType(type)}
+                    onClick={() => {
+                      setSelectedType(type);
+                      if (type !== "vacation") setDateTo("");
+                    }}
                     className={`p-3 rounded-xl border-2 text-left transition-all ${
                       isSelected
                         ? `${colors.bg} ${colors.border}`
@@ -343,22 +346,34 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Date range */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Date range — solo vacaciones usa rango; los demás son día único */}
+          {selectedType === "vacation" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Desde"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+              <Input
+                label="Hasta"
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                min={dateFrom || undefined}
+              />
+            </div>
+          ) : (
             <Input
-              label="Desde"
+              label="Fecha"
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setDateTo("");
+              }}
             />
-            <Input
-              label="Hasta"
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              min={dateFrom || undefined}
-            />
-          </div>
+          )}
 
           <Input
             label="Nombre (opcional)"
