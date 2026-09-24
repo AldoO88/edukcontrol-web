@@ -175,18 +175,18 @@ export default function CalendarPage() {
   };
 
   // Determine year range from school year
-  const startYear = schoolYear ? new Date(schoolYear.startDate).getFullYear() : new Date().getFullYear();
-  const endYear = schoolYear ? new Date(schoolYear.endDate).getFullYear() : startYear + 1;
+  const startYear = schoolYear ? new Date(schoolYear.startDate.slice(0, 10)).getFullYear() : new Date().getFullYear();
+  const endYear = schoolYear ? new Date(schoolYear.endDate.slice(0, 10)).getFullYear() : startYear + 1;
 
-  const startKey = schoolYear ? toKey(new Date(schoolYear.startDate).getFullYear(), new Date(schoolYear.startDate).getMonth(), new Date(schoolYear.startDate).getDate()) : "";
-  const endKey = schoolYear ? toKey(new Date(schoolYear.endDate).getFullYear(), new Date(schoolYear.endDate).getMonth(), new Date(schoolYear.endDate).getDate()) : "";
+  const startKey = schoolYear ? toKey(new Date(schoolYear.startDate.slice(0, 10)).getFullYear(), new Date(schoolYear.startDate.slice(0, 10)).getMonth(), new Date(schoolYear.startDate.slice(0, 10)).getDate()) : "";
+  const endKey = schoolYear ? toKey(new Date(schoolYear.endDate.slice(0, 10)).getFullYear(), new Date(schoolYear.endDate.slice(0, 10)).getMonth(), new Date(schoolYear.endDate.slice(0, 10)).getDate()) : "";
 
   // Generate all months to display
   const months = useMemo(() => {
     const result: { year: number; month: number }[] = [];
     for (let y = startYear; y <= endYear; y++) {
-      const mStart = y === startYear ? new Date(schoolYear?.startDate || "").getMonth() : 0;
-      const mEnd = y === endYear ? new Date(schoolYear?.endDate || "").getMonth() : 11;
+      const mStart = y === startYear ? new Date(schoolYear?.startDate?.slice(0, 10) || "").getMonth() : 0;
+      const mEnd = y === endYear ? new Date(schoolYear?.endDate?.slice(0, 10) || "").getMonth() : 11;
       for (let m = mStart; m <= mEnd; m++) {
         result.push({ year: y, month: m });
       }
@@ -318,8 +318,8 @@ export default function CalendarPage() {
               onClick={() => {
                 setSelectedType("non_lectivo");
                 if (schoolYear) {
-                  setDateFrom(new Date(schoolYear.startDate).toISOString().slice(0, 10));
-                  setDateTo(new Date(schoolYear.endDate).toISOString().slice(0, 10));
+                  setDateFrom(schoolYear.startDate.slice(0, 10));
+                  setDateTo(schoolYear.endDate.slice(0, 10));
                 }
                 setWeekendOnly(true);
                 setEntryName("Fin de semana");

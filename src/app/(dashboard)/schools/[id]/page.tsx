@@ -128,11 +128,9 @@ export default function SchoolOverviewPage() {
   const openEditYearModal = (year: SchoolYear) => {
     setEditingYear(year);
     setEditYearName(year.name);
-    // Use local dates to avoid timezone shift
-    const start = new Date(year.startDate);
-    const end = new Date(year.endDate);
-    setEditYearStart(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`);
-    setEditYearEnd(`${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`);
+    // Extract YYYY-MM-DD from ISO string to avoid timezone shift
+    setEditYearStart(year.startDate.slice(0, 10));
+    setEditYearEnd(year.endDate.slice(0, 10));
     setIsEditYearModalOpen(true);
   };
 

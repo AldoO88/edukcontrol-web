@@ -102,8 +102,8 @@ export default function SchoolYearOverviewPage() {
                   Ciclo {schoolYear.name}
                 </h2>
                 <p className="text-sm text-text-secondary">
-                  {new Date(schoolYear.startDate).toLocaleDateString("es-MX")} —{" "}
-                  {new Date(schoolYear.endDate).toLocaleDateString("es-MX")}
+                  {new Date(schoolYear.startDate.slice(0, 10)).toLocaleDateString("es-MX")} —{" "}
+                  {new Date(schoolYear.endDate.slice(0, 10)).toLocaleDateString("es-MX")}
                 </p>
               </div>
               <div className="ml-auto">
