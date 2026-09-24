@@ -1,7 +1,6 @@
 // Accesos rápidos del dashboard
 
 import {
-  GraduationCap,
   Users,
   BookOpen,
   Calendar,
@@ -18,13 +17,6 @@ interface QuickAction {
 }
 
 const ACTIONS: QuickAction[] = [
-  {
-    label: "Inscribir Alumno",
-    href: "/students/new",
-    icon: <GraduationCap size={20} />,
-    color: "text-accent-dark",
-    bgColor: "bg-accent/10",
-  },
   {
     label: "Registrar Maestro",
     href: "/teachers/new",
