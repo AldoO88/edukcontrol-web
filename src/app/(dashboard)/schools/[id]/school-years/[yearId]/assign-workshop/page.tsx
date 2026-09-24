@@ -46,7 +46,7 @@ export default function AssignWorkshopPage() {
     try {
       const [studentsRes, groupsRes] = await Promise.all([
         api.get<{ items: Student[] } | Student[]>(
-          `${ENDPOINTS.STUDENTS}?school_year_id=${yearId}&status=active&limit=500`
+          `${ENDPOINTS.STUDENTS}?status=active&limit=500`
         ),
         api.get<Group[]>(
           `${ENDPOINTS.GROUPS}?school_year_id=${yearId}`
