@@ -23,8 +23,6 @@ const FIRST_LEVEL_LABELS: Record<string, string> = {
 // Tags legibles para slugs específicos en niveles profundos.
 // El user puede sobreescribir con un map pasado por prop.
 const DEFAULT_LABEL_BY_SECTION: Record<string, string> = {
-  "school-years": "Ciclos Escolares",
-  "school-year": "Ciclo Escolar",
   teachers: "Maestros",
   groups: "Grupos",
   subjects: "Materias",
@@ -43,6 +41,9 @@ const DEFAULT_LABEL_BY_SECTION: Record<string, string> = {
   bulk: "Carga Masiva",
   import: "Importar",
 };
+
+// Segmentos que se saltan al generar el breadcrumb (no se muestran).
+const SKIP_SEGMENTS = new Set(["school-years"]);
 
 interface BreadcrumbItem {
   label: string;
@@ -173,8 +174,10 @@ export function Breadcrumb({
   for (let i = 0; i < workingSegments.length; i++) {
     const seg = workingSegments[i];
     parentPath += `/${seg}`;
-    // Saltar segmentos que son solo IDs puros cuando no hay override
-    // (los labels por defecto ya cubren esto en labelForSegment).
+
+    // Saltar segmentos que no deben mostrarse en el breadcrumb
+    if (SKIP_SEGMENTS.has(seg)) continue;
+
     const isLast = i === workingSegments.length - 1;
 
     // Buscar override explícito
