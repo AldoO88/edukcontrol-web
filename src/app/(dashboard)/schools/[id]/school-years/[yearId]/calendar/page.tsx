@@ -42,6 +42,11 @@ function toKey(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+function parseDateKey(key: string): { year: number; month: number; day: number } {
+  const [y, m, d] = key.split("-").map(Number);
+  return { year: y, month: m - 1, day: d };
+}
+
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
@@ -72,7 +77,7 @@ export default function CalendarPage() {
   const entriesByDate = useMemo(() => {
     const map = new Map<string, SchoolCalendarEntry>();
     for (const e of entries) {
-      map.set(new Date(e.date).toISOString().slice(0, 10), e);
+      map.set(e.date.slice(0, 10), e);
     }
     return map;
   }, [entries]);
@@ -112,7 +117,7 @@ export default function CalendarPage() {
   const openEditModal = (entry: SchoolCalendarEntry) => {
     setEditingEntry(entry);
     setSelectedType(entry.type);
-    const d = new Date(entry.date).toISOString().slice(0, 10);
+    const d = entry.date.slice(0, 10);
     setDateFrom(d);
     setDateTo(d);
     setEntryName(entry.name || "");
@@ -124,8 +129,8 @@ export default function CalendarPage() {
     setIsSubmitting(true);
     try {
       const endDate = dateTo || dateFrom;
-      const start = new Date(dateFrom);
-      const end = new Date(endDate);
+      const { year: sy, month: sm, day: sd } = parseDateKey(dateFrom);
+      const { year: ey, month: em, day: ed } = parseDateKey(endDate);
 
       if (editingEntry) {
         // Single day edit
@@ -135,23 +140,24 @@ export default function CalendarPage() {
         });
       } else {
         // Create entries for each day in range
-        const current = new Date(start);
-        while (current <= end) {
-          const dow = current.getDay(); // 0=Sun, 6=Sat
-          // If weekendOnly, skip weekdays
+        let cy = sy, cm = sm, cd = sd;
+        while (cy < ey || (cy === ey && cm < em) || (cy === ey && cm === em && cd <= ed)) {
+          const dow = new Date(cy, cm, cd).getDay();
           if (weekendOnly && dow !== 0 && dow !== 6) {
-            current.setDate(current.getDate() + 1);
+            cd++;
+            if (cd > getDaysInMonth(cy, cm)) { cd = 1; cm++; if (cm > 11) { cm = 0; cy++; } }
             continue;
           }
-          const dateStr = toKey(current.getFullYear(), current.getMonth(), current.getDate());
+          const dateStr = toKey(cy, cm, cd);
           await api.post(ENDPOINTS.SCHOOL_CALENDAR, {
             school: schoolId,
             school_year_id: yearId,
             date: dateStr,
             type: selectedType,
             name: entryName || null,
-          }).catch(() => {}); // skip duplicates
-          current.setDate(current.getDate() + 1);
+          }).catch(() => {});
+          cd++;
+          if (cd > getDaysInMonth(cy, cm)) { cd = 1; cm++; if (cm > 11) { cm = 0; cy++; } }
         }
       }
       setIsModalOpen(false);
@@ -174,19 +180,21 @@ export default function CalendarPage() {
     }
   };
 
-  // Determine year range from school year
-  const startYear = schoolYear ? new Date(schoolYear.startDate.slice(0, 10)).getFullYear() : new Date().getFullYear();
-  const endYear = schoolYear ? new Date(schoolYear.endDate.slice(0, 10)).getFullYear() : startYear + 1;
+  // Determine year range from school year (parse dates without new Date to avoid UTC shift)
+  const startYear = schoolYear ? parseDateKey(schoolYear.startDate.slice(0, 10)).year : new Date().getFullYear();
+  const endYear = schoolYear ? parseDateKey(schoolYear.endDate.slice(0, 10)).year : startYear + 1;
 
-  const startKey = schoolYear ? toKey(new Date(schoolYear.startDate.slice(0, 10)).getFullYear(), new Date(schoolYear.startDate.slice(0, 10)).getMonth(), new Date(schoolYear.startDate.slice(0, 10)).getDate()) : "";
-  const endKey = schoolYear ? toKey(new Date(schoolYear.endDate.slice(0, 10)).getFullYear(), new Date(schoolYear.endDate.slice(0, 10)).getMonth(), new Date(schoolYear.endDate.slice(0, 10)).getDate()) : "";
+  const startKey = schoolYear ? schoolYear.startDate.slice(0, 10) : "";
+  const endKey = schoolYear ? schoolYear.endDate.slice(0, 10) : "";
 
   // Generate all months to display
   const months = useMemo(() => {
     const result: { year: number; month: number }[] = [];
+    const { month: sm } = parseDateKey(schoolYear?.startDate?.slice(0, 10) || "2026-01-01");
+    const { month: em } = parseDateKey(schoolYear?.endDate?.slice(0, 10) || "2026-12-31");
     for (let y = startYear; y <= endYear; y++) {
-      const mStart = y === startYear ? new Date(schoolYear?.startDate?.slice(0, 10) || "").getMonth() : 0;
-      const mEnd = y === endYear ? new Date(schoolYear?.endDate?.slice(0, 10) || "").getMonth() : 11;
+      const mStart = y === startYear ? sm : 0;
+      const mEnd = y === endYear ? em : 11;
       for (let m = mStart; m <= mEnd; m++) {
         result.push({ year: y, month: m });
       }
