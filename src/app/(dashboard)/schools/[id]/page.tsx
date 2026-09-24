@@ -412,8 +412,8 @@ export default function SchoolOverviewPage() {
                         )}
                       </div>
                       <p className="text-sm text-text-secondary">
-                        {new Date(year.startDate).toLocaleDateString("es-MX")} —{" "}
-                        {new Date(year.endDate).toLocaleDateString("es-MX")}
+                        {new Date(year.startDate.slice(0, 10)).toLocaleDateString("es-MX")} —{" "}
+                        {new Date(year.endDate.slice(0, 10)).toLocaleDateString("es-MX")}
                       </p>
                     </div>
                     <button
