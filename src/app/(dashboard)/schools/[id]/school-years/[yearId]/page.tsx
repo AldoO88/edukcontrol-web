@@ -72,7 +72,7 @@ export default function SchoolYearOverviewPage() {
     {
       title: "2. Personal y Asignaciones",
       links: [
-        { label: "Maestros", href: "teachers", icon: <Users size={20} />, color: "text-amber-600", bgColor: "bg-amber-100" },
+        { label: "Personal", href: "personal", icon: <Users size={20} />, color: "text-amber-600", bgColor: "bg-amber-100" },
         { label: "Asignar Materias", href: "teacher-subjects", icon: <UserCheck size={20} />, color: "text-violet-600", bgColor: "bg-violet-100" },
       ],
     },
