@@ -13,7 +13,7 @@ import type { SchoolYear } from "@/lib/types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, Calendar, AlertTriangle } from "lucide-react";
+import { Plus, Calendar, AlertTriangle } from "lucide-react";
 
 const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
@@ -24,12 +24,6 @@ const schoolYearSchema = z.object({
 });
 
 type FormShape = z.infer<typeof schoolYearSchema>;
-
-interface NonSchoolDay {
-  date: string;
-  type: "holiday" | "vacation" | "suspension";
-  name: string;
-}
 
 interface CreateSchoolYearModalProps {
   isOpen: boolean;
@@ -49,7 +43,6 @@ export function CreateSchoolYearModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const [nonSchoolDays, setNonSchoolDays] = useState<NonSchoolDay[]>([]);
 
   const hasActiveYear = existingYears.some((y) => y.isActive);
 
@@ -72,27 +65,6 @@ export function CreateSchoolYearModal({
     );
   };
 
-  const addNonSchoolDay = () => {
-    setNonSchoolDays((prev) => [
-      ...prev,
-      { date: "", type: "holiday", name: "" },
-    ]);
-  };
-
-  const updateNonSchoolDay = (
-    index: number,
-    field: keyof NonSchoolDay,
-    value: string
-  ) => {
-    setNonSchoolDays((prev) =>
-      prev.map((d, i) => (i === index ? { ...d, [field]: value } : d))
-    );
-  };
-
-  const removeNonSchoolDay = (index: number) => {
-    setNonSchoolDays((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const onSubmit = async (data: FormShape) => {
     setError(null);
 
@@ -111,21 +83,31 @@ export function CreateSchoolYearModal({
         workingDays,
       });
 
-      // Save non-school days to SchoolCalendar
-      const validDays = nonSchoolDays.filter((d) => d.date);
-      for (const day of validDays) {
-        await api.post(ENDPOINTS.SCHOOL_CALENDAR, {
-          school_year_id: newYear._id,
-          date: day.date,
-          type: day.type,
-          name: day.name || undefined,
-        }).catch(() => {});
+      // Auto-mark non-working days as non_lectivo in the calendar
+      const startParts = data.startDate.split("-").map(Number);
+      const endParts = data.endDate.split("-").map(Number);
+      let cy = startParts[0], cm = startParts[1] - 1, cd = startParts[2];
+      const ey = endParts[0], em = endParts[1] - 1, ed = endParts[2];
+
+      while (cy < ey || (cy === ey && cm < em) || (cy === ey && cm === em && cd <= ed)) {
+        const dow = new Date(cy, cm, cd).getDay();
+        if (!workingDays.includes(dow)) {
+          const dateStr = `${cy}-${String(cm + 1).padStart(2, "0")}-${String(cd).padStart(2, "0")}`;
+          await api.post(ENDPOINTS.SCHOOL_CALENDAR, {
+            school: schoolId,
+            school_year_id: newYear._id,
+            date: dateStr,
+            type: "non_lectivo",
+          }).catch(() => {});
+        }
+        cd++;
+        const daysInMonth = new Date(cy, cm + 1, 0).getDate();
+        if (cd > daysInMonth) { cd = 1; cm++; if (cm > 11) { cm = 0; cy++; } }
       }
 
       setIsSubmitting(false);
       reset();
       setWorkingDays([1, 2, 3, 4, 5]);
-      setNonSchoolDays([]);
       onCreated(newYear._id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear el ciclo");
@@ -137,7 +119,6 @@ export function CreateSchoolYearModal({
     reset();
     setError(null);
     setWorkingDays([1, 2, 3, 4, 5]);
-    setNonSchoolDays([]);
     onClose();
   };
 
@@ -194,77 +175,8 @@ export function CreateSchoolYearModal({
             ))}
           </div>
           <p className="text-xs text-text-muted mt-1.5">
-            Selecciona los días de la semana que son lectivos.
+            Los días no seleccionados se marcarán automáticamente como no lectivos en el calendario.
           </p>
-        </div>
-
-        {/* Días no lectivos */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-text-primary">
-              Días No Lectivos
-            </label>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={addNonSchoolDay}
-            >
-              <Plus size={14} className="mr-1" />
-              Agregar
-            </Button>
-          </div>
-
-          {nonSchoolDays.length === 0 ? (
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-50 text-text-muted text-sm">
-              <Calendar size={16} />
-              Sin días no lectivos registrados.
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {nonSchoolDays.map((day, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 rounded-xl border border-border bg-white"
-                >
-                  <Input
-                    type="date"
-                    value={day.date}
-                    onChange={(e) =>
-                      updateNonSchoolDay(index, "date", e.target.value)
-                    }
-                    className="flex-1"
-                  />
-                  <select
-                    value={day.type}
-                    onChange={(e) =>
-                      updateNonSchoolDay(index, "type", e.target.value)
-                    }
-                    className="px-3 py-2 rounded-xl border border-border text-sm bg-white"
-                  >
-                    <option value="holiday">Festivo</option>
-                    <option value="vacation">Receso</option>
-                    <option value="suspension">Suspensión</option>
-                  </select>
-                  <Input
-                    placeholder="Nombre (opc.)"
-                    value={day.name}
-                    onChange={(e) =>
-                      updateNonSchoolDay(index, "name", e.target.value)
-                    }
-                    className="flex-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeNonSchoolDay(index)}
-                    className="p-2 text-text-muted hover:text-error transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {hasActiveYear && (
