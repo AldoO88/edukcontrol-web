@@ -1,10 +1,11 @@
 // Página de Plantillas de Grupo a nivel Escuela
 // CRUD de GroupTemplates (sin ciclo escolar).
+// Soporta grupos regulares y talleres.
 // Al crear un SchoolYear, se clonan como Groups del año.
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -22,6 +23,7 @@ import { ENDPOINTS } from "@/lib/constants";
 import type { GroupTemplate } from "@/lib/types";
 import {
   ClipboardList,
+  Wrench,
   Search,
   ChevronLeft,
   Plus,
@@ -35,6 +37,7 @@ const templateSchema = z.object({
   grade: z.string().min(1, "Grado requerido"),
   section: z.string().min(1, "Sección requerida"),
   shift: z.string().min(1, "Turno requerido"),
+  type: z.enum(["regular", "taller"]),
 });
 
 type TemplateFormData = z.infer<typeof templateSchema>;
@@ -50,6 +53,11 @@ const shiftOptions = [
   { value: "", label: "Seleccionar turno" },
   { value: "matutino", label: "Matutino" },
   { value: "vespertino", label: "Vespertino" },
+];
+
+const typeOptions = [
+  { value: "regular", label: "Regular" },
+  { value: "taller", label: "Taller" },
 ];
 
 export default function SchoolGroupsPage() {
@@ -71,10 +79,14 @@ export default function SchoolGroupsPage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<TemplateFormData>({
     resolver: zodResolver(templateSchema),
+    defaultValues: { type: "regular" },
   });
+
+  const watchedType = watch("type");
 
   const fetchTemplates = async () => {
     try {
@@ -93,10 +105,10 @@ export default function SchoolGroupsPage() {
     fetchTemplates();
   }, [schoolId]);
 
-  const openCreateModal = () => {
+  const openCreateModal = (type: "regular" | "taller" = "regular") => {
     setEditingTemplate(null);
     setSubmitError(null);
-    reset({ grade: "", section: "", shift: "" });
+    reset({ grade: "", section: "", shift: "", type });
     setIsModalOpen(true);
   };
 
@@ -107,6 +119,7 @@ export default function SchoolGroupsPage() {
       grade: String(tpl.grade),
       section: tpl.section,
       shift: tpl.shift,
+      type: (tpl.type as "regular" | "taller") || "regular",
     });
     setIsModalOpen(true);
   };
@@ -119,6 +132,7 @@ export default function SchoolGroupsPage() {
         grade: parseInt(data.grade, 10),
         section: data.section.toUpperCase().trim(),
         shift: data.shift,
+        type: data.type,
         school: schoolId,
       };
 
@@ -140,6 +154,19 @@ export default function SchoolGroupsPage() {
     }
   };
 
+  const { regulares, talleres } = useMemo(() => {
+    const filtered = templates.filter((t) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      const label = t.type === "taller" ? t.section : `${t.grade}° ${t.section}`;
+      return label.toLowerCase().includes(q);
+    });
+    return {
+      regulares: filtered.filter((t) => t.type !== "taller"),
+      talleres: filtered.filter((t) => t.type === "taller"),
+    };
+  }, [templates, searchQuery]);
+
   if (isLoading) {
     return (
       <LoadingState message="Cargando plantillas de grupo..." height="page" />
@@ -156,13 +183,6 @@ export default function SchoolGroupsPage() {
     );
   }
 
-  const filtered = templates.filter((t) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const label = `${t.grade}° ${t.section}`;
-    return label.toLowerCase().includes(q);
-  });
-
   return (
     <div className="space-y-6">
       <Link
@@ -175,10 +195,10 @@ export default function SchoolGroupsPage() {
 
       <PageHeader
         title="Plantillas de Grupo"
-        subtitle={`${templates.length} grupo${templates.length !== 1 ? "s" : ""} definido${templates.length !== 1 ? "s" : ""}`}
+        subtitle={`${templates.length} plantilla${templates.length !== 1 ? "s" : ""} definida${templates.length !== 1 ? "s" : ""}`}
         action={{
-          label: "Nuevo Grupo",
-          onClick: openCreateModal,
+          label: "Nueva Plantilla",
+          onClick: () => openCreateModal(),
           icon: <Plus size={18} />,
         }}
       />
@@ -200,56 +220,134 @@ export default function SchoolGroupsPage() {
         <EmptyState
           icon={<ClipboardList size={48} />}
           title="No hay plantillas de grupo"
-          description="Crea los grupos que tendrá esta escuela. Al crear un ciclo escolar, se copiarán automáticamente."
+          description="Crea los grupos y talleres que tendrá esta escuela. Al crear un ciclo escolar, se copiarán automáticamente."
           action={{
-            label: "Crear Grupo",
-            onClick: openCreateModal,
+            label: "Crear Plantilla",
+            onClick: () => openCreateModal(),
           }}
         />
-      ) : filtered.length === 0 ? (
+      ) : regulares.length === 0 && talleres.length === 0 ? (
         <EmptyState
           icon={<Search size={48} />}
           title="Sin resultados"
           description="No se encontraron plantillas con ese criterio."
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((tpl) => (
-            <Card key={tpl._id} className="group relative">
-              <button
-                type="button"
-                onClick={() => openEditModal(tpl)}
-                className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-slate-100 text-text-muted hover:text-accent-dark transition-all cursor-pointer"
+        <>
+          {/* Grupos Regulares */}
+          {regulares.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
+                <ClipboardList size={18} className="text-violet-500" />
+                Grupos Regulares
+                <span className="text-xs font-normal text-text-muted bg-slate-100 px-2 py-0.5 rounded-full">
+                  {regulares.length}
+                </span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {regulares.map((tpl) => (
+                  <Card key={tpl._id} className="group relative hover:shadow-md transition-shadow">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(tpl)}
+                      className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-slate-100 text-text-muted hover:text-accent-dark transition-all cursor-pointer"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <CardBody>
+                      <div className="flex items-start gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-xl shrink-0">
+                          <ClipboardList size={18} className="text-violet-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-text-primary truncate">
+                            {tpl.grade}° {tpl.section}
+                          </h3>
+                          <p className="text-sm text-text-secondary capitalize">
+                            {tpl.shift}
+                          </p>
+                          <div className="mt-2">
+                            <Badge variant="slate">Regular</Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Talleres */}
+          {talleres.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
+                <Wrench size={18} className="text-amber-500" />
+                Talleres
+                <span className="text-xs font-normal text-text-muted bg-slate-100 px-2 py-0.5 rounded-full">
+                  {talleres.length}
+                </span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {talleres.map((tpl) => (
+                  <Card key={tpl._id} className="group relative hover:shadow-md transition-shadow">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(tpl)}
+                      className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-slate-100 text-text-muted hover:text-accent-dark transition-all cursor-pointer"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <CardBody>
+                      <div className="flex items-start gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 bg-amber-100 rounded-xl shrink-0">
+                          <Wrench size={18} className="text-amber-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-text-primary truncate">
+                            {tpl.section}
+                          </h3>
+                          <p className="text-sm text-text-secondary capitalize">
+                            {tpl.shift}
+                          </p>
+                          <div className="mt-2">
+                            <Badge variant="amber">Taller</Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Botón para crear taller cuando solo hay regulares */}
+          {regulares.length > 0 && talleres.length === 0 && !searchQuery && (
+            <div className="text-center pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openCreateModal("taller")}
               >
-                <Pencil size={14} />
-              </button>
-              <CardBody>
-                <div className="flex items-start gap-3">
-                  <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-xl shrink-0">
-                    <ClipboardList size={18} className="text-violet-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-text-primary truncate">
-                      {tpl.grade}° {tpl.section}
-                    </h3>
-                    <p className="text-sm text-text-secondary capitalize">
-                      {tpl.shift}
-                    </p>
-                    <div className="mt-2">
-                      <Badge variant="slate">Regular</Badge>
-                    </div>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-          ))}
-        </div>
+                <Wrench size={16} className="mr-1.5" />
+                Agregar Taller
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingTemplate ? "Editar Grupo" : "Nuevo Grupo"}
+        title={
+          editingTemplate
+            ? "Editar Plantilla"
+            : watchedType === "taller"
+              ? "Nuevo Taller"
+              : "Nuevo Grupo"
+        }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {submitError && (
@@ -258,20 +356,36 @@ export default function SchoolGroupsPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Grado"
-              options={gradeOptions}
-              error={errors.grade?.message}
-              {...register("grade")}
-            />
+          <Select
+            label="Tipo"
+            options={typeOptions}
+            error={errors.type?.message}
+            {...register("type")}
+          />
+
+          {watchedType === "regular" ? (
+            <div className="grid grid-cols-2 gap-4">
+              <Select
+                label="Grado"
+                options={gradeOptions}
+                error={errors.grade?.message}
+                {...register("grade")}
+              />
+              <Input
+                label="Sección"
+                placeholder="A, B, C..."
+                error={errors.section?.message}
+                {...register("section")}
+              />
+            </div>
+          ) : (
             <Input
-              label="Sección"
-              placeholder="A, B, C..."
+              label="Nombre del Taller"
+              placeholder="Electrónica, Informática..."
               error={errors.section?.message}
               {...register("section")}
             />
-          </div>
+          )}
 
           <Select
             label="Turno"
