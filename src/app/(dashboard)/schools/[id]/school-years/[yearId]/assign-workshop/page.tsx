@@ -329,19 +329,21 @@ export default function AssignWorkshopPage() {
                             {student.controlNumber}
                           </p>
                         </div>
-                        <Select
-                          options={[
-                            { value: "", label: "Sin taller" },
-                            ...talleres.map((t) => ({
-                              value: t._id,
-                              label: t.section,
-                            })),
-                          ]}
-                          value={student.workshop_group_id || ""}
-                          onChange={(e) =>
-                            assignSingle(student._id, e.target.value)
-                          }
-                        />
+                        <div className="w-44 shrink-0">
+                          <Select
+                            options={[
+                              { value: "", label: "Sin taller" },
+                              ...talleres.map((t) => ({
+                                value: t._id,
+                                label: t.section,
+                              })),
+                            ]}
+                            value={student.workshop_group_id || ""}
+                            onChange={(e) =>
+                              assignSingle(student._id, e.target.value)
+                            }
+                          />
+                        </div>
                       </div>
                     </CardBody>
                   </Card>
