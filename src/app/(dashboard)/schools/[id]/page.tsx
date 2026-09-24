@@ -71,6 +71,14 @@ export default function SchoolOverviewPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Edit year modal state
+  const [editingYear, setEditingYear] = useState<SchoolYear | null>(null);
+  const [editYearName, setEditYearName] = useState("");
+  const [editYearStart, setEditYearStart] = useState("");
+  const [editYearEnd, setEditYearEnd] = useState("");
+  const [isEditYearModalOpen, setIsEditYearModalOpen] = useState(false);
+  const [isSavingYear, setIsSavingYear] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -114,6 +122,32 @@ export default function SchoolOverviewPage() {
       fetchData();
     } catch (err) {
       // Error silencioso
+    }
+  };
+
+  const openEditYearModal = (year: SchoolYear) => {
+    setEditingYear(year);
+    setEditYearName(year.name);
+    setEditYearStart(new Date(year.startDate).toISOString().slice(0, 10));
+    setEditYearEnd(new Date(year.endDate).toISOString().slice(0, 10));
+    setIsEditYearModalOpen(true);
+  };
+
+  const handleSaveYear = async () => {
+    if (!editingYear) return;
+    setIsSavingYear(true);
+    try {
+      await api.put(`${ENDPOINTS.SCHOOL_YEARS}/${editingYear._id}`, {
+        name: editYearName,
+        startDate: editYearStart,
+        endDate: editYearEnd,
+      });
+      setIsEditYearModalOpen(false);
+      fetchData();
+    } catch {
+      // silent
+    } finally {
+      setIsSavingYear(false);
     }
   };
 
@@ -379,6 +413,13 @@ export default function SchoolOverviewPage() {
                         {new Date(year.endDate).toLocaleDateString("es-MX")}
                       </p>
                     </div>
+                    <button
+                      onClick={() => openEditYearModal(year)}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-text-muted hover:text-accent-dark transition-colors"
+                      title="Editar ciclo"
+                    >
+                      <Pencil size={14} />
+                    </button>
                   </div>
                   <div className="mt-3 flex gap-2">
                     {year.isActive ? (
@@ -566,6 +607,60 @@ export default function SchoolOverviewPage() {
         schoolId={schoolId}
         existingYears={years}
       />
+
+      {/* Edit School Year Modal */}
+      <Modal
+        isOpen={isEditYearModalOpen}
+        onClose={() => setIsEditYearModalOpen(false)}
+        title="Editar Ciclo Escolar"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">
+              Nombre
+            </label>
+            <input
+              type="text"
+              value={editYearName}
+              onChange={(e) => setEditYearName(e.target.value)}
+              placeholder="2025-2026"
+              className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                Fecha de Inicio
+              </label>
+              <input
+                type="date"
+                value={editYearStart}
+                onChange={(e) => setEditYearStart(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                Fecha de Fin
+              </label>
+              <input
+                type="date"
+                value={editYearEnd}
+                onChange={(e) => setEditYearEnd(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setIsEditYearModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="sky" onClick={handleSaveYear} isLoading={isSavingYear}>
+              Guardar
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Config Wizard */}
       <ConfigWizard
