@@ -1,8 +1,9 @@
 // Página de Grupos (scoped por ciclo escolar)
+// Muestra grupos regulares y talleres en secciones separadas.
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
@@ -15,7 +16,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
 import type { Group } from "@/lib/types";
-import { ClipboardList, Users, User } from "lucide-react";
+import { ClipboardList, Users, User, Wrench } from "lucide-react";
 
 interface GroupStudent {
   _id: string;
@@ -34,8 +35,8 @@ export default function GroupsPage() {
   const yearId = params.yearId as string;
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Modal state
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [students, setStudents] = useState<GroupStudent[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
@@ -49,13 +50,18 @@ export default function GroupsPage() {
         );
         setGroups(res);
       } catch {
-        // Error silencioso
+        setError("Error al cargar los grupos.");
       } finally {
         setIsLoading(false);
       }
     }
     fetchGroups();
   }, []);
+
+  const { regulares, talleres } = useMemo(() => ({
+    regulares: groups.filter((g) => g.type !== "taller"),
+    talleres: groups.filter((g) => g.type === "taller"),
+  }), [groups]);
 
   const openStudentsModal = async (group: Group) => {
     setSelectedGroup(group);
@@ -76,7 +82,17 @@ export default function GroupsPage() {
   };
 
   if (isLoading) {
-    return <LoadingState message="Cargando..." height="page" />;
+    return <LoadingState message="Cargando grupos..." height="page" />;
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="Error"
+        message={error}
+        action={{ label: "Reintentar", onClick: () => window.location.reload() }}
+      />
+    );
   }
 
   return (
@@ -93,37 +109,91 @@ export default function GroupsPage() {
           description="Crea grupos desde la plantilla de la escuela para comenzar a asignar alumnos."
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {groups.map((group) => (
-            <Card key={group._id} className="hover:shadow-md transition-shadow">
-              <CardBody>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-text-primary text-lg">
-                      {group.grade}° {group.section}
-                    </h3>
-                    <p className="text-sm text-text-secondary mt-1">
-                      {group.shift === "matutino" ? "Matutino" : "Vespertino"}
-                    </p>
-                  </div>
-                  <Badge variant={group.type === "taller" ? "amber" : "sky"}>
-                    {group.type === "taller" ? "Taller" : "Regular"}
-                  </Badge>
-                </div>
-                <div className="mt-4 pt-3 border-t border-border">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openStudentsModal(group)}
-                  >
-                    <Users size={16} className="mr-1.5" />
-                    Ver Alumnos
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
-          ))}
-        </div>
+        <>
+          {/* Grupos Regulares */}
+          {regulares.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
+                <ClipboardList size={18} className="text-violet-500" />
+                Grupos Regulares
+                <span className="text-xs font-normal text-text-muted bg-slate-100 px-2 py-0.5 rounded-full">
+                  {regulares.length}
+                </span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {regulares.map((group) => (
+                  <Card key={group._id} className="hover:shadow-md transition-shadow">
+                    <CardBody>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-text-primary text-lg">
+                            {group.grade}° {group.section}
+                          </h3>
+                          <p className="text-sm text-text-secondary mt-1">
+                            {group.shift === "matutino" ? "Matutino" : "Vespertino"}
+                          </p>
+                        </div>
+                        <Badge variant="sky">Regular</Badge>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-border">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openStudentsModal(group)}
+                        >
+                          <Users size={16} className="mr-1.5" />
+                          Ver Alumnos
+                        </Button>
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Talleres */}
+          {talleres.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
+                <Wrench size={18} className="text-amber-500" />
+                Talleres
+                <span className="text-xs font-normal text-text-muted bg-slate-100 px-2 py-0.5 rounded-full">
+                  {talleres.length}
+                </span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {talleres.map((group) => (
+                  <Card key={group._id} className="hover:shadow-md transition-shadow">
+                    <CardBody>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-text-primary text-lg">
+                            {group.section}
+                          </h3>
+                          <p className="text-sm text-text-secondary mt-1">
+                            {group.shift === "matutino" ? "Matutino" : "Vespertino"}
+                          </p>
+                        </div>
+                        <Badge variant="amber">Taller</Badge>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-border">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openStudentsModal(group)}
+                        >
+                          <Users size={16} className="mr-1.5" />
+                          Ver Alumnos
+                        </Button>
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Modal de Alumnos */}
@@ -132,7 +202,9 @@ export default function GroupsPage() {
         onClose={() => setSelectedGroup(null)}
         title={
           selectedGroup
-            ? `${selectedGroup.grade}° ${selectedGroup.section} — Alumnos`
+            ? selectedGroup.type === "taller"
+              ? `${selectedGroup.section} — Alumnos`
+              : `${selectedGroup.grade}° ${selectedGroup.section} — Alumnos`
             : "Alumnos"
         }
       >
@@ -148,9 +220,15 @@ export default function GroupsPage() {
             <p className="text-sm text-text-secondary">
               No hay alumnos asignados a este grupo aún.
             </p>
-            <p className="text-xs text-text-muted mt-1">
-              Asigna alumnos desde la página de Inscripciones.
-            </p>
+            {selectedGroup?.type === "taller" ? (
+              <p className="text-xs text-text-muted mt-1">
+                Asigna alumnos desde la sección de Talleres en el ciclo escolar.
+              </p>
+            ) : (
+              <p className="text-xs text-text-muted mt-1">
+                Asigna alumnos desde la página de Inscripciones.
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
