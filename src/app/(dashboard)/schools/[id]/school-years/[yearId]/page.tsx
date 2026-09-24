@@ -26,20 +26,24 @@ import {
   Key,
   UserCheck,
 } from "lucide-react";
+import type { SchoolShift } from "@/lib/types";
 
 export default function SchoolYearOverviewPage() {
   const params = useParams();
   const schoolId = params.id as string;
   const yearId = params.yearId as string;
   const [schoolYear, setSchoolYear] = useState<SchoolYear | null>(null);
+  const [shifts, setShifts] = useState<SchoolShift[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAll = async () => {
     try {
-      const yearRes = await api.get<SchoolYear>(
-        `${ENDPOINTS.SCHOOL_YEARS}/${yearId}`
-      );
+      const [yearRes, shiftsRes] = await Promise.all([
+        api.get<SchoolYear>(`${ENDPOINTS.SCHOOL_YEARS}/${yearId}`),
+        api.get<SchoolShift[]>(`${ENDPOINTS.SCHOOL_SHIFTS}?school_year_id=${yearId}`),
+      ]);
       setSchoolYear(yearRes);
+      setShifts(shiftsRes || []);
     } catch {
       // silent
     } finally {
@@ -125,24 +129,61 @@ export default function SchoolYearOverviewPage() {
                 {cat.title}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {cat.links.map((link) => (
-                  <Link key={link.href} href={`${basePath}/${link.href}`}>
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                      <CardBody>
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`flex items-center justify-center w-12 h-12 rounded-xl ${link.bgColor}`}
-                          >
-                            <span className={link.color}>{link.icon}</span>
+                {cat.links.map((link) => {
+                  // Turnos card: show shift summary
+                  if (link.href === "shifts") {
+                    return (
+                      <Link key={link.href} href={`${basePath}/${link.href}`}>
+                        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                          <CardBody>
+                            <div className="flex items-center gap-4">
+                              <div className={`flex items-center justify-center w-12 h-12 rounded-xl ${link.bgColor}`}>
+                                <span className={link.color}>{link.icon}</span>
+                              </div>
+                              <div className="min-w-0">
+                                <span className="font-medium text-text-primary">
+                                  {link.label}
+                                </span>
+                                {shifts.length > 0 ? (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {shifts.map((s) => (
+                                      <span
+                                        key={s._id}
+                                        className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-text-secondary"
+                                      >
+                                        {s.name} ({s.timeBlocks?.length || 0} mód.)
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-text-muted mt-1">Sin configurar</p>
+                                )}
+                              </div>
+                            </div>
+                          </CardBody>
+                        </Card>
+                      </Link>
+                    );
+                  }
+                  return (
+                    <Link key={link.href} href={`${basePath}/${link.href}`}>
+                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                        <CardBody>
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`flex items-center justify-center w-12 h-12 rounded-xl ${link.bgColor}`}
+                            >
+                              <span className={link.color}>{link.icon}</span>
+                            </div>
+                            <span className="font-medium text-text-primary">
+                              {link.label}
+                            </span>
                           </div>
-                          <span className="font-medium text-text-primary">
-                            {link.label}
-                          </span>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </Link>
-                ))}
+                        </CardBody>
+                      </Card>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           ))}
