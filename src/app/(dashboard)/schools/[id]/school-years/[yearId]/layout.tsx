@@ -49,8 +49,8 @@ export default function SchoolYearDetailLayout({
           </h1>
           {schoolYear && (
             <p className="text-sm text-text-secondary">
-              {new Date(schoolYear.startDate.slice(0, 10)).toLocaleDateString("es-MX")} —{" "}
-              {new Date(schoolYear.endDate.slice(0, 10)).toLocaleDateString("es-MX")}
+              {schoolYear.startDate.slice(0, 10).split("-").reverse().join("/")} —{" "}
+              {schoolYear.endDate.slice(0, 10).split("-").reverse().join("/")}
             </p>
           )}
         </div>

@@ -121,8 +121,8 @@ export default function GradingPeriodsPage() {
                   <div>
                     <h3 className="font-semibold text-text-primary">{period.name}</h3>
                     <p className="text-sm text-text-secondary mt-1">
-                      {new Date(period.startDate).toLocaleDateString("es-MX")} —{" "}
-                      {new Date(period.endDate).toLocaleDateString("es-MX")}
+                      {period.startDate.split("-").reverse().join("/")} —{" "}
+                      {period.endDate.split("-").reverse().join("/")}
                     </p>
                     <p className="text-sm text-text-secondary">
                       Orden: {period.order}
