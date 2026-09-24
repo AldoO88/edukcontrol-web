@@ -193,14 +193,16 @@ export default function PersonalPage() {
                             <h4 className="font-semibold text-text-primary truncate">
                               {user.name} {user.last_name}
                             </h4>
-                            <div className="flex items-center gap-1.5 text-sm text-text-secondary">
-                              <Phone size={12} className="text-text-muted" />
-                              {user.phoneNumber}
-                            </div>
+                            {user.phoneNumber && (
+                              <div className="flex items-center gap-1.5 text-sm text-text-secondary">
+                                <Phone size={14} className="text-text-muted shrink-0" />
+                                <span>{user.phoneNumber}</span>
+                              </div>
+                            )}
                             {user.email && (
                               <div className="flex items-center gap-1.5 text-xs text-text-muted truncate">
-                                <Mail size={10} />
-                                {user.email}
+                                <Mail size={12} className="shrink-0" />
+                                <span>{user.email}</span>
                               </div>
                             )}
                             <div className="mt-1.5">
