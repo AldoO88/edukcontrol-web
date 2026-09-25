@@ -107,6 +107,7 @@ export default function StudentsPage() {
   const [reinscLoading, setReinscLoading] = useState(false);
   const [isReinscOpen, setIsReinscOpen] = useState(false);
   const [reinscEligibleCounts, setReinscEligibleCounts] = useState<Record<string, number>>({});
+  const [reinscTargetGrade, setReinscTargetGrade] = useState<"next" | "same">("next");
 
   // Assign group modal
   const [assignGroupTarget, setAssignGroupTarget] = useState<EnrichedEnrollment | null>(null);
@@ -133,6 +134,12 @@ export default function StudentsPage() {
 
   // Delete enrollment
   const [deleteTarget, setDeleteTarget] = useState<EnrichedEnrollment | null>(null);
+
+  // Graduate modal
+  const [isGraduateOpen, setIsGraduateOpen] = useState(false);
+  const [graduateSelected, setGraduateSelected] = useState<Set<string>>(new Set());
+  const [isGraduating, setIsGraduating] = useState(false);
+  const [graduateResult, setGraduateResult] = useState<{ succeeded: number; failed: number } | null>(null);
 
   // Register form
   const { register, handleSubmit, reset, formState: { errors } } = useForm<RegisterFormData>({
@@ -339,6 +346,33 @@ export default function StudentsPage() {
     }
   };
 
+  // --- Graduate ---
+  const handleGraduate = async () => {
+    if (graduateSelected.size === 0) return;
+    setIsGraduating(true);
+    try {
+      let succeeded = 0;
+      let failed = 0;
+      for (const enrollmentId of graduateSelected) {
+        try {
+          await api.put(`${ENDPOINTS.ENROLLMENTS}/${enrollmentId}`, {
+            cycle_status: "graduated",
+          });
+          succeeded++;
+        } catch {
+          failed++;
+        }
+      }
+      setGraduateResult({ succeeded, failed });
+      setGraduateSelected(new Set());
+      await fetchData();
+    } catch {
+      setError("Error al graduar alumnos.");
+    } finally {
+      setIsGraduating(false);
+    }
+  };
+
   // ===================================================================
   // RE-INSSCRIPTION WIZARD
   // ===================================================================
@@ -370,7 +404,7 @@ export default function StudentsPage() {
         api.get<Enrollment[]>(`${ENDPOINTS.ENROLLMENTS}?school_year_id=${yearId}`),
       ]);
 
-      const prevGroups = (groups || []).filter((g) => g.type !== "taller");
+      const prevGroups = (groups || []).filter((g) => g.type !== "taller" && g.grade < 3);
       setReinscPrevGroups(prevGroups);
 
       // Build set of student IDs already enrolled in current cycle
@@ -444,11 +478,12 @@ export default function StudentsPage() {
     try {
       const prevGroup = reinscPrevGroups.find((g) => g._id === reinscPrevGroupId);
       if (!prevGroup) return;
+      const targetGrade = reinscTargetGrade === "next" ? prevGroup.grade + 1 : prevGroup.grade;
       const targetGroup = currentGroups.find(
-        (g) => g.grade === prevGroup.grade + 1 && g.section === prevGroup.section && g.shift === prevGroup.shift
+        (g) => g.grade === targetGrade && g.section === prevGroup.section && g.shift === prevGroup.shift
       );
       if (!targetGroup) {
-        setError(`No se encontró grupo destino ${prevGroup.grade + 1}°${prevGroup.section} en el ciclo actual.`);
+        setError(`No se encontró grupo destino ${targetGrade}°${prevGroup.section} en el ciclo actual.`);
         setReinscLoading(false);
         return;
       }
@@ -481,7 +516,7 @@ export default function StudentsPage() {
           if (!prevTallerSection) return;
 
           const newTaller = currentTalleres.find(
-            (t) => t.section === prevTallerSection && t.grade === prevGroup.grade + 1
+            (t) => t.section === prevTallerSection && t.grade === targetGrade
           );
           if (newTaller) {
             await api.put(`${ENDPOINTS.STUDENTS}/${e.student._id}`, {
@@ -538,6 +573,10 @@ export default function StudentsPage() {
           <Button variant="ghost" size="sm" onClick={() => setIsPromoteOpen(true)}>
             <GraduationCap size={16} className="mr-1" />
             Promover
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setIsGraduateOpen(true)}>
+            <GraduationCap size={16} className="mr-1" />
+            Graduar
           </Button>
         </div>
       </div>
@@ -823,26 +862,56 @@ export default function StudentsPage() {
           <div className="space-y-4">
             {(() => {
               const prevGroup = reinscPrevGroups.find((g) => g._id === reinscPrevGroupId);
+              const targetGrade = reinscTargetGrade === "next" ? (prevGroup?.grade || 0) + 1 : (prevGroup?.grade || 0);
               const targetGroup = prevGroup
                 ? currentGroups.find(
-                    (g) => g.grade === prevGroup.grade + 1 && g.section === prevGroup.section && g.shift === prevGroup.shift
+                    (g) => g.grade === targetGrade && g.section === prevGroup.section && g.shift === prevGroup.shift
                   )
                 : null;
               return (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="px-2 py-1 rounded bg-slate-100 font-medium">
-                    {prevGroup?.grade}°{prevGroup?.section}
-                  </span>
-                  <ArrowRight size={16} className="text-text-muted" />
-                  <span className="px-2 py-1 rounded bg-sky-100 font-medium text-sky-700">
-                    {targetGroup ? `${targetGroup.grade}°${targetGroup.section}` : "Sin grupo destino"}
-                  </span>
-                  {!targetGroup && (
-                    <span className="text-xs text-error ml-2">
-                      No existe este grupo en el ciclo actual
-                    </span>
-                  )}
-                </div>
+                <>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="px-2 py-1 rounded bg-slate-100 font-medium">
+                        {prevGroup?.grade}°{prevGroup?.section}
+                      </span>
+                      <ArrowRight size={16} className="text-text-muted" />
+                      <span className="px-2 py-1 rounded bg-sky-100 font-medium text-sky-700">
+                        {targetGroup ? `${targetGroup.grade}°${targetGroup.section}` : "Sin grupo destino"}
+                      </span>
+                      {!targetGroup && (
+                        <span className="text-xs text-error ml-2">
+                          No existe este grupo en el ciclo actual
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl">
+                    <span className="text-sm font-medium text-text-primary">Grado destino:</span>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="targetGrade"
+                        value="next"
+                        checked={reinscTargetGrade === "next"}
+                        onChange={() => setReinscTargetGrade("next")}
+                        className="w-4 h-4"
+                      />
+                      Siguiente grado ({prevGroup ? prevGroup.grade + 1 : "?"}°)
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="targetGrade"
+                        value="same"
+                        checked={reinscTargetGrade === "same"}
+                        onChange={() => setReinscTargetGrade("same")}
+                        className="w-4 h-4"
+                      />
+                      Mismo grado ({prevGroup?.grade}°) — Reprobado
+                    </label>
+                  </div>
+                </>
               );
             })()}
 
@@ -1163,6 +1232,94 @@ export default function StudentsPage() {
                   onClick={handlePromote}
                 >
                   Promover ({promoteSelected.size})
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal: Graduar */}
+      <Modal
+        isOpen={isGraduateOpen}
+        onClose={() => { setIsGraduateOpen(false); setGraduateResult(null); }}
+        title="Graduar Alumnos"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {graduateResult ? (
+            <div className="text-center py-4">
+              <GraduationCap size={48} className="mx-auto text-emerald-500 mb-3" />
+              <h3 className="font-semibold text-text-primary text-lg">Graduación completada</h3>
+              <p className="text-sm text-text-secondary mt-1">
+                {graduateResult.succeeded} graduado{graduateResult.succeeded !== 1 ? "s" : ""}
+                {graduateResult.failed > 0 && ` · ${graduateResult.failed} fallido${graduateResult.failed !== 1 ? "s" : ""}`}
+              </p>
+              <Button variant="ghost" className="mt-4" onClick={() => { setIsGraduateOpen(false); setGraduateResult(null); }}>
+                Cerrar
+              </Button>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-text-secondary">
+                Selecciona los alumnos de 3° grado a marcar como graduados.
+              </p>
+              <div className="max-h-64 overflow-y-auto border border-border rounded-xl">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-slate-50">
+                      <th className="px-3 py-2 text-left">
+                        <input
+                          type="checkbox"
+                          checked={graduateSelected.size === enriched.filter((e) => e.group?.grade === 3 && e.enrollment.cycle_status === "enrolled").length && enriched.length > 0}
+                          onChange={() => {
+                            const grad3 = enriched.filter((e) => e.group?.grade === 3 && e.enrollment.cycle_status === "enrolled");
+                            if (graduateSelected.size === grad3.length) setGraduateSelected(new Set());
+                            else setGraduateSelected(new Set(grad3.map((e) => e.enrollment._id!)));
+                          }}
+                          className="w-4 h-4 rounded border-slate-300"
+                        />
+                      </th>
+                      <th className="px-3 py-2 text-left font-semibold">Nombre</th>
+                      <th className="px-3 py-2 text-left font-semibold">Control</th>
+                      <th className="px-3 py-2 text-left font-semibold">Grupo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {enriched.filter((e) => e.group?.grade === 3 && e.enrollment.cycle_status === "enrolled").map((e) => (
+                      <tr key={e.enrollment._id} className="border-b border-border last:border-b-0">
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={graduateSelected.has(e.enrollment._id!)}
+                            onChange={() => {
+                              setGraduateSelected((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(e.enrollment._id!)) next.delete(e.enrollment._id!);
+                                else next.add(e.enrollment._id!);
+                                return next;
+                              });
+                            }}
+                            className="w-4 h-4 rounded border-slate-300"
+                          />
+                        </td>
+                        <td className="px-3 py-2 font-medium">{e.student.first_name} {e.student.last_name}</td>
+                        <td className="px-3 py-2 text-text-secondary font-mono text-xs">{e.student.controlNumber}</td>
+                        <td className="px-3 py-2">{e.group?.grade}°{e.group?.section}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="ghost" onClick={() => setIsGraduateOpen(false)}>Cancelar</Button>
+                <Button
+                  variant="sky"
+                  disabled={graduateSelected.size === 0}
+                  isLoading={isGraduating}
+                  onClick={handleGraduate}
+                >
+                  Graduar ({graduateSelected.size})
                 </Button>
               </div>
             </>
