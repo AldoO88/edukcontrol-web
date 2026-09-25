@@ -230,6 +230,7 @@ export default function StudentsPage() {
       await api.post(ENDPOINTS.ENROLLMENTS, {
         student_id: (student as any)._id || student,
         school_year_id: yearId,
+        school: schoolId,
         group_id: null,
         cycle_status: "enrolled",
       });
@@ -430,6 +431,7 @@ export default function StudentsPage() {
             student_id: e.student._id,
             group_id: targetGroup._id,
             school_year_id: yearId,
+            school: schoolId,
             cycle_status: "enrolled",
           })
         )
