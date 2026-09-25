@@ -399,6 +399,7 @@ export default function StudentsPage() {
         .filter((e) => !existingStudentIds.has(e.student._id))
         .map((e) => e.enrollment._id!);
       setReinscSelected(new Set(eligible));
+      setReinscStep(2);
     } catch {
       setError("Error al cargar alumnos del grupo.");
     } finally {
