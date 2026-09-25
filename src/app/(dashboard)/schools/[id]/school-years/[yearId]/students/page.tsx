@@ -106,6 +106,7 @@ export default function StudentsPage() {
   const [reinscSelected, setReinscSelected] = useState<Set<string>>(new Set());
   const [reinscLoading, setReinscLoading] = useState(false);
   const [isReinscOpen, setIsReinscOpen] = useState(false);
+  const [reinscEligibleCounts, setReinscEligibleCounts] = useState<Record<string, number>>({});
 
   // Assign group modal
   const [assignGroupTarget, setAssignGroupTarget] = useState<EnrichedEnrollment | null>(null);
@@ -348,6 +349,7 @@ export default function StudentsPage() {
     setReinscPrevGroupId("");
     setReinscPrevEnrollments([]);
     setReinscSelected(new Set());
+    setReinscEligibleCounts({});
     try {
       const prevYear = await api.get<{ items: SchoolYear[] }>(
         `${ENDPOINTS.SCHOOL_YEARS}?school=${schoolId}`
@@ -362,10 +364,38 @@ export default function StudentsPage() {
         setIsReinscOpen(false);
         return;
       }
-      const groups = await api.get<Group[]>(
-        `${ENDPOINTS.GROUPS}?school_year_id=${prevYearData._id}`
+
+      const [groups, currentEnrollments] = await Promise.all([
+        api.get<Group[]>(`${ENDPOINTS.GROUPS}?school_year_id=${prevYearData._id}`),
+        api.get<Enrollment[]>(`${ENDPOINTS.ENROLLMENTS}?school_year_id=${yearId}`),
+      ]);
+
+      const prevGroups = (groups || []).filter((g) => g.type !== "taller");
+      setReinscPrevGroups(prevGroups);
+
+      // Build set of student IDs already enrolled in current cycle
+      const enrolledIds = new Set(
+        (Array.isArray(currentEnrollments) ? currentEnrollments : []).map((e) => {
+          return typeof e.student_id === "string" ? e.student_id : (e.student_id as any)?._id;
+        })
       );
-      setReinscPrevGroups((groups || []).filter((g) => g.type !== "taller"));
+
+      // For each previous group, count how many students are NOT yet enrolled
+      const counts: Record<string, number> = {};
+      await Promise.all(
+        prevGroups.map(async (g) => {
+          const enrollments = await api.get<Enrollment[]>(
+            `${ENDPOINTS.ENROLLMENTS}?group_id=${g._id}&cycle_status=enrolled`
+          );
+          const list = Array.isArray(enrollments) ? enrollments : [];
+          const eligible = list.filter((e) => {
+            const sid = typeof e.student_id === "string" ? e.student_id : (e.student_id as any)?._id;
+            return sid && !enrolledIds.has(sid);
+          });
+          counts[g._id] = eligible.length;
+        })
+      );
+      setReinscEligibleCounts(counts);
     } catch {
       setError("Error al cargar ciclos anteriores.");
       setIsReinscOpen(false);
@@ -752,22 +782,34 @@ export default function StudentsPage() {
               ) : (
                 reinscPrevGroups
                   .sort((a, b) => a.grade - b.grade || a.section.localeCompare(b.section))
-                  .map((g) => (
-                    <button
-                      key={g._id}
-                      onClick={() => loadPrevGroupStudents(g._id)}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        reinscPrevGroupId === g._id
-                          ? "border-accent bg-accent/5"
-                          : "border-border hover:border-accent/30"
-                      }`}
-                    >
-                      <span className="font-medium text-text-primary">{g.grade}°{g.section}</span>
-                      <span className="text-xs text-text-muted ml-2">
-                        {g.shift === "matutino" ? "Matutino" : "Vespertino"}
-                      </span>
-                    </button>
-                  ))
+                  .map((g) => {
+                    const eligible = reinscEligibleCounts[g._id] ?? 0;
+                    const disabled = eligible === 0;
+                    return (
+                      <button
+                        key={g._id}
+                        disabled={disabled}
+                        onClick={() => loadPrevGroupStudents(g._id)}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          disabled
+                            ? "border-border bg-slate-50 opacity-50 cursor-not-allowed"
+                            : reinscPrevGroupId === g._id
+                              ? "border-accent bg-accent/5"
+                              : "border-border hover:border-accent/30"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-text-primary">{g.grade}°{g.section}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${disabled ? "bg-slate-200 text-text-muted" : "bg-emerald-100 text-emerald-700"}`}>
+                            {disabled ? "Ya reinscrito" : `${eligible} pendiente${eligible !== 1 ? "s" : ""}`}
+                          </span>
+                        </div>
+                        <span className="text-xs text-text-muted">
+                          {g.shift === "matutino" ? "Matutino" : "Vespertino"}
+                        </span>
+                      </button>
+                    );
+                  })
               )}
             </div>
             <div className="flex justify-end gap-3 pt-4">
