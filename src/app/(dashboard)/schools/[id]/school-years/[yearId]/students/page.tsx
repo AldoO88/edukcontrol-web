@@ -23,6 +23,7 @@ import {
   GraduationCap,
   Search,
   Plus,
+  Upload,
   ChevronDown,
   UserPlus,
   UserCheck,
@@ -42,12 +43,16 @@ const registerSchema = z.object({
   curp: z.string().regex(/^[A-Z0-9]{18}$/, "CURP debe tener 18 caracteres"),
   first_name: z.string().min(1, "Nombre requerido"),
   last_name: z.string().min(1, "Apellido requerido"),
+  grade: z.coerce.number().min(1).max(3),
   sex: z.enum(["male", "female", ""]).optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
   date_of_birth: z.string().optional(),
   blood_type: z.string().optional(),
   medical_notes: z.string().optional(),
+  guardian_name: z.string().optional(),
+  guardian_phone: z.string().optional(),
+  guardian_relationship: z.string().optional(),
 });
 type RegisterFormData = z.infer<typeof registerSchema>;
 
@@ -141,6 +146,12 @@ export default function StudentsPage() {
   const [isGraduating, setIsGraduating] = useState(false);
   const [graduateResult, setGraduateResult] = useState<{ succeeded: number; failed: number } | null>(null);
 
+  // Import modal
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ total: number; succeeded: number; failed: number; results: any[] } | null>(null);
+
   // Register form
   const { register, handleSubmit, reset, formState: { errors } } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -231,12 +242,35 @@ export default function StudentsPage() {
     setIsRegistering(true);
     setRegisterError(null);
     try {
+      const { guardian_name, guardian_phone, guardian_relationship, grade, ...studentData } = data;
       const student = await api.post<Student>(`${ENDPOINTS.STUDENTS}/register`, {
-        ...data,
+        ...studentData,
         school: schoolId,
       });
+      const studentId = (student as any)._id || student;
+
+      // Create guardian if provided
+      if (guardian_name && guardian_phone) {
+        try {
+          const guardian = await api.post<any>(ENDPOINTS.GUARDIANS, {
+            name: guardian_name,
+            phone: guardian_phone,
+            relationship: guardian_relationship || "tutor legal",
+            school: schoolId,
+            students: [studentId],
+          });
+          // Link guardian to student
+          const guardianId = (guardian as any)._id || guardian;
+          await api.put(`${ENDPOINTS.STUDENTS}/${studentId}`, {
+            guardians: [guardianId],
+          });
+        } catch {
+          // Guardian creation failed but student was created - continue
+        }
+      }
+
       await api.post(ENDPOINTS.ENROLLMENTS, {
-        student_id: (student as any)._id || student,
+        student_id: studentId,
         school_year_id: yearId,
         school: schoolId,
         group_id: null,
@@ -370,6 +404,34 @@ export default function StudentsPage() {
       setError("Error al graduar alumnos.");
     } finally {
       setIsGraduating(false);
+    }
+  };
+
+  // --- Import ---
+  const handleImport = async () => {
+    if (!importFile) return;
+    setIsImporting(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      formData.append("school_year_id", yearId);
+      formData.append("school", schoolId);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${ENDPOINTS.STUDENTS_IMPORT}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${document.cookie.match(/authToken=([^;]+)/)?.[1] || ""}`,
+        },
+        body: formData,
+      });
+      const data = await res.json();
+      setImportResult(data);
+      if (data.succeeded > 0) await fetchData();
+    } catch {
+      setError("Error al importar alumnos.");
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -578,6 +640,10 @@ export default function StudentsPage() {
             <GraduationCap size={16} className="mr-1" />
             Graduar
           </Button>
+          <Button variant="ghost" size="sm" onClick={() => { setIsImportOpen(true); setImportResult(null); setImportFile(null); }}>
+            <Upload size={16} className="mr-1" />
+            Importar Excel
+          </Button>
         </div>
       </div>
 
@@ -779,6 +845,16 @@ export default function StudentsPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Select
+              label="Grado"
+              options={[
+                { value: "1", label: "1° Grado" },
+                { value: "2", label: "2° Grado" },
+                { value: "3", label: "3° Grado" },
+              ]}
+              error={errors.grade?.message}
+              {...register("grade")}
+            />
+            <Select
               label="Sexo"
               options={[
                 { value: "", label: "No especificado" },
@@ -787,14 +863,35 @@ export default function StudentsPage() {
               ]}
               {...register("sex")}
             />
-            <Input label="Teléfono" {...register("phone")} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Fecha de Nacimiento" type="date" {...register("date_of_birth")} />
             <Input label="Tipo de Sangre" placeholder="A+, O-, etc." {...register("blood_type")} />
           </div>
           <Input label="Dirección" {...register("address")} />
+          <Input label="Teléfono del Alumno" {...register("phone")} />
           <Input label="Notas Médicas" {...register("medical_notes")} />
+
+          {/* Tutor Legal */}
+          <div className="border-t border-border pt-4 mt-4">
+            <h3 className="text-sm font-semibold text-text-primary mb-3">Tutor Legal</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Nombre del Tutor" placeholder="Nombre completo" {...register("guardian_name")} />
+              <Input label="Teléfono del Tutor" placeholder="10 dígitos" {...register("guardian_phone")} />
+            </div>
+            <Select
+              label="Parentesco"
+              options={[
+                { value: "madre", label: "Madre" },
+                { value: "padre", label: "Padre" },
+                { value: "tutor legal", label: "Tutor Legal" },
+                { value: "abuelo/a", label: "Abuelo/a" },
+                { value: "otro", label: "Otro" },
+              ]}
+              {...register("guardian_relationship")}
+            />
+          </div>
+
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setIsRegisterOpen(false)}>Cancelar</Button>
             <Button type="submit" variant="sky" isLoading={isRegistering}>Registrar</Button>
@@ -1320,6 +1417,91 @@ export default function StudentsPage() {
                   onClick={handleGraduate}
                 >
                   Graduar ({graduateSelected.size})
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal: Importar Excel */}
+      <Modal
+        isOpen={isImportOpen}
+        onClose={() => { setIsImportOpen(false); setImportResult(null); setImportFile(null); }}
+        title="Importar Alumnos desde Excel"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {importResult ? (
+            <div className="space-y-3">
+              <div className="text-center py-4">
+                <CheckCircle2 size={48} className="mx-auto text-emerald-500 mb-3" />
+                <h3 className="font-semibold text-text-primary text-lg">Importación completada</h3>
+                <p className="text-sm text-text-secondary mt-1">
+                  {importResult.succeeded} de {importResult.total} alumnos importados
+                  {importResult.failed > 0 && ` · ${importResult.failed} fallidos`}
+                </p>
+              </div>
+              {importResult.failed > 0 && (
+                <div className="max-h-48 overflow-y-auto border border-border rounded-xl">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-slate-50">
+                        <th className="px-3 py-2 text-left font-semibold">Fila</th>
+                        <th className="px-3 py-2 text-left font-semibold">Error</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importResult.results
+                        .filter((r: any) => r.status === "error")
+                        .map((r: any, i: number) => (
+                          <tr key={i} className="border-b border-border last:border-b-0">
+                            <td className="px-3 py-2 text-text-secondary">{r.index + 1}</td>
+                            <td className="px-3 py-2 text-error">{r.errors?.join(", ")}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="flex justify-end pt-4">
+                <Button variant="ghost" onClick={() => { setIsImportOpen(false); setImportResult(null); setImportFile(null); }}>
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="p-4 bg-slate-50 rounded-xl">
+                <h4 className="font-medium text-text-primary mb-2">Columnas del Excel:</h4>
+                <p className="text-xs text-text-secondary">
+                  <strong>Requeridas:</strong> curp, first_name, last_name<br />
+                  <strong>Opcionales:</strong> sex, phone, address, date_of_birth, blood_type, group, guardian_name, guardian_phone, guardian_relationship
+                </p>
+                <p className="text-xs text-text-muted mt-2">
+                  Si incluyes la columna "group" (ej: 1A, 2B), el alumno se asigna automáticamente a ese grupo.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Archivo Excel o CSV</label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                  className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-accent/10 file:text-accent-dark hover:file:bg-accent/20 file:cursor-pointer"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="ghost" onClick={() => { setIsImportOpen(false); setImportResult(null); setImportFile(null); }}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="sky"
+                  disabled={!importFile}
+                  isLoading={isImporting}
+                  onClick={handleImport}
+                >
+                  Importar
                 </Button>
               </div>
             </>
