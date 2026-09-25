@@ -425,17 +425,42 @@ export default function StudentsPage() {
       const eligible = reinscPrevEnrollments.filter(
         (e) => reinscSelected.has(e.enrollment._id!)
       );
+
+      // Create enrollments + carry over taller
       await Promise.all(
-        eligible.map((e) =>
-          api.post(ENDPOINTS.ENROLLMENTS, {
+        eligible.map(async (e) => {
+          await api.post(ENDPOINTS.ENROLLMENTS, {
             student_id: e.student._id,
             group_id: targetGroup._id,
             school_year_id: yearId,
             school: schoolId,
             cycle_status: "enrolled",
-          })
-        )
+          });
+
+          // Carry over taller: find matching taller in new cycle by section
+          const prevTallerId = typeof e.student.workshop_group_id === "object"
+            ? (e.student.workshop_group_id as any)?._id
+            : typeof e.student.workshop_group_id === "string"
+              ? e.student.workshop_group_id
+              : null;
+          if (!prevTallerId) return;
+
+          const prevTallerSection = typeof e.student.workshop_group_id === "object"
+            ? (e.student.workshop_group_id as any)?.section
+            : null;
+          if (!prevTallerSection) return;
+
+          const newTaller = currentTalleres.find(
+            (t) => t.section === prevTallerSection && t.grade === prevGroup.grade + 1
+          );
+          if (newTaller) {
+            await api.put(`${ENDPOINTS.STUDENTS}/${e.student._id}`, {
+              workshop_group_id: newTaller._id,
+            });
+          }
+        })
       );
+
       setIsReinscOpen(false);
       setReinscStep(0);
       await fetchData();
