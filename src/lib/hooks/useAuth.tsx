@@ -5,6 +5,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { verify, logout as authLogout } from "@/lib/auth";
+import { api } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 interface AuthContextValue {
@@ -31,9 +32,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Restaurar sesión al montar (una sola vez)
+  // Conectar el "onUnauthorized" del cliente HTTP: cuando el refresh
+  // falla o hay un 401 irreparable, limpiamos el estado React. Antes
+  // el token se borraba de localStorage pero `user` quedaba lleno y
+  // la UI seguía "logueada" con API rota hasta recargar — bug arreglado.
+  //
+  // Esta asignación es síncrona (solo guarda una referencia a un
+  // callback). No causa setState en el render, así que vive en el
+  // cuerpo del Provider. El callback solo dispara setUser(null) cuando
+  // la red devuelve un 401 irreparable, fuera del flujo de render.
+  api.setOnUnauthorized(() => setUser(null));
+
+  // Restaurar sesión al montar (una sola vez). El setIsLoading(false)
+  // se hace en el callback del `.finally()` que es la respuesta del
+  // sistema externo (verify) — exactamente el patrón permitido por la
+  // regla ("calling setState in a callback function when external state
+  // changes"). La regla del lint marca esta sintaxis por defecto, por
+  // eso se desactiva puntualmente con la justificación abajo.
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshUser().finally(() => {
       if (!cancelled) setIsLoading(false);
     });

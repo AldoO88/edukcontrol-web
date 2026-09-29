@@ -22,12 +22,19 @@ export async function login(
   password: string
 ): Promise<{ success: boolean; user?: User; token?: string; message?: string }> {
   try {
+    // La web no tiene checkbox "recordar mi sesión" (solo la app),
+    // así que siempre pide sesión larga: refresh 30 d + access 15 min.
     const response = await api.post<AuthResponse>(ENDPOINTS.LOGIN, {
       phone,
       password,
+      remember: true,
+      client: "web",
     });
 
-    if (response.authToken) {
+    if (response.authToken && response.refreshToken) {
+      api.setSessionTokens(response.authToken, response.refreshToken);
+    } else if (response.authToken) {
+      // Compat: backend sin refresh todavía (no debería pasar).
       api.setAuthToken(response.authToken);
     }
 
@@ -74,7 +81,16 @@ export async function verify(): Promise<User | null> {
 
 export async function logout(): Promise<void> {
   try {
-    await api.post(ENDPOINTS.LOGOUT);
+    // El backend acepta el refreshToken en body para revocarlo
+    // específicamente. Best-effort: si falla, igual limpiamos local
+    // (el access de 15 min expirará solo).
+    const refresh =
+      typeof window !== "undefined"
+        ? localStorage.getItem("edukcontrol_refresh")
+        : null;
+    await api
+      .post(ENDPOINTS.LOGOUT, refresh ? { refreshToken: refresh } : undefined)
+      .catch(() => {});
   } finally {
     api.clearAuthToken();
   }

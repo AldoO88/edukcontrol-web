@@ -66,7 +66,7 @@ export interface Student {
   biometricId?: string;
   isFaceEnrolled?: boolean;
   photoUrl?: string;
-  guardians?: string[];
+  guardians?: string[] | Guardian[];
   current_group_id?: string | Group;
   workshop_group_id?: string;
   status: "active" | "withdrawn_temp" | "withdrawn_permanent";
@@ -75,6 +75,18 @@ export interface Student {
   phone?: string;
   date_of_birth?: string;
   medical_notes?: string;
+}
+
+export interface Guardian {
+  _id: string;
+  name: string;
+  lastname?: string;
+  phone: string;
+  relationship: string;
+  // Cuando el backend detecta que el celular ya está registrado con
+  // otro perfil (teacher/admin/etc) devuelve la respuesta 201 con
+  // `warning` para que la UI lo muestre al administrador.
+  warning?: string;
 }
 
 export interface Group {
@@ -178,6 +190,7 @@ export interface ClassSchedule {
   teacher_id: string | User;
   school_shift_id: string | SchoolShift;
   scheduleSlots: ScheduleSlot[];
+  classroom?: string;
   isActive: boolean;
 }
 
@@ -212,6 +225,7 @@ export interface SchoolCalendarEntry {
 export interface AuthResponse {
   user: User;
   authToken: string;
+  refreshToken?: string;
 }
 
 export interface ApiResponse<T> {

@@ -4,7 +4,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -12,11 +12,12 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
+import { PhotoCropModal } from "@/components/students/PhotoCropModal";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { Student, Enrollment, Group } from "@/lib/types";
+import type { Student, Enrollment, Group, Guardian } from "@/lib/types";
 import {
   User,
   Phone,
@@ -25,9 +26,12 @@ import {
   Heart,
   FileText,
   ArrowLeft,
+  ArrowRight,
   Edit,
   Wrench,
   Trash2,
+  Camera,
+  Loader2,
 } from "lucide-react";
 
 // --- Types ---
@@ -39,7 +43,7 @@ interface StudentDetail {
 }
 
 const CYCLE_STATUS_LABELS: Record<string, string> = {
-  enrolled: "Inscrito",
+  enrolled: "Activo",
   withdrawn: "Baja",
   graduated: "Graduado",
   transferred: "Transferido",
@@ -54,9 +58,23 @@ const CYCLE_STATUS_COLORS: Record<string, string> = {
 export default function StudentDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const schoolId = params.id as string;
   const yearId = params.yearId as string;
   const studentId = params.studentId as string;
+
+  // Navigation IDs from alumnado list
+  const navIds = searchParams.get("ids")?.split(",").filter(Boolean) || [];
+  const navIdx = parseInt(searchParams.get("idx") || "0", 10);
+  const hasPrev = navIdx > 0;
+  const hasNext = navIdx < navIds.length - 1;
+
+  const goToStudent = (idx: number) => {
+    const id = navIds[idx];
+    if (!id) return;
+    const qs = `?ids=${encodeURIComponent(navIds.join(","))}&idx=${idx}`;
+    router.push(`/schools/${schoolId}/school-years/${yearId}/students/${id}${qs}`);
+  };
 
   const [data, setData] = useState<StudentDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,7 +82,10 @@ export default function StudentDetailPage() {
 
   // Edit modal
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ phone: "", address: "" });
+  const [editForm, setEditForm] = useState({
+    first_name: "", last_name: "", sex: "", phone: "", address: "",
+    date_of_birth: "", blood_type: "", medical_notes: "",
+  });
   const [isSaving, setIsSaving] = useState(false);
 
   // Taller modal
@@ -72,20 +93,52 @@ export default function StudentDetailPage() {
   const [selectedTallerId, setSelectedTallerId] = useState("");
   const [isAssigningTaller, setIsAssigningTaller] = useState(false);
 
+  // Group modal
+  const [isGroupOpen, setIsGroupOpen] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [isAssigningGroup, setIsAssigningGroup] = useState(false);
+
   // Delete enrollment
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Photo upload
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
+  const [isCropOpen, setIsCropOpen] = useState(false);
+
+  // Tutor edit modal
+  const [isTutorOpen, setIsTutorOpen] = useState(false);
+  const [tutorForm, setTutorForm] = useState({ name: "", lastname: "", phone: "", relationship: "" });
+  const [editingGuardianId, setEditingGuardianId] = useState<string | null>(null);
+  const [isSavingTutor, setIsSavingTutor] = useState(false);
+  const [customRelationship, setCustomRelationship] = useState("");
+
+  const [groupsRes, setGroupsRes] = useState<Group[]>([]);
+  const [talleresRes, setTalleresRes] = useState<Group[]>([]);
+
+  // Access devices (inline edit)
+  const [editingRfid, setEditingRfid] = useState(false);
+  const [rfidValue, setRfidValue] = useState("");
+  const [editingBiometric, setEditingBiometric] = useState(false);
+  const [biometricValue, setBiometricValue] = useState("");
+  const [isSavingAccess, setIsSavingAccess] = useState(false);
+  const [faceError, setFaceError] = useState("");
+
   const fetchData = async () => {
     try {
-      const [studentRes, enrollmentsRes, groupsRes] = await Promise.all([
+      const [studentRes, enrollmentsRes, groupsData] = await Promise.all([
         api.get<Student>(`${ENDPOINTS.STUDENTS}/${studentId}`),
         api.get<Enrollment[]>(`${ENDPOINTS.STUDENTS}/${studentId}/enrollments`),
-        api.get<Group[]>(`${ENDPOINTS.GROUPS}?school_year_id=${yearId}`),
+        api.get<Group[]>(`${ENDPOINTS.GROUPS}?school=${schoolId}&school_year_id=${yearId}`),
       ]);
 
-      const enrollList = Array.isArray(enrollmentsRes) ? enrollmentsRes : [];
-      const currentEnrollment = enrollList.find((e) => {
+      const groupsList = Array.isArray(groupsData) ? groupsData : [];
+      setGroupsRes(groupsList);
+      setTalleresRes(groupsList.filter((g) => g.type === "taller"));
+
+      const enrollList = Array.isArray(enrollmentsRes) ? enrollmentsRes : (enrollmentsRes as any)?.items || [];
+      const currentEnrollment = enrollList.find((e: any) => {
         const yearIdStr = typeof e.school_year_id === "string" ? e.school_year_id : (e.school_year_id as any)?._id;
         return yearIdStr === yearId;
       }) || null;
@@ -96,7 +149,7 @@ export default function StudentDetailPage() {
           ? currentEnrollment.group_id
           : null;
       const currentGroup = currentGroupId
-        ? (groupsRes || []).find((g) => g._id === currentGroupId) || null
+        ? groupsList.find((g) => g._id === currentGroupId) || null
         : null;
 
       setData({
@@ -144,17 +197,131 @@ export default function StudentDetailPage() {
     }
   };
 
+  const handleAssignGroup = async () => {
+    if (!selectedGroupId || !data?.currentEnrollment) return;
+    setIsAssigningGroup(true);
+    try {
+      await api.put(`${ENDPOINTS.ENROLLMENTS}/${data.currentEnrollment._id}`, {
+        group_id: selectedGroupId,
+      });
+      setIsGroupOpen(false);
+      setSelectedGroupId("");
+      await fetchData();
+    } catch {
+      setError("Error al cambiar grupo.");
+    } finally {
+      setIsAssigningGroup(false);
+    }
+  };
+
   const handleDeleteEnrollment = async () => {
     if (!data?.currentEnrollment) return;
     setIsDeleting(true);
     try {
-      await api.delete(`${ENDPOINTS.ENROLLMENTS}/${data.currentEnrollment._id}`);
+      await api.put(`${ENDPOINTS.ENROLLMENTS}/${data.currentEnrollment._id}`, { cycle_status: "withdrawn" });
       setIsDeleteOpen(false);
-      router.back();
+      await fetchData();
     } catch {
-      setError("Error al eliminar inscripción.");
+      setError("Error al dar de baja.");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPendingPhotoFile(file);
+    setIsCropOpen(true);
+  };
+
+  const handlePhotoCropCancel = () => {
+    setIsCropOpen(false);
+    setPendingPhotoFile(null);
+  };
+
+  const handlePhotoCropConfirm = async (blob: Blob) => {
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", blob, "photo.jpg");
+      await api.upload(ENDPOINTS.STUDENT_PHOTO(studentId), formData);
+      await fetchData();
+    } catch {
+      setError("Error al subir la foto.");
+    } finally {
+      setIsUploadingPhoto(false);
+      setIsCropOpen(false);
+      setPendingPhotoFile(null);
+    }
+  };
+
+  const handleSaveTutor = async () => {
+    if (!editingGuardianId) return;
+    setIsSavingTutor(true);
+    try {
+      const payload = {
+        ...tutorForm,
+        relationship: tutorForm.relationship === "otro" ? customRelationship : tutorForm.relationship,
+      };
+      await api.put(`${ENDPOINTS.GUARDIANS}/${editingGuardianId}`, payload);
+      setIsTutorOpen(false);
+      setEditingGuardianId(null);
+      setCustomRelationship("");
+      await fetchData();
+    } catch {
+      setError("Error al guardar tutor.");
+    } finally {
+      setIsSavingTutor(false);
+    }
+  };
+
+  const handleSaveRfid = async () => {
+    setIsSavingAccess(true);
+    try {
+      await api.put(`${ENDPOINTS.STUDENTS}/${studentId}`, { rfid_card: rfidValue || null });
+      setEditingRfid(false);
+      await fetchData();
+    } catch {
+      setError("Error al guardar tarjeta RFID.");
+    } finally {
+      setIsSavingAccess(false);
+    }
+  };
+
+  const handleSaveBiometric = async () => {
+    if (!biometricValue && student.isFaceEnrolled) {
+      setFaceError("No se puede quitar el ID Biométrico con el rostro facial activo.");
+      return;
+    }
+    setIsSavingAccess(true);
+    try {
+      await api.put(`${ENDPOINTS.STUDENTS}/${studentId}`, { biometricId: biometricValue || null });
+      setEditingBiometric(false);
+      setFaceError("");
+      await fetchData();
+    } catch {
+      setError("Error al guardar ID biométrico.");
+    } finally {
+      setIsSavingAccess(false);
+    }
+  };
+
+  const handleToggleFace = async () => {
+    if (!student.isFaceEnrolled && !student.biometricId) {
+      setFaceError("Se requiere un ID Biométrico para activar el reconocimiento facial.");
+      return;
+    }
+    setIsSavingAccess(true);
+    try {
+      await api.put(`${ENDPOINTS.STUDENTS}/${studentId}`, { isFaceEnrolled: !student.isFaceEnrolled });
+      setFaceError("");
+      await fetchData();
+    } catch {
+      setError("Error al actualizar reconocimiento facial.");
+    } finally {
+      setIsSavingAccess(false);
     }
   };
 
@@ -167,8 +334,7 @@ export default function StudentDetailPage() {
   const tallerId = typeof student.workshop_group_id === "object"
     ? (student.workshop_group_id as any)?._id
     : student.workshop_group_id;
-  const allGroups: Group[] = [];
-  const taller = tallerId ? allGroups.find((g) => g._id === tallerId) : null;
+  const taller = tallerId ? talleresRes.find((g) => g._id === tallerId) || null : null;
 
   return (
     <div className="space-y-6">
@@ -192,7 +358,16 @@ export default function StudentDetailPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setEditForm({ phone: student.phone || "", address: student.address || "" });
+                    setEditForm({
+                      first_name: student.first_name || "",
+                      last_name: student.last_name || "",
+                      sex: student.sex || "",
+                      phone: student.phone || "",
+                      address: student.address || "",
+                      date_of_birth: student.date_of_birth || "",
+                      blood_type: student.blood_type || "",
+                      medical_notes: student.medical_notes || "",
+                    });
                     setIsEditOpen(true);
                   }}
                 >
@@ -242,6 +417,161 @@ export default function StudentDetailPage() {
             </CardBody>
           </Card>
 
+          {/* Tutor */}
+          <Card>
+            <CardBody>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">Tutor</h2>
+              {Array.isArray(student.guardians) && student.guardians.length > 0 ? (
+                <div className="space-y-3">
+                  {student.guardians.map((g) => {
+                    const guardian = typeof g === "object" ? g as Guardian : null;
+                    if (!guardian) return null;
+                    return (
+                      <div key={guardian._id}>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-text-muted">Nombre</span>
+                            <p className="font-medium mt-0.5">{[guardian.name, guardian.lastname].filter(Boolean).join(" ") || "—"}</p>
+                          </div>
+                          <div>
+                            <span className="text-text-muted">Teléfono</span>
+                            <p className="mt-0.5 flex items-center gap-1">
+                              <Phone size={12} /> {guardian.phone}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-text-muted">Parentesco</span>
+                            <p className="mt-0.5 capitalize">{guardian.relationship || "—"}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingGuardianId(guardian._id);
+                            const rel = guardian.relationship || "";
+                            const predefined = ["madre", "padre", "abuelo", "tutor legal"];
+                            if (rel && !predefined.includes(rel)) {
+                              setTutorForm({ name: guardian.name, lastname: guardian.lastname ?? "", phone: guardian.phone, relationship: "otro" });
+                              setCustomRelationship(rel);
+                            } else {
+                              setTutorForm({ name: guardian.name, lastname: guardian.lastname ?? "", phone: guardian.phone, relationship: rel });
+                              setCustomRelationship("");
+                            }
+                            setIsTutorOpen(true);
+                          }}
+                          className="text-xs text-accent-dark hover:underline mt-1 flex items-center gap-1"
+                        >
+                          <Edit size={12} /> Editar tutor
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted">Sin tutor registrado.</p>
+              )}
+            </CardBody>
+          </Card>
+
+          {/* Dispositivos de Acceso */}
+          <Card>
+            <CardBody>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">Dispositivos de Acceso</h2>
+              <div className="space-y-4 text-sm">
+                {/* RFID */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <span className="text-text-muted">Tarjeta RFID</span>
+                    {editingRfid ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          className="flex-1 rounded-xl border border-border bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                          value={rfidValue}
+                          onChange={(e) => setRfidValue(e.target.value)}
+                          placeholder="Número de tarjeta"
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveRfid(); if (e.key === "Escape") setEditingRfid(false); }}
+                        />
+                        <Button variant="ghost" size="sm" onClick={handleSaveRfid} isLoading={isSavingAccess}>Guardar</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setEditingRfid(false)}>Cancelar</Button>
+                      </div>
+                    ) : (
+                      <p className="font-mono text-xs mt-0.5">{student.rfid_card || "Sin asignar"}</p>
+                    )}
+                  </div>
+                  {!editingRfid && (
+                    <button
+                      onClick={() => { setRfidValue(student.rfid_card || ""); setEditingRfid(true); }}
+                      className="text-xs text-accent-dark hover:underline flex items-center gap-1 flex-shrink-0"
+                    >
+                      <Edit size={12} /> Editar
+                    </button>
+                  )}
+                </div>
+
+                {/* Biométrico */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <span className="text-text-muted">ID Biométrico</span>
+                    {editingBiometric ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          className="flex-1 rounded-xl border border-border bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                          value={biometricValue}
+                          onChange={(e) => setBiometricValue(e.target.value)}
+                          placeholder="ID en terminal ZKTeco"
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveBiometric(); if (e.key === "Escape") setEditingBiometric(false); }}
+                        />
+                        <Button variant="ghost" size="sm" onClick={handleSaveBiometric} isLoading={isSavingAccess}>Guardar</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setEditingBiometric(false)}>Cancelar</Button>
+                      </div>
+                    ) : (
+                      <p className="font-mono text-xs mt-0.5">{student.biometricId || "Sin asignar"}</p>
+                    )}
+                  </div>
+                  {!editingBiometric && (
+                    <button
+                      onClick={() => { setBiometricValue(student.biometricId || ""); setEditingBiometric(true); }}
+                      className="text-xs text-accent-dark hover:underline flex items-center gap-1 flex-shrink-0"
+                    >
+                      <Edit size={12} /> Editar
+                    </button>
+                  )}
+                </div>
+
+                {/* Rostro Facial */}
+                <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+                  <div>
+                    <span className="text-text-muted">Reconocimiento Facial</span>
+                    <p className="text-xs mt-0.5">
+                      {student.isFaceEnrolled ? "Rostro registrado en terminal" : "Sin registrar"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleToggleFace}
+                    disabled={isSavingAccess || (!student.isFaceEnrolled && !student.biometricId)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent/30 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      student.isFaceEnrolled ? "bg-emerald-500" : "bg-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        student.isFaceEnrolled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+                {faceError && <p className="text-xs text-rose-600">{faceError}</p>}
+                {!student.biometricId && !student.isFaceEnrolled && (
+                  <p className="text-xs text-text-muted">Se requiere un ID Biométrico para activar el reconocimiento facial.</p>
+                )}
+                {student.isFaceEnrolled && (
+                  <p className="text-xs text-emerald-600 font-medium">Rostro registrado en terminal</p>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+
           {/* Inscripción actual */}
           <Card>
             <CardBody>
@@ -249,6 +579,9 @@ export default function StudentDetailPage() {
                 <h2 className="text-lg font-semibold text-text-primary">Inscripción Actual</h2>
                 {currentEnrollment && (
                   <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setIsGroupOpen(true)}>
+                      <User size={14} className="mr-1" /> Grupo
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => setIsTallerOpen(true)}>
                       <Wrench size={14} className="mr-1" /> Taller
                     </Button>
@@ -333,41 +666,126 @@ export default function StudentDetailPage() {
         <div className="space-y-4">
           <Card>
             <CardBody className="text-center">
-              <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3">
-                <User size={32} className="text-accent-dark" />
+              <div className="relative w-40 h-40 mx-auto mb-3">
+                {student.photoUrl ? (
+                  <img
+                    src={student.photoUrl}
+                    alt={`${student.first_name} ${student.last_name}`}
+                    className="w-40 h-40 rounded-full object-cover border-2 border-border"
+                  />
+                ) : (
+                  <div className="w-40 h-40 rounded-full bg-accent/10 flex items-center justify-center border-2 border-border">
+                    <User size={56} className="text-accent-dark" />
+                  </div>
+                )}
+                <label className="absolute bottom-0 right-0 w-8 h-8 bg-accent rounded-full flex items-center justify-center cursor-pointer hover:bg-accent-dark transition-colors border-2 border-white shadow-sm">
+                  {isUploadingPhoto ? (
+                    <Loader2 size={14} className="text-white animate-spin" />
+                  ) : (
+                    <Camera size={14} className="text-white" />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                    disabled={isUploadingPhoto}
+                  />
+                </label>
               </div>
               <h3 className="font-semibold text-text-primary">
                 {student.first_name} {student.last_name}
               </h3>
               <p className="text-sm text-text-secondary font-mono">{student.controlNumber}</p>
-              {currentGroup && (
-                <p className="mt-2">
-                  <Badge variant="sky">{currentGroup.grade}°{currentGroup.section}</Badge>
-                </p>
-              )}
-              {taller && (
-                <p className="mt-1">
-                  <Badge variant="amber">{taller.grade}° {taller.section}</Badge>
-                </p>
-              )}
             </CardBody>
           </Card>
+          {navIds.length > 0 && (
+            <div className="space-y-1">
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!hasPrev}
+                  onClick={() => goToStudent(navIdx - 1)}
+                >
+                  <ArrowLeft size={14} className="mr-1" /> Anterior
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!hasNext}
+                  onClick={() => goToStudent(navIdx + 1)}
+                >
+                  Siguiente <ArrowRight size={14} className="ml-1" />
+                </Button>
+              </div>
+              <p className="text-xs text-text-muted text-center">{navIdx + 1} / {navIds.length}</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Modal: Editar datos */}
-      <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Editar Datos">
+      <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Editar Datos" size="lg">
         <div className="space-y-4">
-          <Input
-            label="Teléfono"
-            value={editForm.phone}
-            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Nombre(s)"
+              value={editForm.first_name}
+              onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
+            />
+            <Input
+              label="Apellido(s)"
+              value={editForm.last_name}
+              onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Sexo"
+              value={editForm.sex}
+              onChange={(e) => setEditForm({ ...editForm, sex: e.target.value })}
+              options={[
+                { value: "", label: "Sin especificar" },
+                { value: "male", label: "Masculino" },
+                { value: "female", label: "Femenino" },
+              ]}
+            />
+            <Input
+              label="Tipo de Sangre"
+              value={editForm.blood_type}
+              onChange={(e) => setEditForm({ ...editForm, blood_type: e.target.value })}
+              placeholder="Ej: A+, O-"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Teléfono"
+              value={editForm.phone}
+              onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+            />
+            <Input
+              label="Fecha de Nacimiento"
+              type="date"
+              value={editForm.date_of_birth ? editForm.date_of_birth.slice(0, 10) : ""}
+              onChange={(e) => setEditForm({ ...editForm, date_of_birth: e.target.value })}
+            />
+          </div>
           <Input
             label="Dirección"
             value={editForm.address}
             onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
           />
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">Notas Médicas</label>
+            <textarea
+              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              rows={3}
+              value={editForm.medical_notes}
+              onChange={(e) => setEditForm({ ...editForm, medical_notes: e.target.value })}
+              placeholder="Alergias, condiciones, medicamentos..."
+            />
+          </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancelar</Button>
             <Button variant="sky" isLoading={isSaving} onClick={handleSaveEdit}>Guardar</Button>
@@ -375,15 +793,53 @@ export default function StudentDetailPage() {
         </div>
       </Modal>
 
+      {/* Modal: Cambiar Grupo */}
+      <Modal isOpen={isGroupOpen} onClose={() => setIsGroupOpen(false)} title="Cambiar Grupo">
+        <div className="space-y-4">
+          {currentGroup && (
+            <p className="text-xs text-text-muted">
+              Solo se muestran grupos de {currentGroup.grade}° grado.
+            </p>
+          )}
+          <Select
+            label="Grupo"
+            placeholder={currentGroup ? `${currentGroup.grade}° grado` : "Seleccionar grupo"}
+            options={
+              (currentGroup
+                ? groupsRes.filter((g) => g.type !== "taller" && g.grade === currentGroup.grade)
+                : groupsRes.filter((g) => g.type !== "taller")
+              ).map((g) => ({
+                value: g._id,
+                label: `${g.grade}° ${g.section} — ${g.shift === "matutino" ? "Matutino" : "Vespertino"}`,
+              }))
+            }
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(e.target.value)}
+          />
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="ghost" onClick={() => setIsGroupOpen(false)}>Cancelar</Button>
+            <Button variant="sky" disabled={!selectedGroupId} isLoading={isAssigningGroup} onClick={handleAssignGroup}>Asignar</Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Modal: Asignar Taller */}
       <Modal isOpen={isTallerOpen} onClose={() => setIsTallerOpen(false)} title="Asignar Taller">
         <div className="space-y-4">
+          {currentGroup && (
+            <p className="text-xs text-text-muted">
+              Solo se muestran talleres de {currentGroup.grade}° grado.
+            </p>
+          )}
           <Select
             label="Taller"
-            placeholder="Seleccionar taller"
+            placeholder={currentGroup ? `${currentGroup.grade}° grado` : "Seleccionar taller"}
             options={[
               { value: "", label: "Sin taller" },
-              ...(Array.isArray(allGroups) ? allGroups.filter((g) => g.type === "taller") : []).map((g) => ({
+              ...(currentGroup
+                ? (Array.isArray(talleresRes) ? talleresRes : []).filter((g) => g.grade === currentGroup.grade)
+                : (Array.isArray(talleresRes) ? talleresRes : [])
+              ).map((g) => ({
                 value: g._id,
                 label: `${g.grade}° ${g.section}`,
               })),
@@ -394,6 +850,52 @@ export default function StudentDetailPage() {
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setIsTallerOpen(false)}>Cancelar</Button>
             <Button variant="sky" isLoading={isAssigningTaller} onClick={handleAssignTaller}>Asignar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Editar Tutor */}
+      <Modal isOpen={isTutorOpen} onClose={() => { setIsTutorOpen(false); setEditingGuardianId(null); }} title="Editar Tutor">
+        <div className="space-y-4">
+          <Input
+            label="Nombre(s)"
+            value={tutorForm.name}
+            onChange={(e) => setTutorForm({ ...tutorForm, name: e.target.value })}
+          />
+          <Input
+            label="Apellido(s)"
+            value={tutorForm.lastname}
+            onChange={(e) => setTutorForm({ ...tutorForm, lastname: e.target.value })}
+          />
+          <Input
+            label="Teléfono"
+            value={tutorForm.phone}
+            onChange={(e) => setTutorForm({ ...tutorForm, phone: e.target.value })}
+            placeholder="10 digitos"
+          />
+          <Select
+            label="Parentesco"
+            value={tutorForm.relationship}
+            onChange={(e) => setTutorForm({ ...tutorForm, relationship: e.target.value })}
+            options={[
+              { value: "madre", label: "Madre" },
+              { value: "padre", label: "Padre" },
+              { value: "abuelo", label: "Abuelo/a" },
+              { value: "tutor legal", label: "Tutor legal" },
+              { value: "otro", label: "Otro..." },
+            ]}
+          />
+          {tutorForm.relationship === "otro" && (
+            <Input
+              label="Especifica el parentesco"
+              value={customRelationship}
+              onChange={(e) => setCustomRelationship(e.target.value)}
+              placeholder="Ej: Tio, Hermano, etc."
+            />
+          )}
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="ghost" onClick={() => { setIsTutorOpen(false); setEditingGuardianId(null); }}>Cancelar</Button>
+            <Button variant="sky" isLoading={isSavingTutor} onClick={handleSaveTutor}>Guardar</Button>
           </div>
         </div>
       </Modal>
@@ -411,6 +913,14 @@ export default function StudentDetailPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Crop: Foto del alumno */}
+      <PhotoCropModal
+        isOpen={isCropOpen}
+        file={pendingPhotoFile}
+        onCancel={handlePhotoCropCancel}
+        onConfirm={handlePhotoCropConfirm}
+      />
     </div>
   );
 }

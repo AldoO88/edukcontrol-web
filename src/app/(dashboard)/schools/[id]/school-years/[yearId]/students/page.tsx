@@ -27,6 +27,7 @@ import {
   ChevronDown,
   UserPlus,
   UserCheck,
+  User,
   Wrench,
   Eye,
   Trash2,
@@ -51,6 +52,7 @@ const registerSchema = z.object({
   blood_type: z.string().optional(),
   medical_notes: z.string().optional(),
   guardian_name: z.string().optional(),
+  guardian_lastname: z.string().optional(),
   guardian_phone: z.string().optional(),
   guardian_relationship: z.string().optional(),
 });
@@ -68,7 +70,7 @@ interface EnrichedEnrollment {
 
 // --- Constants ---
 const CYCLE_STATUS_LABELS: Record<string, string> = {
-  enrolled: "Inscrito",
+  enrolled: "Activo",
   withdrawn: "Baja",
   graduated: "Graduado",
   transferred: "Transferido",
@@ -95,6 +97,8 @@ export default function StudentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterGroupId, setFilterGroupId] = useState("");
+  const [filterTallerId, setFilterTallerId] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -102,6 +106,8 @@ export default function StudentsPage() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
+  // Avisos no fatales al registrar (p.ej. "Teléfono ya registrado").
+  const [registerWarn, setRegisterWarn] = useState<string | null>(null);
 
   // Re-inscription wizard
   const [reinscStep, setReinscStep] = useState<0 | 1 | 2>(0);
@@ -150,7 +156,7 @@ export default function StudentsPage() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ total: number; succeeded: number; failed: number; results: any[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ total: number; succeeded: number; failed: number; warnings?: number; results: any[] } | null>(null);
 
   // Register form
   const { register, handleSubmit, reset, formState: { errors } } = useForm<RegisterFormData>({
@@ -180,7 +186,7 @@ export default function StudentsPage() {
     return enrollments.map((e) => {
       const student = (typeof e.student_id === "object" ? e.student_id : null) as unknown as Student | null;
       const group = (typeof e.group_id === "object" ? e.group_id : null) as unknown as Group | null;
-      const tallerId = student && typeof student.workshop_group_id === "object"
+      const tallerId = student && typeof student.workshop_group_id === "object" && student.workshop_group_id !== null
         ? (student.workshop_group_id as unknown as Group)._id
         : typeof student?.workshop_group_id === "string"
           ? student.workshop_group_id
@@ -199,9 +205,11 @@ export default function StudentsPage() {
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return enriched.filter((e) => {
-      if (activeTab === "no_group" && e.enrollment.group_id) return false;
+      if (activeTab === "no_group" && (e.enrollment.group_id || e.student.workshop_group_id)) return false;
       if (activeTab === "enrolled" && e.enrollment.cycle_status !== "enrolled") return false;
       if (activeTab === "withdrawn" && e.enrollment.cycle_status !== "withdrawn") return false;
+      if (filterGroupId && (!e.group || e.group._id !== filterGroupId)) return false;
+      if (filterTallerId && (!e.taller || e.taller._id !== filterTallerId)) return false;
       if (!q) return true;
       return (
         e.student.first_name?.toLowerCase().includes(q) ||
@@ -209,11 +217,11 @@ export default function StudentsPage() {
         e.student.controlNumber?.toLowerCase().includes(q)
       );
     });
-  }, [enriched, activeTab, searchQuery]);
+  }, [enriched, activeTab, searchQuery, filterGroupId, filterTallerId]);
 
   const tabCounts = useMemo(() => ({
     all: enriched.length,
-    no_group: enriched.filter((e) => !e.enrollment.group_id).length,
+    no_group: enriched.filter((e) => !e.enrollment.group_id && !e.student.workshop_group_id).length,
     enrolled: enriched.filter((e) => e.enrollment.cycle_status === "enrolled" && e.enrollment.group_id).length,
     withdrawn: enriched.filter((e) => e.enrollment.cycle_status === "withdrawn").length,
   }), [enriched]);
@@ -241,31 +249,44 @@ export default function StudentsPage() {
   const onRegister = async (data: RegisterFormData) => {
     setIsRegistering(true);
     setRegisterError(null);
+    setRegisterWarn(null);
     try {
-      const { guardian_name, guardian_phone, guardian_relationship, grade, ...studentData } = data;
+      const { guardian_name, guardian_lastname, guardian_phone, guardian_relationship, grade, ...studentData } = data;
       const student = await api.post<Student>(`${ENDPOINTS.STUDENTS}/register`, {
         ...studentData,
         school: schoolId,
       });
       const studentId = (student as any)._id || student;
 
-      // Create guardian if provided
+      // Create guardian if provided. El backend intenta crear o
+      // reutilizar el tutor; sincroniza al User para que el padre
+      // pueda activar su cuenta desde el login; y si el celular ya
+      // pertenece a otro perfil devuelve `warning` que mostramos al
+      // administrador (la sincronía del `lastname` se hace
+      // automáticamente al guardar el form de edición).
       if (guardian_name && guardian_phone) {
         try {
           const guardian = await api.post<any>(ENDPOINTS.GUARDIANS, {
             name: guardian_name,
+            lastname: guardian_lastname,
             phone: guardian_phone,
             relationship: guardian_relationship || "tutor legal",
             school: schoolId,
             students: [studentId],
           });
-          // Link guardian to student
           const guardianId = (guardian as any)._id || guardian;
           await api.put(`${ENDPOINTS.STUDENTS}/${studentId}`, {
             guardians: [guardianId],
           });
+          // El backend marca teléfonos ya registrados de otro
+          // perfil. No bloquea al alumno pero dejamos huella.
+          if ((guardian as any)?.warning) {
+            setRegisterWarn((guardian as any).warning);
+          }
         } catch {
-          // Guardian creation failed but student was created - continue
+          // El alumno sí se creó; comunicamos al admin que el
+          // tutor tuvo un problema (no lo ocultamos como antes).
+          setRegisterWarn("Alumno creado, pero no se pudo registrar el tutor. Revisa los datos e inténtalo desde el detalle del alumno.");
         }
       }
 
@@ -326,7 +347,7 @@ export default function StudentsPage() {
   const handleDeleteEnrollment = async () => {
     if (!deleteTarget) return;
     try {
-      await api.delete(`${ENDPOINTS.ENROLLMENTS}/${deleteTarget.enrollment._id}`);
+      await api.put(`${ENDPOINTS.ENROLLMENTS}/${deleteTarget.enrollment._id}`, { cycle_status: "withdrawn" });
       setDeleteTarget(null);
       await fetchData();
     } catch {
@@ -418,14 +439,12 @@ export default function StudentsPage() {
       formData.append("school_year_id", yearId);
       formData.append("school", schoolId);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${ENDPOINTS.STUDENTS_IMPORT}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${document.cookie.match(/authToken=([^;]+)/)?.[1] || ""}`,
-        },
-        body: formData,
-      });
-      const data = await res.json();
+      const data = await api.upload<{
+        total: number;
+        succeeded: number;
+        failed: number;
+        results: { index: number; status: string; curp?: string; errors?: string[] }[];
+      }>(ENDPOINTS.STUDENTS_IMPORT, formData);
       setImportResult(data);
       if (data.succeeded > 0) await fetchData();
     } catch {
@@ -652,7 +671,7 @@ export default function StudentsPage() {
         {([
           { key: "all", label: "Todos" },
           { key: "no_group", label: "Sin grupo" },
-          { key: "enrolled", label: "Inscritos" },
+          { key: "enrolled", label: "Activos" },
           { key: "withdrawn", label: "Bajas" },
         ] as const).map(({ key, label }) => (
           <button
@@ -672,11 +691,39 @@ export default function StudentsPage() {
 
       {/* Search */}
       <Input
-        placeholder="Buscar por nombre o número de control..."
+        placeholder="Buscar por nombre o numero de control..."
         icon={<Search size={18} />}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
       />
+
+      {/* Filters */}
+      <div className="grid grid-cols-2 gap-3">
+        <Select
+          placeholder="Todos los grupos"
+          options={[
+            { value: "", label: "Todos los grupos" },
+            ...currentGroups.map((g) => ({
+              value: g._id,
+              label: `${g.grade}° ${g.section} — ${g.shift === "matutino" ? "Matutino" : "Vespertino"}`,
+            })),
+          ]}
+          value={filterGroupId}
+          onChange={(e) => setFilterGroupId(e.target.value)}
+        />
+        <Select
+          placeholder="Todos los talleres"
+          options={[
+            { value: "", label: "Todos los talleres" },
+            ...currentTalleres.map((g) => ({
+              value: g._id,
+              label: `${g.grade}° ${g.section}`,
+            })),
+          ]}
+          value={filterTallerId}
+          onChange={(e) => setFilterTallerId(e.target.value)}
+        />
+      </div>
 
       {/* Table */}
       {filtered.length === 0 ? (
@@ -710,20 +757,35 @@ export default function StudentsPage() {
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Grupo</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Taller</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Estado</th>
+                    <th className="text-left px-4 py-3 font-semibold text-text-primary">Acceso</th>
                     <th className="text-right px-4 py-3 font-semibold text-text-primary w-12"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((e) => (
+                  {filtered.map((e, idx) => (
                     <tr
                       key={e.enrollment._id}
                       className="border-b border-border last:border-b-0 hover:bg-slate-50/50"
                     >
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => router.push(`/schools/${schoolId}/school-years/${yearId}/students/${e.student._id}`)}
-                          className="font-medium text-accent-dark hover:underline text-left"
+                          onClick={() => {
+                            const ids = filtered.map((x) => x.student._id).join(",");
+                            router.push(`/schools/${schoolId}/school-years/${yearId}/students/${e.student._id}?ids=${encodeURIComponent(ids)}&idx=${idx}`);
+                          }}
+                          className="flex items-center gap-2.5 font-medium text-accent-dark hover:underline text-left"
                         >
+                          {e.student.photoUrl ? (
+                            <img
+                              src={e.student.photoUrl}
+                              alt={`${e.student.first_name} ${e.student.last_name}`}
+                              className="w-14 h-14 rounded-full object-cover border border-border flex-shrink-0"
+                            />
+                          ) : (
+                            <span className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                              <User size={20} className="text-accent-dark" />
+                            </span>
+                          )}
                           {e.student.first_name} {e.student.last_name || ""}
                         </button>
                       </td>
@@ -752,6 +814,21 @@ export default function StudentsPage() {
                         <Badge variant={(CYCLE_STATUS_COLORS[e.enrollment.cycle_status] as any) || "slate"}>
                           {CYCLE_STATUS_LABELS[e.enrollment.cycle_status] || e.enrollment.cycle_status}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {e.student.isFaceEnrolled ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                            Facial
+                          </span>
+                        ) : e.student.rfid_card || e.student.biometricId ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700">
+                            RFID / PIN
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700">
+                            Sin acceso
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right relative">
                         <button
@@ -838,6 +915,9 @@ export default function StudentsPage() {
           {registerError && (
             <div className="p-3 rounded-xl bg-error-light text-error text-sm">{registerError}</div>
           )}
+          {registerWarn && (
+            <div className="p-3 rounded-xl bg-amber-100 text-amber-800 text-sm">{registerWarn}</div>
+          )}
           <Input label="CURP" placeholder="18 caracteres" error={errors.curp?.message} {...register("curp")} />
           <div className="grid grid-cols-2 gap-4">
             <Input label="Nombre(s)" error={errors.first_name?.message} {...register("first_name")} />
@@ -876,20 +956,23 @@ export default function StudentsPage() {
           <div className="border-t border-border pt-4 mt-4">
             <h3 className="text-sm font-semibold text-text-primary mb-3">Tutor Legal</h3>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Nombre del Tutor" placeholder="Nombre completo" {...register("guardian_name")} />
-              <Input label="Teléfono del Tutor" placeholder="10 dígitos" {...register("guardian_phone")} />
+              <Input label="Nombre(s) del Tutor" placeholder="Nombre(s)" {...register("guardian_name")} />
+              <Input label="Apellido(s) del Tutor" placeholder="Apellido(s)" {...register("guardian_lastname")} />
             </div>
-            <Select
-              label="Parentesco"
-              options={[
-                { value: "madre", label: "Madre" },
-                { value: "padre", label: "Padre" },
-                { value: "tutor legal", label: "Tutor Legal" },
-                { value: "abuelo/a", label: "Abuelo/a" },
-                { value: "otro", label: "Otro" },
-              ]}
-              {...register("guardian_relationship")}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Teléfono del Tutor" placeholder="10 dígitos" {...register("guardian_phone")} />
+              <Select
+                label="Parentesco"
+                options={[
+                  { value: "madre", label: "Madre" },
+                  { value: "padre", label: "Padre" },
+                  { value: "tutor legal", label: "Tutor Legal" },
+                  { value: "abuelo/a", label: "Abuelo/a" },
+                  { value: "otro", label: "Otro" },
+                ]}
+                {...register("guardian_relationship")}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
@@ -1060,7 +1143,18 @@ export default function StudentsPage() {
                               className="w-4 h-4 rounded border-slate-300"
                             />
                           </td>
-                          <td className="px-3 py-2 font-medium">{e.student.first_name} {e.student.last_name}</td>
+                          <td className="px-3 py-2 font-medium">
+                            <span className="flex items-center gap-2">
+                              {e.student.photoUrl ? (
+                                <img src={e.student.photoUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-border" />
+                              ) : (
+                                <span className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
+                                  <User size={12} className="text-accent-dark" />
+                                </span>
+                              )}
+                              {e.student.first_name} {e.student.last_name}
+                            </span>
+                          </td>
                           <td className="px-3 py-2 text-text-secondary font-mono text-xs">{e.student.controlNumber}</td>
                         </tr>
                       ))}
@@ -1103,13 +1197,25 @@ export default function StudentsPage() {
               {assignGroupTarget.student.controlNumber}
             </p>
           )}
+          {assignGroupTarget?.group && (
+            <p className="text-xs text-text-muted">
+              Solo se muestran grupos de {assignGroupTarget.group.grade}° grado.
+            </p>
+          )}
           <Select
             label="Grupo"
-            placeholder="Seleccionar grupo"
-            options={currentGroups.map((g) => ({
-              value: g._id,
-              label: `${g.grade}° ${g.section} — ${g.shift === "matutino" ? "Matutino" : "Vespertino"}`,
-            }))}
+            placeholder={assignGroupTarget?.group ? `${assignGroupTarget.group.grade}° grado` : "Seleccionar grupo"}
+            options={
+              assignGroupTarget?.group
+                ? currentGroups.filter((g) => g.grade === assignGroupTarget.group!.grade).map((g) => ({
+                    value: g._id,
+                    label: `${g.grade}° ${g.section} — ${g.shift === "matutino" ? "Matutino" : "Vespertino"}`,
+                  }))
+                : currentGroups.map((g) => ({
+                    value: g._id,
+                    label: `${g.grade}° ${g.section} — ${g.shift === "matutino" ? "Matutino" : "Vespertino"}`,
+                  }))
+            }
             value={selectedGroupId}
             onChange={(e) => setSelectedGroupId(e.target.value)}
           />
@@ -1138,12 +1244,20 @@ export default function StudentsPage() {
               {assignTallerTarget.student.controlNumber}
             </p>
           )}
+          {assignTallerTarget?.group && (
+            <p className="text-xs text-text-muted">
+              Solo se muestran talleres de {assignTallerTarget.group.grade}° grado.
+            </p>
+          )}
           <Select
             label="Taller"
-            placeholder="Seleccionar taller"
+            placeholder={assignTallerTarget?.group ? `${assignTallerTarget.group.grade}° grado` : "Seleccionar taller"}
             options={[
               { value: "", label: "Sin taller" },
-              ...currentTalleres.map((g) => ({
+              ...(assignTallerTarget?.group
+                ? currentTalleres.filter((g) => g.grade === assignTallerTarget.group!.grade)
+                : currentTalleres
+              ).map((g) => ({
                 value: g._id,
                 label: `${g.grade}° ${g.section}`,
               })),
@@ -1225,7 +1339,18 @@ export default function StudentsPage() {
                         className="w-4 h-4 rounded border-slate-300"
                       />
                     </td>
-                    <td className="px-3 py-2 font-medium">{e.student.first_name} {e.student.last_name}</td>
+                    <td className="px-3 py-2 font-medium">
+                      <span className="flex items-center gap-2">
+                        {e.student.photoUrl ? (
+                          <img src={e.student.photoUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-border" />
+                        ) : (
+                          <span className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
+                            <User size={12} className="text-accent-dark" />
+                          </span>
+                        )}
+                        {e.student.first_name} {e.student.last_name}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-text-secondary font-mono text-xs">{e.student.controlNumber}</td>
                   </tr>
                 ))}
@@ -1312,7 +1437,18 @@ export default function StudentsPage() {
                             className="w-4 h-4 rounded border-slate-300"
                           />
                         </td>
-                        <td className="px-3 py-2 font-medium">{e.student.first_name} {e.student.last_name}</td>
+                        <td className="px-3 py-2 font-medium">
+                          <span className="flex items-center gap-2">
+                            {e.student.photoUrl ? (
+                              <img src={e.student.photoUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-border" />
+                            ) : (
+                              <span className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
+                                <User size={12} className="text-accent-dark" />
+                              </span>
+                            )}
+                            {e.student.first_name} {e.student.last_name}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-text-secondary font-mono text-xs">{e.student.controlNumber}</td>
                         <td className="px-3 py-2">{e.group ? `${e.group.grade}°${e.group.section}` : "—"}</td>
                       </tr>
@@ -1400,7 +1536,18 @@ export default function StudentsPage() {
                             className="w-4 h-4 rounded border-slate-300"
                           />
                         </td>
-                        <td className="px-3 py-2 font-medium">{e.student.first_name} {e.student.last_name}</td>
+                        <td className="px-3 py-2 font-medium">
+                          <span className="flex items-center gap-2">
+                            {e.student.photoUrl ? (
+                              <img src={e.student.photoUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-border" />
+                            ) : (
+                              <span className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
+                                <User size={12} className="text-accent-dark" />
+                              </span>
+                            )}
+                            {e.student.first_name} {e.student.last_name}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-text-secondary font-mono text-xs">{e.student.controlNumber}</td>
                         <td className="px-3 py-2">{e.group?.grade}°{e.group?.section}</td>
                       </tr>
@@ -1440,6 +1587,7 @@ export default function StudentsPage() {
                 <p className="text-sm text-text-secondary mt-1">
                   {importResult.succeeded} de {importResult.total} alumnos importados
                   {importResult.failed > 0 && ` · ${importResult.failed} fallidos`}
+                  {(importResult.warnings ?? 0) > 0 && ` · ${importResult.warnings} con avisos en tutor`}
                 </p>
               </div>
               {importResult.failed > 0 && (
@@ -1464,6 +1612,31 @@ export default function StudentsPage() {
                   </table>
                 </div>
               )}
+              {(importResult.warnings ?? 0) > 0 && (
+                <div className="max-h-48 overflow-y-auto border border-amber-200 rounded-xl bg-amber-50/40">
+                  <div className="px-3 py-2 text-xs font-semibold text-amber-800 border-b border-amber-200">
+                    Avisos del tutor (no bloquean al alumno)
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-amber-200">
+                        <th className="px-3 py-2 text-left font-semibold text-amber-900">Fila</th>
+                        <th className="px-3 py-2 text-left font-semibold text-amber-900">Aviso</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importResult.results
+                        .filter((r: any) => r.status === "warning")
+                        .map((r: any, i: number) => (
+                          <tr key={i} className="border-b border-amber-100 last:border-b-0">
+                            <td className="px-3 py-2 text-text-secondary">{r.index + 1}</td>
+                            <td className="px-3 py-2 text-amber-800">{r.errors?.join(", ")}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               <div className="flex justify-end pt-4">
                 <Button variant="ghost" onClick={() => { setIsImportOpen(false); setImportResult(null); setImportFile(null); }}>
                   Cerrar
@@ -1473,14 +1646,87 @@ export default function StudentsPage() {
           ) : (
             <>
               <div className="p-4 bg-slate-50 rounded-xl">
-                <h4 className="font-medium text-text-primary mb-2">Columnas del Excel:</h4>
-                <p className="text-xs text-text-secondary">
-                  <strong>Requeridas:</strong> curp, first_name, last_name<br />
-                  <strong>Opcionales:</strong> sex, phone, address, date_of_birth, blood_type, group, guardian_name, guardian_phone, guardian_relationship
+                <h4 className="font-medium text-text-primary mb-2">Estructura del archivo</h4>
+                <ul className="text-xs text-text-secondary space-y-1">
+                  <li>Un solo archivo Excel (.xlsx, .xls) o CSV</li>
+                  <li>Una sola hoja de calculo con encabezados en la primera fila</li>
+                  <li>Cada fila restante es un alumno</li>
+                </ul>
+
+                <h4 className="font-medium text-text-primary mt-4 mb-2">Columnas requeridas</h4>
+                <ul className="text-xs text-text-secondary space-y-1">
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">curp</span> CURP del alumno (18 caracteres)</li>
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">nombre</span> Nombre(s) del alumno</li>
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">apellido</span> Apellido(s) del alumno</li>
+                </ul>
+
+                <h4 className="font-medium text-text-primary mt-4 mb-2">Columnas opcionales</h4>
+                <ul className="text-xs text-text-secondary space-y-1">
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">sexo</span> M o F (tambien: masculino/femenino)</li>
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">telefono</span> 10 digitos</li>
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">direccion</span> Direccion completa</li>
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">fecha_nacimiento</span> Formato: YYYY-MM-DD</li>
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">tipo_sangre</span> Ej: A+, O-</li>
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">grupo</span> Grupo destino (ej: 1A, 2B). El alumno se asigna automaticamente</li>
+                </ul>
+
+                <h4 className="font-medium text-text-primary mt-4 mb-2">
+                  Datos del tutor <span className="font-normal text-text-secondary">(opcional)</span>
+                </h4>
+                <p className="text-xs text-text-secondary mb-2">
+                  El nombre del tutor ahora va en <strong>dos columnas separadas</strong>{" "}
+                  (<code className="font-mono bg-slate-200 px-1 rounded">tutor_nombre</code>{" "}
+                  + <code className="font-mono bg-slate-200 px-1 rounded">tutor_apellido</code>).
+                  Antes se capturaba todo en una sola celda — esa columna ya no es solo
+                  el nombre completo.
                 </p>
-                <p className="text-xs text-text-muted mt-2">
-                  Si incluyes la columna "group" (ej: 1A, 2B), el alumno se asigna automáticamente a ese grupo.
-                </p>
+                <ul className="text-xs text-text-secondary space-y-1">
+                  <li>
+                    <span className="font-mono bg-slate-200 px-1 rounded">tutor_nombre</span>{" "}
+                    Solo los <strong>nombre(s)</strong> del tutor. Ej:{" "}
+                    <span className="font-mono bg-slate-100 px-1 rounded">Lupita</span>,{" "}
+                    <span className="font-mono bg-slate-100 px-1 rounded">Juan Pedro</span>.{" "}
+                    <span className="text-amber-700">(no pongas aquí el apellido).</span>
+                  </li>
+                  <li>
+                    <span className="font-mono bg-slate-200 px-1 rounded">tutor_apellido</span>{" "}
+                    Los <strong>apellidos</strong> del tutor. Ej:{" "}
+                    <span className="font-mono bg-slate-100 px-1 rounded">Vázquez Ríos</span>,{" "}
+                    <span className="font-mono bg-slate-100 px-1 rounded">Pérez Hernández</span>.{" "}
+                    Es opcional: si la dejas vacía y <code className="font-mono bg-slate-200 px-1 rounded">tutor_nombre</code>{" "}
+                    tiene varias palabras, se separa automáticamente (1ª palabra = nombre,
+                    el resto = apellido). Si el nombre es una sola palabra, el apellido queda
+                    vacío y el tutor podrá activar su cuenta igual.
+                  </li>
+                  <li>
+                    <span className="font-mono bg-slate-200 px-1 rounded">tutor_telefono</span>{" "}
+                    10 dígitos.
+                  </li>
+                  <li>
+                    <span className="font-mono bg-slate-200 px-1 rounded">tutor_parentesco</span>{" "}
+                    madre, padre, tutor legal, etc. (si lo omites se asume{" "}
+                    <span className="font-mono">tutor legal</span>).
+                  </li>
+                </ul>
+
+                <div className="mt-3 p-2 bg-slate-100 border border-slate-200 rounded-lg">
+                  <p className="text-xs text-slate-700">
+                    <strong>Equivalencia con archivos viejos:</strong> si antes tenías{" "}
+                    <code className="font-mono bg-white px-1 rounded">Lupita Vázquez Ríos</code>
+                    {" "}en <code className="font-mono bg-white px-1 rounded">tutor_nombre</code>,
+                    ahora se reparte en{" "}
+                    <code className="font-mono bg-white px-1 rounded">tutor_nombre</code>=
+                    <span className="font-mono bg-white px-1 rounded">Lupita</span>,{" "}
+                    <code className="font-mono bg-white px-1 rounded">tutor_apellido</code>=
+                    <span className="font-mono bg-white px-1 rounded">Vázquez Ríos</span>.
+                  </p>
+                </div>
+
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs text-amber-800">
+                    <strong>Nota:</strong> Si el alumno ya existe (misma CURP), se salta. Maximo 500 alumnos por importacion.
+                  </p>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-2">Archivo Excel o CSV</label>

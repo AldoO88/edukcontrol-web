@@ -69,10 +69,22 @@ export const ENDPOINTS = {
   ATTENDANCE_LOGS: "/api/attendance/logs",
 
   // Credentials
-  CREDENTIALS_PDF: (schoolYearId: string, ids?: string) =>
-    `/api/students/credentials?school_year_id=${schoolYearId}${
+  CREDENTIALS_PDF: (schoolYearId: string, schoolId: string, ids?: string) =>
+    `/api/students/credentials?school_year_id=${schoolYearId}&school=${schoolId}${
       ids ? `&ids=${ids}` : ""
     }`,
+  CREDENTIAL_TEMPLATE: (schoolId: string) =>
+    `/api/schools/${schoolId}/credential-template`,
+  CREDENTIAL_TEMPLATE_ASSETS: (schoolId: string) =>
+    `/api/schools/${schoolId}/credential-template/assets`,
+  CREDENTIAL_TEMPLATE_BACKGROUND: (schoolId: string, version?: string) =>
+    `/api/schools/${schoolId}/credential-template/background${
+      version ? `?v=${encodeURIComponent(version)}` : ""
+    }`,
+  CREDENTIAL_CONFIG_LOGOS: (schoolId: string) =>
+    `/api/schools/${schoolId}/credential-template/logos`,
+  CREDENTIAL_CONFIG_LOGO: (schoolId: string, logoId: string) =>
+    `/api/schools/${schoolId}/credential-template/logos/${logoId}`,
 
   // Dashboard
   DASHBOARD_SUPER_ADMIN: "/api/dashboard/super-admin",

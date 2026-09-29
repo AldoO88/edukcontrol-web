@@ -79,8 +79,6 @@ export default function SchoolYearOverviewPage() {
       title: "3. Alumnado",
       links: [
         { label: "Alumnado", href: "students", icon: <GraduationCap size={20} />, color: "text-orange-600", bgColor: "bg-orange-100" },
-        { label: "Talleres", href: "groups", icon: <Wrench size={20} />, color: "text-amber-600", bgColor: "bg-amber-100" },
-        { label: "Asignar Taller", href: "assign-workshop", icon: <UserCheck size={20} />, color: "text-violet-600", bgColor: "bg-violet-100" },
       ],
     },
     {

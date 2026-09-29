@@ -1,26 +1,44 @@
-// Página de Credenciales Escolares (genera PDF)
+// Página de Credenciales Escolares
+// - Badge con el tipo de diseño activo (visual / HTML / por defecto).
+// - Botón para subir un diseño HTML personalizado (modo avanzado).
+// - Al generar, muestra una VISTA PREVIA del PDF en modal; la descarga
+//   se dispara desde el modal con el blob ya generado (sin regenerar).
 // GET /api/students/credentials?school_year_id=...&ids=a,b,c
 //   sin ids → genera credencial para TODOS los alumnos activos del ciclo
 //   con ids → genera solo para esos alumnos (csv)
-// El response es application/pdf (Content-Disposition: attachment).
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { Spinner } from "@/components/ui/Spinner";
 import { LoadingState } from "@/components/ui/LoadingState";
-import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
+import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
 import type { Student } from "@/lib/types";
-import { IdCard, Download } from "lucide-react";
+import { IdCard, Download, Upload } from "lucide-react";
+import {
+  PdfPreviewModal,
+  usePdfPreview,
+} from "@/components/credential-designer/PdfPreviewModal";
+
+// El PUT /credential-template envía el HTML como JSON y el body está
+// limitado a 1 MB en el backend; dejamos margen de sobra.
+const MAX_DESIGN_BYTES = 512 * 1024;
+
+type DesignKind = "cr80" | "visual" | "html" | "default";
+
+interface DesignInfo {
+  html: string | null;
+  layout: unknown | null;
+  pdf: unknown | null;
+}
 
 export default function CredentialsPage() {
   const params = useParams();
@@ -31,15 +49,44 @@ export default function CredentialsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  // Diseño activo (visual del diseñador / HTML avanzado / por defecto)
+  const [designKind, setDesignKind] = useState<DesignKind>("default");
+  const [canUploadDesign, setCanUploadDesign] = useState(true);
+  const [designNotice, setDesignNotice] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [pendingUpload, setPendingUpload] = useState<{
+    fileName: string;
+    html: string;
+  } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const preview = usePdfPreview();
 
   const fetchStudents = async () => {
     try {
-      const res = await api.get<{ items: Student[] }>(
-        `${ENDPOINTS.STUDENTS}?school_year_id=${yearId}`
-      );
-      setStudents(res.items || []);
+      // Trae TODOS los alumnos inscritos en el ciclo (limit máx. 100 por
+      // página → se pagina hasta agotar). status=active mantiene la lista
+      // idéntica al criterio de impresión del backend.
+      const all: Student[] = [];
+      let page = 1;
+      let pages = 1;
+      do {
+        const res = await api.get<{
+          items: Student[];
+          total: number;
+          pages: number;
+        }>(
+          `${ENDPOINTS.STUDENTS}?school_year_id=${yearId}&status=active&limit=100&page=${page}`
+        );
+        all.push(...(res.items || []));
+        pages = res.pages || 1;
+        page += 1;
+      } while (page <= pages && all.length < 5000);
+      setStudents(all);
     } catch {
       // silencioso
     } finally {
@@ -47,10 +94,36 @@ export default function CredentialsPage() {
     }
   };
 
+  const fetchDesignInfo = async () => {
+    try {
+      const res = await api.get<DesignInfo>(
+        ENDPOINTS.CREDENTIAL_TEMPLATE(schoolId)
+      );
+      setDesignKind(
+        res.pdf
+          ? "cr80"
+          : res.layout
+            ? "visual"
+            : res.html?.trim()
+              ? "html"
+              : "default"
+      );
+      setCanUploadDesign(true);
+    } catch (err) {
+      // 403 (rol sin permiso) → ocultar el botón de subir; otros errores
+      // (red) no deben esconderlo.
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("permisos")) setCanUploadDesign(false);
+    }
+  };
+
   useEffect(() => {
-    fetchStudents();
+    void (async () => {
+      await fetchStudents();
+      await fetchDesignInfo();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearId]);
+  }, [schoolId, yearId]);
 
   const filteredStudents = useMemo(() => {
     if (!search) return students;
@@ -80,42 +153,76 @@ export default function CredentialsPage() {
     }
   };
 
-  const downloadPdf = async (withIds: boolean) => {
-    setError(null);
-    setIsDownloading(true);
-    try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("edukcontrol_token")
-          : null;
-      const ids = withIds ? Array.from(selected).join(",") : "";
-      const url = ENDPOINTS.CREDENTIALS_PDF(yearId, ids);
-      const apiBase =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
-      const res = await fetch(`${apiBase}${url}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+  // ── Subir diseño HTML ──────────────────────────────────────────────
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite re-seleccionar el mismo archivo
+    if (!file) return;
+
+    setDesignNotice(null);
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".html") && !name.endsWith(".htm")) {
+      setDesignNotice({
+        type: "error",
+        text: "El archivo debe ser .html o .htm.",
       });
+      return;
+    }
+    if (file.size > MAX_DESIGN_BYTES) {
+      setDesignNotice({
+        type: "error",
+        text: "El archivo supera el máximo de 512 KB.",
+      });
+      return;
+    }
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.message || `Error ${res.status}`);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const html = String(reader.result || "");
+      if (!html.trim()) {
+        setDesignNotice({ type: "error", text: "El archivo está vacío." });
+        return;
       }
+      setPendingUpload({ fileName: file.name, html });
+    };
+    reader.onerror = () => {
+      setDesignNotice({ type: "error", text: "No se pudo leer el archivo." });
+    };
+    reader.readAsText(file);
+  };
 
-      const blob = await res.blob();
-      const url2 = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url2;
-      a.download = `credenciales-${yearId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url2);
+  const confirmUpload = async () => {
+    if (!pendingUpload) return;
+    setIsUploading(true);
+    setDesignNotice(null);
+    try {
+      await api.put(ENDPOINTS.CREDENTIAL_TEMPLATE(schoolId), {
+        html: pendingUpload.html,
+      });
+      setDesignNotice({
+        type: "success",
+        text: `Diseño "${pendingUpload.fileName}" guardado. Se usará en la generación de credenciales.`,
+      });
+      setPendingUpload(null);
+      await fetchDesignInfo();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al generar PDF");
+      setDesignNotice({
+        type: "error",
+        text:
+          err instanceof Error ? err.message : "Error al guardar el diseño.",
+      });
     } finally {
-      setIsDownloading(false);
+      setIsUploading(false);
     }
   };
+
+  // ── Generar vista previa del PDF ──────────────────────────────────
+  const generatePreview = (withIds: boolean) =>
+    preview.generate({
+      yearId,
+      schoolId,
+      ids: withIds ? Array.from(selected).join(",") : undefined,
+    });
 
   if (isLoading) {
     return <LoadingState message="Cargando..." height="page" />;
@@ -134,7 +241,7 @@ export default function CredentialsPage() {
       {/* Acciones */}
       <Card>
         <CardBody className="!p-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="text-sm">
+          <div className="text-sm flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-text-primary">
               {totalActive}
             </span>
@@ -148,6 +255,25 @@ export default function CredentialsPage() {
                 seleccionado{selectedCount === 1 ? "" : "s"}
               </span>
             )}
+            <Badge
+              variant={
+                designKind === "cr80"
+                  ? "emerald"
+                  : designKind === "visual"
+                    ? "sky"
+                    : designKind === "html"
+                      ? "amber"
+                      : "slate"
+              }
+            >
+              {designKind === "cr80"
+                ? "Diseño CR80"
+                : designKind === "visual"
+                  ? "Diseño visual"
+                  : designKind === "html"
+                    ? "Diseño HTML"
+                    : "Diseño por defecto"}
+            </Badge>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -160,11 +286,28 @@ export default function CredentialsPage() {
                 ? "Deseleccionar todos"
                 : "Seleccionar todos"}
             </Button>
+            {canUploadDesign && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={14} className="mr-1.5" />
+                Subir diseño (HTML)
+              </Button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".html,.htm,text/html"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
             <Button
               variant="sky"
               size="sm"
-              onClick={() => downloadPdf(false)}
-              isLoading={isDownloading}
+              onClick={() => generatePreview(false)}
+              isLoading={preview.isLoading}
             >
               <Download size={14} className="mr-1.5" />
               Todas las del ciclo
@@ -172,9 +315,9 @@ export default function CredentialsPage() {
             <Button
               variant="sky"
               size="sm"
-              onClick={() => downloadPdf(true)}
+              onClick={() => generatePreview(true)}
               disabled={selectedCount === 0}
-              isLoading={isDownloading}
+              isLoading={preview.isLoading}
             >
               <IdCard size={14} className="mr-1.5" />
               Solo seleccionados ({selectedCount})
@@ -183,9 +326,21 @@ export default function CredentialsPage() {
         </CardBody>
       </Card>
 
-      {error && (
+      {designNotice && (
+        <div
+          className={`p-3 rounded-xl text-sm ${
+            designNotice.type === "success"
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-rose-50 text-rose-700"
+          }`}
+        >
+          {designNotice.text}
+        </div>
+      )}
+
+      {preview.error && (
         <div className="p-3 rounded-xl bg-error-light text-error text-sm">
-          {error}
+          {preview.error}
         </div>
       )}
 
@@ -240,6 +395,67 @@ export default function CredentialsPage() {
           </CardBody>
         </Card>
       )}
+
+      {/* Confirmación de subida de diseño */}
+      <Modal
+        isOpen={!!pendingUpload}
+        onClose={() => setPendingUpload(null)}
+        title="Confirmar diseño de credencial"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            Archivo:{" "}
+            <span className="font-semibold text-text-primary">
+              {pendingUpload?.fileName}
+            </span>
+            . Es el modo avanzado HTML: se usará solo si NO hay un diseño
+            CR80 ni uno visual definidos en Configuración de Credenciales (si
+            los hay, tienen prioridad). Las variables Handlebars (
+            {"{{student.first_name}}"},{" "}
+            {"{{student.controlNumber}}"}, etc.) se reemplazan con los datos de
+            cada alumno al generar el PDF.
+          </p>
+          <div className="border border-border rounded-xl overflow-hidden bg-white">
+            <iframe
+              srcDoc={
+                pendingUpload?.html ||
+                "<p style='padding:20px;color:#999;'>Sin contenido.</p>"
+              }
+              sandbox=""
+              className="w-full h-[420px]"
+              title="Preview del diseño"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setPendingUpload(null)}
+              disabled={isUploading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="sky"
+              size="sm"
+              onClick={confirmUpload}
+              isLoading={isUploading}
+            >
+              Guardar diseño
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Vista previa del PDF */}
+      <PdfPreviewModal
+        url={preview.url}
+        isLoading={preview.isLoading}
+        onClose={preview.close}
+        onDownload={() => preview.download(`credenciales-${yearId}.pdf`)}
+        filename={`credenciales-${yearId}.pdf`}
+      />
     </div>
   );
 }

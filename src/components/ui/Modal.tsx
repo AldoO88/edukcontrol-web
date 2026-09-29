@@ -10,13 +10,14 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   children: ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
 }
 
 const sizeStyles = {
   sm: "max-w-lg",
   md: "max-w-xl",
   lg: "max-w-3xl",
+  xl: "max-w-6xl",
 };
 
 export function Modal({
@@ -44,7 +45,7 @@ export function Modal({
       ref={dialogRef}
       onClose={onClose}
       className={`
-        ${sizeStyles[size]}
+        w-full ${sizeStyles[size]}
         rounded-2xl border border-border shadow-lg
         backdrop:bg-black/50
         p-0 m-auto

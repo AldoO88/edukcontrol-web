@@ -19,7 +19,6 @@ import type { School, SchoolYear } from "@/lib/types";
 import {
   School as SchoolIcon,
   Calendar,
-  Users,
   GraduationCap,
   BookOpen,
   ClipboardList,
@@ -33,6 +32,7 @@ import {
   AlertTriangle,
   Shield,
   XCircle,
+  IdCard,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -274,6 +274,13 @@ export default function SchoolOverviewPage() {
       color: "text-indigo-600",
       bgColor: "bg-indigo-100",
       href: `/schools/${schoolId}/staff`,
+    },
+    {
+      label: "Credenciales",
+      icon: <IdCard size={20} />,
+      color: "text-pink-600",
+      bgColor: "bg-pink-100",
+      href: `/schools/${schoolId}/credential-config`,
     },
   ];
 
