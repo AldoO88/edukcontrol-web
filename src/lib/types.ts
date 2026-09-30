@@ -216,9 +216,19 @@ export interface SchoolCalendarEntry {
   school: string;
   school_year_id: string | SchoolYear;
   date: string;
-  type: "holiday" | "vacation" | "suspension" | "non_lectivo";
+  type:
+    | "holiday"
+    | "vacation"
+    | "suspension"
+    | "non_lectivo"
+    | "special_schedule";
   name?: string;
   is_active: boolean;
+  // Solo aplican cuando type === "special_schedule" (día lectivo con horario
+  // modificado). El cron usa estos valores para ajustar el cutoff de entrada
+  // y el chequeo de salida. Al menos uno de los dos debe estar presente.
+  special_entry_time?: string | null; // "HH:mm"
+  special_exit_time?: string | null; // "HH:mm"
 }
 
 // Auth types

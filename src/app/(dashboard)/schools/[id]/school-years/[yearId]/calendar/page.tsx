@@ -26,6 +26,7 @@ const TYPE_LABELS: Record<SchoolCalendarEntry["type"], string> = {
   vacation: "Vacaciones",
   suspension: "Suspensión",
   non_lectivo: "No lectivo",
+  special_schedule: "Horario especial",
 };
 
 const TYPE_COLORS: Record<
@@ -36,6 +37,7 @@ const TYPE_COLORS: Record<
   vacation: { bg: "bg-amber-100", text: "text-amber-700", border: "border-amber-300", cell: "bg-amber-400" },
   suspension: { bg: "bg-violet-100", text: "text-violet-700", border: "border-violet-300", cell: "bg-violet-400" },
   non_lectivo: { bg: "bg-slate-200", text: "text-slate-600", border: "border-slate-300", cell: "bg-slate-400" },
+  special_schedule: { bg: "bg-sky-100", text: "text-sky-700", border: "border-sky-300", cell: "bg-sky-500" },
 };
 
 function toKey(y: number, m: number, d: number) {
@@ -70,6 +72,9 @@ export default function CalendarPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [entryName, setEntryName] = useState("");
+  // Solo se usan cuando selectedType === "special_schedule".
+  const [specialEntryTime, setSpecialEntryTime] = useState("");
+  const [specialExitTime, setSpecialExitTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingEntry, setEditingEntry] = useState<SchoolCalendarEntry | null>(null);
 
@@ -109,6 +114,8 @@ export default function CalendarPage() {
     setDateFrom("");
     setDateTo("");
     setEntryName("");
+    setSpecialEntryTime("");
+    setSpecialExitTime("");
     setIsModalOpen(true);
   };
 
@@ -119,11 +126,22 @@ export default function CalendarPage() {
     setDateFrom(d);
     setDateTo(d);
     setEntryName(entry.name || "");
+    setSpecialEntryTime(entry.special_entry_time || "");
+    setSpecialExitTime(entry.special_exit_time || "");
     setIsModalOpen(true);
   };
 
   const handleSave = async () => {
     if (!dateFrom) return;
+    // Validación cliente: special_schedule requiere al menos uno de los dos
+    // horarios. El backend lo revalida y devuelve 400 con mensaje útil si se
+    // violan los bounds contra los turnos del ciclo.
+    if (selectedType === "special_schedule" && !specialEntryTime && !specialExitTime) {
+      alert(
+        "Para Horario Especial debes capturar al menos una de las dos horas (entrada o salida)."
+      );
+      return;
+    }
     setIsSubmitting(true);
     try {
       const endDate = dateTo || dateFrom;
@@ -135,6 +153,12 @@ export default function CalendarPage() {
         await api.put(`${ENDPOINTS.SCHOOL_CALENDAR}/${editingEntry._id}`, {
           type: selectedType,
           name: entryName || null,
+          ...(selectedType === "special_schedule"
+            ? {
+                special_entry_time: specialEntryTime || null,
+                special_exit_time: specialExitTime || null,
+              }
+            : {}),
         });
       } else {
         // Create entries for each day in range
@@ -147,6 +171,12 @@ export default function CalendarPage() {
             date: dateStr,
             type: selectedType,
             name: entryName || null,
+            ...(selectedType === "special_schedule"
+              ? {
+                  special_entry_time: specialEntryTime || null,
+                  special_exit_time: specialExitTime || null,
+                }
+              : {}),
           }).catch(() => {});
           cd++;
           if (cd > getDaysInMonth(cy, cm)) { cd = 1; cm++; if (cm > 11) { cm = 0; cy++; } }
@@ -196,7 +226,13 @@ export default function CalendarPage() {
 
   // Count by type
   const counts = useMemo(() => {
-    const c: Record<string, number> = { holiday: 0, vacation: 0, suspension: 0, non_lectivo: 0 };
+    const c: Record<string, number> = {
+      holiday: 0,
+      vacation: 0,
+      suspension: 0,
+      non_lectivo: 0,
+      special_schedule: 0,
+    };
     for (const e of entries) c[e.type] = (c[e.type] || 0) + 1;
     return c;
   }, [entries]);
@@ -267,7 +303,15 @@ export default function CalendarPage() {
                       className={cellClass}
                       title={
                         entry
-                          ? `${TYPE_LABELS[entry.type]}${entry.name ? `: ${entry.name}` : ""}`
+                          ? `${TYPE_LABELS[entry.type]}${
+                              entry.name ? `: ${entry.name}` : ""
+                            }${
+                              entry.type === "special_schedule"
+                                ? ` (entrada ${
+                                    entry.special_entry_time || "—"
+                                  }, salida ${entry.special_exit_time || "—"})`
+                                : ""
+                            }`
                           : isStart
                           ? "Inicio de clases"
                           : isEnd
@@ -373,6 +417,50 @@ export default function CalendarPage() {
                 setDateTo("");
               }}
             />
+          )}
+
+          {/* Horario especial — solo visible cuando type === "special_schedule".
+              El día SIGUE SIENDO lectivo (el cron usa estos valores como override
+              del turno). Al menos uno de los dos horarios es obligatorio. */}
+          {selectedType === "special_schedule" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-text-primary">
+                  Horario especial del día
+                </label>
+                <span className="text-[10px] text-text-muted">
+                  Captura al menos uno
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Input
+                    label="Hora de entrada"
+                    type="time"
+                    value={specialEntryTime}
+                    onChange={(e) => setSpecialEntryTime(e.target.value)}
+                  />
+                  <p className="text-[10px] text-text-muted mt-1">
+                    ≥ hora oficial del turno
+                  </p>
+                </div>
+                <div>
+                  <Input
+                    label="Hora de salida"
+                    type="time"
+                    value={specialExitTime}
+                    onChange={(e) => setSpecialExitTime(e.target.value)}
+                  />
+                  <p className="text-[10px] text-text-muted mt-1">
+                    ≤ hora oficial del turno
+                  </p>
+                </div>
+              </div>
+              <p className="text-[11px] text-text-muted">
+                El cron ajustará el corte de entrada y el chequeo de salida con
+                estos horarios. El día se sigue contando como lectivo.
+              </p>
+            </div>
           )}
 
           <Input
