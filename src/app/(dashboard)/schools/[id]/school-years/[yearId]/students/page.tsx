@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { Student, Enrollment, Group, SchoolYear } from "@/lib/types";
+import type { Student, Enrollment, Group, SchoolYear, Guardian } from "@/lib/types";
 import {
   GraduationCap,
   Search,
@@ -156,12 +156,47 @@ export default function StudentsPage() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ total: number; succeeded: number; failed: number; warnings?: number; results: any[] } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    total: number;
+    succeeded: number;
+    failed: number;
+    warnings?: number;
+    results: Array<{
+      index: number;
+      status: string;
+      curp?: string;
+      errors?: string[];
+      guardian_reused?: boolean;
+      guardian?: string;
+    }>;
+  } | null>(null);
 
   // Register form
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<RegisterFormData>({
+  const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
+
+  // --- Tutor (guardian) selection ---
+  // `selectedGuardian` es la fuente de verdad de "el admin ya eligió
+  // un tutor existente y NO debe mandar datos del tutor en el submit".
+  // La modal "Buscar tutor existente" y la auto-detección en blur del
+  // teléfono lo setean; el botón "Cambiar tutor" lo limpia. Los 4
+  // inputs del tutor se renderizan con `disabled` cuando está set.
+  const [selectedGuardian, setSelectedGuardian] = useState<Guardian | null>(null);
+  const [isGuardianPickerOpen, setIsGuardianPickerOpen] = useState(false);
+  const [guardianSearch, setGuardianSearch] = useState("");
+  const [guardianResults, setGuardianResults] = useState<Guardian[]>([]);
+  const [isGuardianSearching, setIsGuardianSearching] = useState(false);
+  // Sugerencia de auto-detección en blur del teléfono. "idle" = no
+  // se ha tecleado aún; "loading" = consulta en curso; "found" =
+  // existe un tutor con ese número y aún no se ha decidido;
+  // "empty" = no existe (se crearía uno nuevo al enviar).
+  const [guardianLookup, setGuardianLookup] = useState<{ status: "idle" | "loading" | "found" | "empty"; guardian?: Guardian }>({ status: "idle" });
+  // Flag mutable: "el admin ya tomó una decisión sobre el tutor" —
+  // suprime futuras auto-detección en blur y descarta sugerencias
+  // pendientes. No usamos useState porque no queremos re-render por
+  // este cambio (sólo es leído dentro de handlers).
+  const guardianChosen = useRef<"none" | "picker" | "blur" | "manual">("none");
 
   // --- Fetch ---
   const fetchData = useCallback(async () => {
@@ -245,12 +280,107 @@ export default function StudentsPage() {
   // HANDLERS
   // ===================================================================
 
+  // --- Limpia la selección del tutor (modal / blur) y deja los inputs
+  //     listos para captura manual. Llamado desde el botón "Cambiar
+  //     tutor" o al abrir el form de nuevo.
+  const clearGuardianSelection = useCallback(() => {
+    setSelectedGuardian(null);
+    setGuardianLookup({ status: "idle" });
+    setValue("guardian_name", "");
+    setValue("guardian_lastname", "");
+    setValue("guardian_phone", "");
+    setValue("guardian_relationship", "");
+    guardianChosen.current = "manual";
+  }, [setValue]);
+
+  // --- Setea `selectedGuardian` desde la modal o desde la sugerencia
+  //     del blur. Pre-rellena los inputs del form (para que se vean
+  //     con los datos del tutor) y los deja deshabilitados porque ya
+  //     no se editan — la identidad del tutor viene del backend.
+  const selectGuardian = useCallback((g: Guardian, source: "picker" | "blur") => {
+    setSelectedGuardian(g);
+    setGuardianLookup({ status: "idle" });
+    setValue("guardian_name", g.name || "");
+    setValue("guardian_lastname", g.lastname || "");
+    setValue("guardian_phone", g.phone || "");
+    setValue("guardian_relationship", g.relationship || "");
+    guardianChosen.current = source;
+  }, [setValue]);
+
+  // --- Búsqueda en la modal "Buscar tutor existente". Usa el endpoint
+  //     existente GET /api/guardians con `?search=` (regex sobre
+  //     nombre/apellido/teléfono) o `?phone=` exacto cuando hay 10
+  //     dígitos — el segundo usa el índice {school, phone}.
+  const searchGuardians = useCallback(async (q: string) => {
+    setIsGuardianSearching(true);
+    try {
+      const params = new URLSearchParams({ limit: "10" });
+      if (/^\d{10}$/.test(q.trim())) {
+        params.set("phone", q.trim());
+      } else if (q.trim().length >= 2) {
+        params.set("search", q.trim());
+      }
+      const res = await api.get<{ items: Guardian[]; total: number }>(
+        `${ENDPOINTS.GUARDIANS}?${params.toString()}`
+      );
+      setGuardianResults(res?.items || []);
+    } catch {
+      setGuardianResults([]);
+    } finally {
+      setIsGuardianSearching(false);
+    }
+  }, []);
+
+  // Dispara búsqueda cada vez que cambia `guardianSearch` (mientras la
+  // modal está abierta). Debounce simple.
+  useEffect(() => {
+    if (!isGuardianPickerOpen) return;
+    const t = setTimeout(() => searchGuardians(guardianSearch), 200);
+    return () => clearTimeout(t);
+  }, [guardianSearch, isGuardianPickerOpen, searchGuardians]);
+
+  // --- Auto-detección al perder foco del teléfono. Si el número
+  //     coincide con un tutor existente, mostramos una sugerencia con
+  //     botón "Usar este tutor" (que llama `selectGuardian("blur")`).
+  //     No auto-selecciona — la decisión final es del admin.
+  const onGuardianPhoneBlur = useCallback(async () => {
+    // Suprimir si el admin ya eligió manualmente, por modal o por blur.
+    if (guardianChosen.current !== "none") return;
+    if (selectedGuardian) return;
+    const phone = (watch("guardian_phone") || "").trim();
+    if (!/^\d{10}$/.test(phone)) {
+      setGuardianLookup({ status: "idle" });
+      return;
+    }
+    setGuardianLookup({ status: "loading" });
+    try {
+      const res = await api.get<{ items: Guardian[] }>(
+        `${ENDPOINTS.GUARDIANS}?phone=${phone}`
+      );
+      const found = res?.items?.[0];
+      if (found) {
+        setGuardianLookup({ status: "found", guardian: found });
+      } else {
+        setGuardianLookup({ status: "empty" });
+      }
+    } catch {
+      setGuardianLookup({ status: "idle" });
+    }
+  }, [selectedGuardian, watch]);
+
   // --- Register new student ---
   const onRegister = async (data: RegisterFormData) => {
     setIsRegistering(true);
     setRegisterError(null);
     setRegisterWarn(null);
     try {
+      // `selectedGuardian` es la fuente de verdad de "no enviar datos
+      // del tutor porque ya está registrado". Cuando está set, el
+      // frontend ramifica al endpoint nuevo por ID
+      // (POST /api/guardians/:id/students) que solo recibe IDs.
+      // En cualquier otro caso, si el admin tecleó teléfono + nombre,
+      // se manda al flujo clásico de POST /api/guardians (el backend
+      // ya reusa por teléfono; nunca pisa name/lastname/relationship).
       const { guardian_name, guardian_lastname, guardian_phone, guardian_relationship, grade, ...studentData } = data;
       const student = await api.post<Student>(`${ENDPOINTS.STUDENTS}/register`, {
         ...studentData,
@@ -258,13 +388,27 @@ export default function StudentsPage() {
       });
       const studentId = (student as any)._id || student;
 
-      // Create guardian if provided. El backend intenta crear o
-      // reutilizar el tutor; sincroniza al User para que el padre
-      // pueda activar su cuenta desde el login; y si el celular ya
-      // pertenece a otro perfil devuelve `warning` que mostramos al
-      // administrador (la sincronía del `lastname` se hace
-      // automáticamente al guardar el form de edición).
-      if (guardian_name && guardian_phone) {
+      let guardianLinkWarning: string | null = null;
+      let guardianLinkedLabel: string | null = null;
+
+      if (selectedGuardian) {
+        // Rama modal: el tutor ya existe en la DB. Solo vinculamos
+        // este alumno al tutor por ID. No enviamos nombre/teléfono.
+        try {
+          const linked = await api.post<Guardian>(
+            ENDPOINTS.GUARDIAN_STUDENTS(selectedGuardian._id),
+            { student_ids: [studentId] }
+          );
+          const fullName = [linked.name, linked.lastname].filter(Boolean).join(" ") || "tutor";
+          const count = linked.students?.length ?? 0;
+          guardianLinkedLabel = `Tutor ${fullName} vinculado (ahora tiene ${count} alumno${count === 1 ? "" : "s"}).`;
+        } catch {
+          guardianLinkWarning = "Alumno creado, pero no se pudo vincular al tutor seleccionado. Intenta desde el detalle del alumno.";
+        }
+      } else if (guardian_name && guardian_phone) {
+        // Rama manual: el backend reusa por teléfono (índice único
+        // {school, phone}) y solo completa campos vacíos del tutor
+        // existente. Nunca pisa name/lastname/relationship.
         try {
           const guardian = await api.post<any>(ENDPOINTS.GUARDIANS, {
             name: guardian_name,
@@ -274,19 +418,16 @@ export default function StudentsPage() {
             school: schoolId,
             students: [studentId],
           });
-          const guardianId = (guardian as any)._id || guardian;
-          await api.put(`${ENDPOINTS.STUDENTS}/${studentId}`, {
-            guardians: [guardianId],
-          });
-          // El backend marca teléfonos ya registrados de otro
-          // perfil. No bloquea al alumno pero dejamos huella.
+          // El backend ya hace $addToSet en ambos lados (Guardian.students
+          // y Student.guardians), por eso ya NO hay que hacer un
+          // PUT /api/students/:id { guardians: [id] } — esa llamada
+          // sobreescribía el array y era peligrosa si el alumno ya
+          // tenía tutores previos.
           if ((guardian as any)?.warning) {
-            setRegisterWarn((guardian as any).warning);
+            guardianLinkWarning = (guardian as any).warning;
           }
         } catch {
-          // El alumno sí se creó; comunicamos al admin que el
-          // tutor tuvo un problema (no lo ocultamos como antes).
-          setRegisterWarn("Alumno creado, pero no se pudo registrar el tutor. Revisa los datos e inténtalo desde el detalle del alumno.");
+          guardianLinkWarning = "Alumno creado, pero no se pudo registrar el tutor. Revisa los datos e inténtalo desde el detalle del alumno.";
         }
       }
 
@@ -299,7 +440,21 @@ export default function StudentsPage() {
       });
       setIsRegisterOpen(false);
       reset();
+      // Limpiamos la selección del tutor para el próximo alta.
+      setSelectedGuardian(null);
+      setGuardianLookup({ status: "idle" });
+      guardianChosen.current = "none";
       await fetchData();
+      // Avisos no fatales se muestran como toast efímero después de
+      // cerrar el modal. Como no tenemos un toast global, los
+      // guardamos en `registerWarn` y los mostraremos en la cabecera
+      // de la lista (un componente dedicado en otro pase).
+      if (guardianLinkedLabel) setRegisterWarn(guardianLinkedLabel);
+      else if (guardianLinkWarning) setRegisterWarn(guardianLinkWarning);
+      // Auto-clear tras 6s.
+      if (guardianLinkedLabel || guardianLinkWarning) {
+        setTimeout(() => setRegisterWarn(null), 6000);
+      }
     } catch (err: any) {
       setRegisterError(err?.message || "Error al registrar alumno.");
     } finally {
@@ -954,15 +1109,72 @@ export default function StudentsPage() {
 
           {/* Tutor Legal */}
           <div className="border-t border-border pt-4 mt-4">
-            <h3 className="text-sm font-semibold text-text-primary mb-3">Tutor Legal</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-text-primary">Tutor Legal</h3>
+              {selectedGuardian ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="emerald">
+                    <UserCheck size={12} className="mr-1" />
+                    Tutor existente
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearGuardianSelection}
+                  >
+                    Cambiar tutor
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsGuardianPickerOpen(true)}
+                >
+                  <Search size={14} />
+                  Buscar tutor existente
+                </Button>
+              )}
+            </div>
+
+            {selectedGuardian && (
+              <p className="text-xs text-text-muted mb-3">
+                Los datos del tutor ya están registrados — solo se vinculará al nuevo alumno.
+              </p>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Nombre(s) del Tutor" placeholder="Nombre(s)" {...register("guardian_name")} />
-              <Input label="Apellido(s) del Tutor" placeholder="Apellido(s)" {...register("guardian_lastname")} />
+              <Input
+                label="Nombre(s) del Tutor"
+                placeholder="Nombre(s)"
+                disabled={!!selectedGuardian}
+                {...register("guardian_name")}
+              />
+              <Input
+                label="Apellido(s) del Tutor"
+                placeholder="Apellido(s)"
+                disabled={!!selectedGuardian}
+                {...register("guardian_lastname")}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Teléfono del Tutor" placeholder="10 dígitos" {...register("guardian_phone")} />
+              <Input
+                label="Teléfono del Tutor"
+                placeholder="10 dígitos"
+                disabled={!!selectedGuardian}
+                {...register("guardian_phone", {
+                  // Auto-detección al perder foco: si el teléfono ya
+                  // pertenece a un tutor existente, mostramos una
+                  // sugerencia con botón "Usar este tutor". Solo se
+                  // dispara si el admin NO seleccionó uno por modal.
+                  onBlur: onGuardianPhoneBlur,
+                })}
+              />
               <Select
                 label="Parentesco"
+                disabled={!!selectedGuardian}
                 options={[
                   { value: "madre", label: "Madre" },
                   { value: "padre", label: "Padre" },
@@ -973,6 +1185,30 @@ export default function StudentsPage() {
                 {...register("guardian_relationship")}
               />
             </div>
+
+            {/* Sugerencia de auto-detección en blur del teléfono. */}
+            {!selectedGuardian && guardianLookup.status === "loading" && (
+              <p className="text-xs text-text-muted mt-2">Buscando tutor existente…</p>
+            )}
+            {!selectedGuardian && guardianLookup.status === "found" && guardianLookup.guardian && (
+              <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50 flex items-center justify-between gap-3">
+                <div className="text-xs text-amber-900">
+                  <strong>Ya es tutor de: </strong>
+                  {[guardianLookup.guardian.name, guardianLookup.guardian.lastname].filter(Boolean).join(" ")}
+                  {" · "}
+                  {guardianLookup.guardian.students?.length ?? 0} alumno
+                  {(guardianLookup.guardian.students?.length ?? 0) === 1 ? "" : "s"}
+                </div>
+                <Button
+                  type="button"
+                  variant="sky"
+                  size="sm"
+                  onClick={() => selectGuardian(guardianLookup.guardian!, "blur")}
+                >
+                  Usar este tutor
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
@@ -980,6 +1216,83 @@ export default function StudentsPage() {
             <Button type="submit" variant="sky" isLoading={isRegistering}>Registrar</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal: Buscar tutor existente. Búsqueda reactiva (debounced)
+          por nombre o teléfono; al seleccionar se setea
+          `selectedGuardian` y los 4 inputs del form se deshabilitan
+          para que el admin visualice los datos sin poder editarlos. */}
+      <Modal
+        isOpen={isGuardianPickerOpen}
+        onClose={() => {
+          setIsGuardianPickerOpen(false);
+          setGuardianSearch("");
+          setGuardianResults([]);
+        }}
+        title="Buscar tutor existente"
+        size="md"
+      >
+        <Input
+          placeholder="Buscar por nombre, apellido o teléfono"
+          icon={<Search size={16} />}
+          autoFocus
+          value={guardianSearch}
+          onChange={(e) => setGuardianSearch(e.target.value)}
+        />
+        <div className="mt-4 max-h-80 overflow-y-auto space-y-2">
+          {isGuardianSearching && (
+            <p className="text-sm text-text-muted text-center py-4">Buscando…</p>
+          )}
+          {!isGuardianSearching && guardianSearch.trim().length < 2 && (
+            <p className="text-sm text-text-muted text-center py-4">
+              Escribe al menos 2 caracteres para buscar.
+            </p>
+          )}
+          {!isGuardianSearching && guardianSearch.trim().length >= 2 && guardianResults.length === 0 && (
+            <p className="text-sm text-text-muted text-center py-4">
+              Sin coincidencias. Si lo registras a mano, se creará un nuevo tutor.
+            </p>
+          )}
+          {guardianResults.map((g) => (
+            <button
+              key={g._id}
+              type="button"
+              onClick={() => {
+                selectGuardian(g, "picker");
+                setIsGuardianPickerOpen(false);
+                setGuardianSearch("");
+                setGuardianResults([]);
+              }}
+              className="w-full text-left p-3 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-colors"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="font-medium text-text-primary">
+                    {[g.name, g.lastname].filter(Boolean).join(" ") || "—"}
+                  </div>
+                  <div className="text-xs text-text-muted mt-0.5">
+                    {g.phone} · {g.relationship}
+                  </div>
+                </div>
+                <Badge variant="sky">
+                  {g.students?.length ?? 0} alumno{(g.students?.length ?? 0) === 1 ? "" : "s"}
+                </Badge>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end pt-4">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setIsGuardianPickerOpen(false);
+              setGuardianSearch("");
+              setGuardianResults([]);
+            }}
+          >
+            Cancelar
+          </Button>
+        </div>
       </Modal>
 
       {/* Modal: Reinscripción Wizard */}
@@ -1637,6 +1950,36 @@ export default function StudentsPage() {
                   </table>
                 </div>
               )}
+              {/* Tutores reusados: el Excel traía un teléfono que ya
+                  pertenecía a un tutor registrado — se vinculó al
+                  alumno en lugar de crear un duplicado. */}
+              {(() => {
+                const reused = (importResult.results || []).filter((r: any) => r.status === "ok" && r.guardian_reused);
+                if (reused.length === 0) return null;
+                return (
+                  <div className="max-h-48 overflow-y-auto border border-sky-200 rounded-xl bg-sky-50/40">
+                    <div className="px-3 py-2 text-xs font-semibold text-sky-800 border-b border-sky-200">
+                      Tutores reusados (vincularon alumnos a tutores ya registrados)
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-sky-200">
+                          <th className="px-3 py-2 text-left font-semibold text-sky-900">Fila</th>
+                          <th className="px-3 py-2 text-left font-semibold text-sky-900">Tutor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reused.map((r: any, i: number) => (
+                          <tr key={i} className="border-b border-sky-100 last:border-b-0">
+                            <td className="px-3 py-2 text-text-secondary">{r.index + 1}</td>
+                            <td className="px-3 py-2 text-sky-900">{r.guardian}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
               <div className="flex justify-end pt-4">
                 <Button variant="ghost" onClick={() => { setIsImportOpen(false); setImportResult(null); setImportFile(null); }}>
                   Cerrar

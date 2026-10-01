@@ -87,6 +87,15 @@ export interface Guardian {
   // otro perfil (teacher/admin/etc) devuelve la respuesta 201 con
   // `warning` para que la UI lo muestre al administrador.
   warning?: string;
+  // Estudiantes vinculados (populado en GET /api/guardians y en
+  // POST /api/guardians/:id/students). Usado por la modal "Buscar
+  // tutor existente" para mostrar el conteo "N alumno(s)".
+  students?: Array<{
+    _id: string;
+    controlNumber?: string;
+    first_name?: string;
+    last_name?: string;
+  }>;
 }
 
 export interface Group {

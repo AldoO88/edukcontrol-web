@@ -50,6 +50,7 @@ export const ENDPOINTS = {
 
   // Guardians
   GUARDIANS: "/api/guardians",
+  GUARDIAN_STUDENTS: (id: string) => `/api/guardians/${id}/students`,
 
   // School Shifts
   SCHOOL_SHIFTS: "/api/school-shifts",
