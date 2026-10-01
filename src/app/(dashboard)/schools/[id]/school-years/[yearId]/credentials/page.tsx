@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { Student } from "@/lib/types";
+import type { Student, Group } from "@/lib/types";
 import { IdCard, Download, Upload } from "lucide-react";
 import {
   PdfPreviewModal,
@@ -125,16 +125,89 @@ export default function CredentialsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId, yearId]);
 
+  // Normaliza una cadena para comparar búsquedas: minúsculas y sin
+  // caracteres no alfanuméricos. Usado para que el usuario pueda
+  // buscar un grupo con "1a" y matchee contra el label "1° A".
+  const normalize = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  // Resuelve el grupo regular del alumno y el label legible. Devuelve
+  // null si el alumno no tiene grupo, si `current_group_id` es solo un
+  // id (no se populó) o si apunta a un grupo de OTRO ciclo (caso
+  // documentado por `migrate-enroll-active-students.js`).
+  const resolveGroup = (s: Student): Group | null => {
+    const cg = s.current_group_id;
+    if (!cg || typeof cg !== "object") return null;
+    const g = cg as Group;
+    if (
+      g.school_year_id &&
+      typeof g.school_year_id === "string" &&
+      g.school_year_id !== yearId
+    ) {
+      return null;
+    }
+    return g;
+  };
+
   const filteredStudents = useMemo(() => {
     if (!search) return students;
     const q = search.toLowerCase();
-    return students.filter(
-      (s) =>
+    const qNorm = normalize(search);
+    return students.filter((s) => {
+      if (
         s.first_name?.toLowerCase().includes(q) ||
         s.last_name?.toLowerCase().includes(q) ||
         s.controlNumber?.toLowerCase().includes(q)
-    );
-  }, [students, search]);
+      ) {
+        return true;
+      }
+      // Match por label de grupo: "1° A" debe matchear con búsqueda
+      // "1a", "1A", "1°a", etc. (sin acentos/espacios/°).
+      const g = resolveGroup(s);
+      if (!g) return false;
+      const label = `${g.grade}°${g.section}`;
+      return normalize(label).includes(qNorm);
+    });
+  }, [students, search, yearId]);
+
+  // Agrupa los alumnos filtrados por su grupo regular. Orden:
+  // grupos por grade asc → section localeCompare "es"; "Sin grupo"
+  // al final. Dentro de cada grupo, alfabético apellido → nombre.
+  const groupedStudents = useMemo(() => {
+    const buckets = new Map<
+      string,
+      { key: string; label: string; sortKey: [number, string]; items: Student[] }
+    >();
+    for (const s of filteredStudents) {
+      const g = resolveGroup(s);
+      let key: string;
+      let label: string;
+      let sortKey: [number, string];
+      if (g) {
+        key = g._id;
+        label = `${g.grade}°${g.section}`;
+        sortKey = [g.grade, g.section];
+      } else {
+        key = "__none__";
+        label = "Sin grupo";
+        // "Sin grupo" va al final → grade máximo + sección "z".
+        sortKey = [Number.MAX_SAFE_INTEGER, "z"];
+      }
+      if (!buckets.has(key)) buckets.set(key, { key, label, sortKey, items: [] });
+      buckets.get(key)!.items.push(s);
+    }
+    const groups = Array.from(buckets.values()).sort((a, b) => {
+      if (a.sortKey[0] !== b.sortKey[0]) return a.sortKey[0] - b.sortKey[0];
+      return a.sortKey[1].localeCompare(b.sortKey[1], "es");
+    });
+    for (const g of groups) {
+      g.items.sort((a, b) => {
+        const ln = (a.last_name || "").localeCompare(b.last_name || "", "es");
+        if (ln !== 0) return ln;
+        return (a.first_name || "").localeCompare(b.first_name || "", "es");
+      });
+    }
+    return groups;
+  }, [filteredStudents, yearId]);
 
   const toggleStudent = (id: string) => {
     setSelected((prev) => {
@@ -151,6 +224,22 @@ export default function CredentialsPage() {
     } else {
       setSelected(new Set(filteredStudents.map((s) => s._id)));
     }
+  };
+
+  // Selecciona / deselecciona todos los alumnos de un grupo.
+  // Si todos están seleccionados, los quita; en cualquier otro
+  // caso (ninguno o parcial), agrega todos.
+  const toggleGroup = (ids: string[]) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allIn = ids.every((id) => next.has(id));
+      if (allIn) {
+        ids.forEach((id) => next.delete(id));
+      } else {
+        ids.forEach((id) => next.add(id));
+      }
+      return next;
+    });
   };
 
   // ── Subir diseño HTML ──────────────────────────────────────────────
@@ -366,28 +455,62 @@ export default function CredentialsPage() {
         <Card>
           <CardBody className="!p-0">
             <div className="divide-y divide-slate-100">
-              {filteredStudents.map((s) => {
-                const isSelected = selected.has(s._id);
+              {groupedStudents.map((g, groupIdx) => {
+                const groupIds = g.items.map((s) => s._id);
+                const selectedInGroup = groupIds.filter((id) => selected.has(id)).length;
+                const allSelected = selectedInGroup === groupIds.length;
+                const someSelected = selectedInGroup > 0 && !allSelected;
                 return (
-                  <div
-                    key={s._id}
-                    className={`p-4 flex items-center gap-4 transition-colors ${
-                      isSelected ? "bg-sky-50" : "hover:bg-slate-50"
-                    }`}
-                  >
-                    <input type="checkbox" className="w-4 h-4 accent-sky-600 shrink-0"
-                      checked={isSelected}
-                      onChange={() => toggleStudent(s._id)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-text-primary truncate">
-                        {s.first_name} {s.last_name}
-                      </p>
-                      <p className="text-xs text-text-secondary">
-                        No. Control: {s.controlNumber}
-                      </p>
+                  <div key={g.key} className={groupIdx === 0 ? "" : ""}>
+                    {/* Encabezado de grupo: checkbox con estado
+                        indeterminate + label + conteo. */}
+                    <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center gap-3 sticky top-0 z-10">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-sky-600 shrink-0"
+                        checked={allSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someSelected;
+                        }}
+                        onChange={() => toggleGroup(groupIds)}
+                        aria-label={`Seleccionar todos los alumnos de ${g.label}`}
+                      />
+                      <span className="text-sm font-semibold text-text-primary">
+                        {g.label}
+                      </span>
+                      <Badge variant="slate">
+                        {g.items.length} alumno{g.items.length === 1 ? "" : "s"}
+                      </Badge>
                     </div>
-                    <Badge variant="emerald">Activo</Badge>
+                    <div className="divide-y divide-slate-100">
+                      {g.items.map((s) => {
+                        const isSelected = selected.has(s._id);
+                        return (
+                          <div
+                            key={s._id}
+                            className={`pl-10 pr-4 py-4 flex items-center gap-4 transition-colors ${
+                              isSelected ? "bg-sky-50" : "hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-sky-600 shrink-0"
+                              checked={isSelected}
+                              onChange={() => toggleStudent(s._id)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-text-primary truncate">
+                                {s.first_name} {s.last_name}
+                              </p>
+                              <p className="text-xs text-text-secondary">
+                                No. Control: {s.controlNumber}
+                              </p>
+                            </div>
+                            <Badge variant="emerald">Activo</Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
