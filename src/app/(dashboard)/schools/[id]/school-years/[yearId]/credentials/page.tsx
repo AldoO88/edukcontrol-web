@@ -49,6 +49,11 @@ export default function CredentialsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  // Grupo seleccionado en el filtro de pills. `null` = todavía
+  // no se eligió ninguno (no se muestra nada hasta que el admin
+  // elija). `"__none__"` = bucket explícito de alumnos sin grupo
+  // (se muestra solo si hay alumnos en ese bucket).
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
 
   // Diseño activo (visual del diseñador / HTML avanzado / por defecto)
   const [designKind, setDesignKind] = useState<DesignKind>("default");
@@ -313,6 +318,46 @@ export default function CredentialsPage() {
       ids: withIds ? Array.from(selected).join(",") : undefined,
     });
 
+  // Grupos disponibles para los pills — derivado del set completo
+  // (sin búsqueda) para que los counts no bailen al tipear en el
+  // input de búsqueda. Mismo formato {key, label} que
+  // groupedStudents para reutilizar la key.
+  const availableGroups = useMemo(() => {
+    const buckets = new Map<
+      string,
+      { key: string; label: string; sortKey: [number, string]; count: number }
+    >();
+    for (const s of students) {
+      const g = resolveGroup(s);
+      let key: string;
+      let label: string;
+      let sortKey: [number, string];
+      if (g) {
+        key = g._id;
+        label = `${g.grade}°${g.section}`;
+        sortKey = [g.grade, g.section];
+      } else {
+        key = "__none__";
+        label = "Sin grupo";
+        sortKey = [Number.MAX_SAFE_INTEGER, "z"];
+      }
+      if (!buckets.has(key)) buckets.set(key, { key, label, sortKey, count: 0 });
+      buckets.get(key)!.count += 1;
+    }
+    return Array.from(buckets.values()).sort((a, b) => {
+      if (a.sortKey[0] !== b.sortKey[0]) return a.sortKey[0] - b.sortKey[0];
+      return a.sortKey[1].localeCompare(b.sortKey[1], "es");
+    });
+  }, [students, yearId]);
+
+  // Grupos que efectivamente se muestran en la lista. Si todavía
+  // no hay grupo seleccionado, está vacío (la UI muestra un
+  // empty state que pide elegir uno).
+  const displayedGroups = useMemo(() => {
+    if (selectedGroupKey === null) return [];
+    return groupedStudents.filter((g) => g.key === selectedGroupKey);
+  }, [groupedStudents, selectedGroupKey]);
+
   if (isLoading) {
     return <LoadingState message="Cargando..." height="page" />;
   }
@@ -434,10 +479,53 @@ export default function CredentialsPage() {
       )}
 
       <Input
-        placeholder="Buscar por nombre o número de control..."
+        placeholder={
+          selectedGroupKey === null
+            ? "Selecciona un grupo para habilitar la búsqueda..."
+            : "Buscar por nombre o número de control..."
+        }
         value={search}
         onChange={(e) => setSearch(e.target.value)}
+        disabled={selectedGroupKey === null}
       />
+
+      {/* Selector de grupo: pills horizontales. Sin selección por
+          default → no se muestra ningún alumno (empty state). */}
+      {students.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+            Grupo
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {availableGroups.map((g) => {
+              const isActive = selectedGroupKey === g.key;
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  onClick={() => setSelectedGroupKey(g.key)}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                    isActive
+                      ? "bg-accent text-white border-accent shadow-sm"
+                      : "bg-white text-text-secondary border-border hover:border-accent hover:text-accent-dark"
+                  }`}
+                >
+                  <span>{g.label}</span>
+                  <span
+                    className={`inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-xs font-semibold tabular-nums ${
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-text-secondary"
+                    }`}
+                  >
+                    {g.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {students.length === 0 ? (
         <EmptyState
@@ -445,17 +533,23 @@ export default function CredentialsPage() {
           title="No hay alumnos activos"
           description="Registra alumnos primero para poder generar sus credenciales."
         />
-      ) : filteredStudents.length === 0 ? (
+      ) : selectedGroupKey === null ? (
+        <EmptyState
+          icon={<IdCard size={48} />}
+          title="Selecciona un grupo"
+          description="Elige un grupo arriba para ver a sus alumnos y generar sus credenciales."
+        />
+      ) : displayedGroups.length === 0 || filteredStudents.length === 0 ? (
         <EmptyState
           icon={<IdCard size={48} />}
           title="Sin coincidencias"
-          description="No hay alumnos que coincidan con la búsqueda."
+          description="No hay alumnos que coincidan con la búsqueda en este grupo."
         />
       ) : (
         <Card>
           <CardBody className="!p-0">
             <div className="divide-y divide-slate-100">
-              {groupedStudents.map((g, groupIdx) => {
+              {displayedGroups.map((g, groupIdx) => {
                 const groupIds = g.items.map((s) => s._id);
                 const selectedInGroup = groupIds.filter((id) => selected.has(id)).length;
                 const allSelected = selectedInGroup === groupIds.length;
@@ -498,13 +592,29 @@ export default function CredentialsPage() {
                               checked={isSelected}
                               onChange={() => toggleStudent(s._id)}
                             />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-text-primary truncate">
-                                {s.first_name} {s.last_name}
-                              </p>
-                              <p className="text-xs text-text-secondary">
-                                No. Control: {s.controlNumber}
-                              </p>
+                            <div className="flex-1 min-w-0 flex items-center gap-3">
+                              {s.photoUrl ? (
+                                <img
+                                  src={s.photoUrl}
+                                  alt={`${s.first_name} ${s.last_name}`}
+                                  className="w-10 h-10 rounded-full object-cover border border-border shrink-0"
+                                />
+                              ) : (
+                                <span className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center border border-border shrink-0">
+                                  <span className="text-xs font-semibold text-accent-dark">
+                                    {s.first_name?.[0]}
+                                    {s.last_name?.[0]}
+                                  </span>
+                                </span>
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-medium text-text-primary truncate">
+                                  {s.first_name} {s.last_name}
+                                </p>
+                                <p className="text-xs text-text-secondary">
+                                  No. Control: {s.controlNumber}
+                                </p>
+                              </div>
                             </div>
                             <Badge variant="emerald">Activo</Badge>
                           </div>
