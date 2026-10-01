@@ -69,6 +69,19 @@ export default function StudentDetailPage() {
   const hasPrev = navIdx > 0;
   const hasNext = navIdx < navIds.length - 1;
 
+  // Número de lista del alumno en la vista actual del alumnado.
+  // `navIds` es la lista alfabética filtrada que la pantalla de
+  // alumnado arma al hacer click en una fila (apellido → nombre,
+  // localeCompare "es"), y `navIdx` es el índice 0-based dentro
+  // de esa lista. Por tanto `navIdx + 1` ES el número de lista del
+  // alumno en la vista desde la que se abrió el expediente.
+  // Fallback a null cuando el expediente se abre sin query (deep
+  // link, botón "Ver Expediente" del menú de fila) o cuando el
+  // alumno no está en `navIds` (caso defensivo que no debería
+  // ocurrir en flujo normal pero la UI no debe mostrar `1 / 0`).
+  const numeroDeLista =
+    navIds.length > 0 && navIds.includes(studentId) ? navIdx + 1 : null;
+
   const goToStudent = (idx: number) => {
     const id = navIds[idx];
     if (!id) return;
@@ -340,7 +353,7 @@ export default function StudentDetailPage() {
     <div className="space-y-6">
       <PageHeader
         title={`${student.first_name} ${student.last_name || ""}`}
-        subtitle={`No. Control: ${student.controlNumber || "—"}`}
+        subtitle={`No. Control: ${student.controlNumber || "—"} · No. de lista: ${numeroDeLista ?? "—"}`}
         action={{
           label: "Volver",
           href: `/schools/${schoolId}/school-years/${yearId}/students`,
@@ -697,6 +710,9 @@ export default function StudentDetailPage() {
                 {student.first_name} {student.last_name}
               </h3>
               <p className="text-sm text-text-secondary font-mono">{student.controlNumber}</p>
+              <p className="text-xs text-text-muted mt-1">
+                No. de lista: <span className="font-semibold text-text-secondary tabular-nums">{numeroDeLista ?? "—"}</span>
+              </p>
             </CardBody>
           </Card>
           {navIds.length > 0 && (
