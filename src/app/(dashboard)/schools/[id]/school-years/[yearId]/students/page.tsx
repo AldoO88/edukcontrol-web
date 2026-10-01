@@ -168,6 +168,13 @@ export default function StudentsPage() {
       errors?: string[];
       guardian_reused?: boolean;
       guardian?: string;
+      // El backend marca `guardian_missing=true` en las filas OK que
+      // quedaron sin tutor y no dispararon un `warning` específico
+      // (fila sin datos de tutor o con nombre pero sin celular).
+      // La web las agrupa en la lista "Alumnos sin tutor".
+      guardian_missing?: boolean;
+      student_name?: string;
+      guardian_missing_reason?: "missing_phone" | "no_data";
     }>;
   } | null>(null);
 
@@ -1186,6 +1193,40 @@ export default function StudentsPage() {
               />
             </div>
 
+            {/* Aviso: el tutor NO se guarda si falta alguno de los
+                datos de identificación (nombre O celular). El
+                alumno se crea igual; el aviso solo explica que el
+                tutor no quedará registrado. No bloquea el envío:
+                casos intencionales (ej. alumno sin tutor por
+                trámites legales en curso) se siguen permitiendo. */}
+            {!selectedGuardian && (() => {
+              const gName = (watch("guardian_name") || "").trim();
+              const gPhone = (watch("guardian_phone") || "").trim();
+              const tieneNombre = gName.length > 0;
+              const tieneCelular = gPhone.length > 0;
+              if (tieneNombre && !tieneCelular) {
+                return (
+                  <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900">
+                    <strong>No se guardarán los datos del tutor:</strong>{" "}
+                    es necesario el número de celular (10 dígitos). El alumno quedará sin tutor registrado.
+                    {" "}
+                    {guardianLookup.status === "found" && guardianLookup.guardian
+                      ? "El celular que escribiste ya está registrado — pulsa “Usar este tutor” arriba para vincularlo."
+                      : "Si el tutor ya está registrado, pulsa “Buscar tutor existente”."}
+                  </div>
+                );
+              }
+              if (!tieneNombre && tieneCelular) {
+                return (
+                  <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900">
+                    <strong>No se guardarán los datos del tutor:</strong>{" "}
+                    falta el nombre. El celular sin nombre no basta para registrar al tutor.
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* Sugerencia de auto-detección en blur del teléfono. */}
             {!selectedGuardian && guardianLookup.status === "loading" && (
               <p className="text-xs text-text-muted mt-2">Buscando tutor existente…</p>
@@ -1901,6 +1942,10 @@ export default function StudentsPage() {
                   {importResult.succeeded} de {importResult.total} alumnos importados
                   {importResult.failed > 0 && ` · ${importResult.failed} fallidos`}
                   {(importResult.warnings ?? 0) > 0 && ` · ${importResult.warnings} con avisos en tutor`}
+                  {(() => {
+                    const sinTutor = (importResult.results || []).filter((r: any) => r.status === "ok" && r.guardian_missing).length;
+                    return sinTutor > 0 ? ` · ${sinTutor} creados sin tutor` : null;
+                  })()}
                 </p>
               </div>
               {importResult.failed > 0 && (
@@ -1973,6 +2018,47 @@ export default function StudentsPage() {
                           <tr key={i} className="border-b border-sky-100 last:border-b-0">
                             <td className="px-3 py-2 text-text-secondary">{r.index + 1}</td>
                             <td className="px-3 py-2 text-sky-900">{r.guardian}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+              {/* Alumnos creados sin tutor: el Excel no traía teléfono
+                  del tutor, así que la fila se importó sin tutor
+                  vinculado. "missing_phone" = tenía nombre pero
+                  faltó celular (dato incompleto, corregir). "no_data"
+                  = la fila no traía datos de tutor (probablemente
+                  intencional; dar seguimiento si no lo es). */}
+              {(() => {
+                const sinTutor = (importResult.results || []).filter((r: any) => r.status === "ok" && r.guardian_missing);
+                if (sinTutor.length === 0) return null;
+                return (
+                  <div className="max-h-48 overflow-y-auto border border-amber-200 rounded-xl bg-amber-50/40">
+                    <div className="px-3 py-2 text-xs font-semibold text-amber-800 border-b border-amber-200">
+                      Alumnos creados sin tutor ({sinTutor.length}) — recuerda que el celular del tutor es obligatorio para notificaciones y activación
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-amber-200">
+                          <th className="px-3 py-2 text-left font-semibold text-amber-900">Fila</th>
+                          <th className="px-3 py-2 text-left font-semibold text-amber-900">Alumno</th>
+                          <th className="px-3 py-2 text-left font-semibold text-amber-900">CURP</th>
+                          <th className="px-3 py-2 text-left font-semibold text-amber-900">Motivo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sinTutor.map((r: any, i: number) => (
+                          <tr key={i} className="border-b border-amber-100 last:border-b-0">
+                            <td className="px-3 py-2 text-text-secondary">{r.index + 1}</td>
+                            <td className="px-3 py-2 text-amber-900">{r.student_name || "—"}</td>
+                            <td className="px-3 py-2 text-text-secondary font-mono text-xs">{r.curp || "—"}</td>
+                            <td className="px-3 py-2 text-amber-800">
+                              {r.guardian_missing_reason === "missing_phone"
+                                ? "Tenía nombre del tutor pero faltó el celular"
+                                : "Sin datos de tutor en la fila"}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
