@@ -73,7 +73,24 @@ export default function GroupsPage() {
       const res = await api.get<{ items: GroupStudent[]; total: number }>(
         ENDPOINTS.GROUP_STUDENTS(group._id)
       );
-      setStudents(res.items || []);
+      // Orden alfabético por apellido, luego nombre, con
+      // `localeCompare("es")` para que las letras acentuadas (Á, É,
+      // Ñ) y mayúsculas se ordenen como en español. El backend
+      // responde por fecha de inscripción (createdAt desc), así que
+      // reordenamos en cliente. La numeración posicional (idx+1) en
+      // el render queda 1..N por grupo, tipo "lista de clase".
+      const items = (res.items || []).slice().sort((a, b) => {
+        const ln = (a.student_id?.last_name || "").localeCompare(
+          b.student_id?.last_name || "",
+          "es"
+        );
+        if (ln !== 0) return ln;
+        return (a.student_id?.first_name || "").localeCompare(
+          b.student_id?.first_name || "",
+          "es"
+        );
+      });
+      setStudents(items);
     } catch {
       setStudentsError("Error al cargar los alumnos del grupo.");
     } finally {
@@ -230,11 +247,14 @@ export default function GroupsPage() {
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {students.map((s) => (
+            {students.map((s, idx) => (
               <div
                 key={s._id}
                 className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
               >
+                <span className="w-7 text-center text-xs font-semibold text-text-muted tabular-nums shrink-0">
+                  {idx + 1}.
+                </span>
                 <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
                   {s.student_id?.photoUrl ? (
                     <img

@@ -243,22 +243,36 @@ export default function StudentsPage() {
     }).filter((e) => e.student);
   }, [enrollments, allGroups]);
 
-  // --- Filter ---
+  // --- Filter + sort alfabético ---
+  // Orden: apellido, luego nombre — `localeCompare("es")` para que
+  // las letras acentuadas (Á, É, Ñ) y las mayúsculas se ordenen
+  // como en español (Mongo ordena binario y "Ávila" caería después
+  // de "Zúñiga"). El memo devuelve un array nuevo vía `.filter`,
+  // así que el `.sort` in-place no muta `enriched`. La numeración
+  // posicional (idx+1) en la tabla queda siempre 1..N sobre la
+  // vista filtrada actual (incluye filtro de grupo / pestaña /
+  // búsqueda): cada vista es un "número de lista" independiente.
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return enriched.filter((e) => {
-      if (activeTab === "no_group" && (e.enrollment.group_id || e.student.workshop_group_id)) return false;
-      if (activeTab === "enrolled" && e.enrollment.cycle_status !== "enrolled") return false;
-      if (activeTab === "withdrawn" && e.enrollment.cycle_status !== "withdrawn") return false;
-      if (filterGroupId && (!e.group || e.group._id !== filterGroupId)) return false;
-      if (filterTallerId && (!e.taller || e.taller._id !== filterTallerId)) return false;
-      if (!q) return true;
-      return (
-        e.student.first_name?.toLowerCase().includes(q) ||
-        e.student.last_name?.toLowerCase().includes(q) ||
-        e.student.controlNumber?.toLowerCase().includes(q)
-      );
-    });
+    return enriched
+      .filter((e) => {
+        if (activeTab === "no_group" && (e.enrollment.group_id || e.student.workshop_group_id)) return false;
+        if (activeTab === "enrolled" && e.enrollment.cycle_status !== "enrolled") return false;
+        if (activeTab === "withdrawn" && e.enrollment.cycle_status !== "withdrawn") return false;
+        if (filterGroupId && (!e.group || e.group._id !== filterGroupId)) return false;
+        if (filterTallerId && (!e.taller || e.taller._id !== filterTallerId)) return false;
+        if (!q) return true;
+        return (
+          e.student.first_name?.toLowerCase().includes(q) ||
+          e.student.last_name?.toLowerCase().includes(q) ||
+          e.student.controlNumber?.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const ln = (a.student.last_name || "").localeCompare(b.student.last_name || "", "es");
+        if (ln !== 0) return ln;
+        return (a.student.first_name || "").localeCompare(b.student.first_name || "", "es");
+      });
   }, [enriched, activeTab, searchQuery, filterGroupId, filterTallerId]);
 
   const tabCounts = useMemo(() => ({
@@ -914,6 +928,7 @@ export default function StudentsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-slate-50">
+                    <th className="text-center px-4 py-3 font-semibold text-text-primary w-12">No.</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Nombre</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">No. Control</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Grupo</th>
@@ -929,6 +944,9 @@ export default function StudentsPage() {
                       key={e.enrollment._id}
                       className="border-b border-border last:border-b-0 hover:bg-slate-50/50"
                     >
+                      <td className="px-4 py-3 text-center text-text-secondary font-semibold tabular-nums w-12">
+                        {idx + 1}
+                      </td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => {
