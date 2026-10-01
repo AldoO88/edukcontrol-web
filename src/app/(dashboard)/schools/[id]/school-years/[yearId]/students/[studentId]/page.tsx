@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
@@ -21,6 +21,8 @@ import type { Student, Enrollment, Group, Guardian } from "@/lib/types";
 import {
   User,
   UserPlus,
+  Users,
+  Search,
   Phone,
   MapPin,
   Calendar,
@@ -137,7 +139,85 @@ export default function StudentDetailPage() {
     setCustomRelationship("");
     setEditingGuardianId(null);
     setTutorFormError(null);
+    // Default tab: "Vincular existente" para que lo habitual
+    // (ya hay un tutor registrado para papá/mamá de un hermano)
+    // sea un click en vez de teclear el celular a mano.
+    setTutorModalTab("existing");
+    setExistingGuardianSearch("");
+    setExistingGuardianResults([]);
     setIsTutorOpen(true);
+  };
+
+  // --- Tab del modal: 'existing' = buscar/vincular tutor ya
+  //     registrado, 'new' = crear uno desde cero. El tab existe
+  //     solo en modo ADD (no en edit), por eso el JSX lo oculta
+  //     cuando `editingGuardianId` está set. ---
+  const [tutorModalTab, setTutorModalTab] = useState<"existing" | "new">("existing");
+  const [existingGuardianSearch, setExistingGuardianSearch] = useState("");
+  const [existingGuardianResults, setExistingGuardianResults] = useState<Guardian[]>([]);
+  const [isExistingGuardianSearching, setIsExistingGuardianSearching] = useState(false);
+  const [isLinkingGuardian, setIsLinkingGuardian] = useState(false);
+
+  // Búsqueda reactiva (debounced 200ms) por nombre o teléfono —
+  // reutiliza el mismo endpoint que la modal del alumnado:
+  // GET /api/guardians?phone=10dígitos (lookup exacto, índice
+  // {school,phone}) o ?search=regex (mínimo 2 caracteres).
+  const searchExistingGuardians = useCallback(async (q: string) => {
+    const trimmed = q.trim();
+    if (trimmed.length === 0) {
+      setExistingGuardianResults([]);
+      setIsExistingGuardianSearching(false);
+      return;
+    }
+    setIsExistingGuardianSearching(true);
+    try {
+      const params = new URLSearchParams({ limit: "10" });
+      if (/^\d{10}$/.test(trimmed)) {
+        params.set("phone", trimmed);
+      } else if (trimmed.length >= 2) {
+        params.set("search", trimmed);
+      }
+      const res = await api.get<{ items: Guardian[]; total: number }>(
+        `${ENDPOINTS.GUARDIANS}?${params.toString()}`
+      );
+      setExistingGuardianResults(res?.items || []);
+    } catch {
+      setExistingGuardianResults([]);
+    } finally {
+      setIsExistingGuardianSearching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isTutorOpen || tutorModalTab !== "existing") return;
+    const t = setTimeout(() => searchExistingGuardians(existingGuardianSearch), 200);
+    return () => clearTimeout(t);
+  }, [existingGuardianSearch, isTutorOpen, tutorModalTab, searchExistingGuardians]);
+
+  // Vincular un tutor existente (por ID) al alumno actual. Usa
+  // el endpoint POST /api/guardians/:id/students con
+  // { student_ids: [studentId] } — aditivo ($addToSet), no pisa
+  // datos del tutor ni de otros alumnos que ya tuviera.
+  const linkExistingGuardianToStudent = async (g: Guardian) => {
+    setIsLinkingGuardian(true);
+    setTutorFormError(null);
+    try {
+      await api.post<Guardian>(
+        ENDPOINTS.GUARDIAN_STUDENTS(g._id),
+        { student_ids: [studentId] }
+      );
+      setIsTutorOpen(false);
+      setEditingGuardianId(null);
+      setExistingGuardianSearch("");
+      setExistingGuardianResults([]);
+      await fetchData();
+    } catch (err) {
+      setTutorFormError(
+        err instanceof Error ? err.message : "No se pudo vincular el tutor."
+      );
+    } finally {
+      setIsLinkingGuardian(false);
+    }
   };
 
   const [groupsRes, setGroupsRes] = useState<Group[]>([]);
@@ -930,74 +1010,196 @@ export default function StudentDetailPage() {
         </div>
       </Modal>
 
-      {/* Modal: Editar Tutor */}
+      {/* Modal: Editar / Agregar Tutor.
+          Modo EDIT (editingGuardianId set): solo el form, sin tabs.
+          Modo ADD (editingGuardianId null): tabs
+            - "Vincular existente": búsqueda reactiva por nombre o
+              teléfono, click en un resultado llama
+              POST /api/guardians/:id/students { student_ids }
+              (aditivo, no pisa datos del tutor).
+            - "Registrar nuevo": el form manual que ya existía. */}
       <Modal
         isOpen={isTutorOpen}
         onClose={() => {
           setIsTutorOpen(false);
           setEditingGuardianId(null);
           setTutorFormError(null);
+          setExistingGuardianSearch("");
+          setExistingGuardianResults([]);
         }}
         title={editingGuardianId ? "Editar Tutor" : "Agregar Tutor"}
       >
-        <div className="space-y-4">
-          {tutorFormError && (
-            <div className="p-3 rounded-xl border border-error/30 bg-error/5 text-sm text-error">
-              {tutorFormError}
-            </div>
-          )}
-          <Input
-            label="Nombre(s)"
-            value={tutorForm.name}
-            onChange={(e) => setTutorForm({ ...tutorForm, name: e.target.value })}
-          />
-          <Input
-            label="Apellido(s)"
-            value={tutorForm.lastname}
-            onChange={(e) => setTutorForm({ ...tutorForm, lastname: e.target.value })}
-          />
-          <Input
-            label="Teléfono"
-            value={tutorForm.phone}
-            onChange={(e) => setTutorForm({ ...tutorForm, phone: e.target.value })}
-            placeholder="10 digitos"
-          />
-          <Select
-            label="Parentesco"
-            value={tutorForm.relationship}
-            onChange={(e) => setTutorForm({ ...tutorForm, relationship: e.target.value })}
-            options={[
-              { value: "madre", label: "Madre" },
-              { value: "padre", label: "Padre" },
-              { value: "abuelo", label: "Abuelo/a" },
-              { value: "tutor legal", label: "Tutor legal" },
-              { value: "otro", label: "Otro..." },
-            ]}
-          />
-          {tutorForm.relationship === "otro" && (
-            <Input
-              label="Especifica el parentesco"
-              value={customRelationship}
-              onChange={(e) => setCustomRelationship(e.target.value)}
-              placeholder="Ej: Tio, Hermano, etc."
-            />
-          )}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="ghost"
+        {tutorFormError && (
+          <div className="p-3 rounded-xl border border-error/30 bg-error/5 text-sm text-error mb-4">
+            {tutorFormError}
+          </div>
+        )}
+        {/* Tabs solo en modo ADD */}
+        {!editingGuardianId && (
+          <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4">
+            <button
+              type="button"
               onClick={() => {
-                setIsTutorOpen(false);
-                setEditingGuardianId(null);
+                setTutorModalTab("existing");
                 setTutorFormError(null);
               }}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                tutorModalTab === "existing"
+                  ? "bg-white text-text-primary shadow-sm"
+                  : "text-text-secondary hover:text-text-primary"
+              }`}
             >
-              Cancelar
-            </Button>
-            <Button variant="sky" isLoading={isSavingTutor} onClick={handleSaveTutor}>
-              Guardar
-            </Button>
+              <Users size={14} />
+              Vincular existente
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTutorModalTab("new");
+                setTutorFormError(null);
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                tutorModalTab === "new"
+                  ? "bg-white text-text-primary shadow-sm"
+                  : "text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              <UserPlus size={14} />
+              Registrar nuevo
+            </button>
           </div>
-        </div>
+        )}
+
+        {/* Tab: Vincular tutor existente */}
+        {!editingGuardianId && tutorModalTab === "existing" && (
+          <div className="space-y-3">
+            <Input
+              placeholder="Buscar por nombre, apellido o teléfono"
+              icon={<Search size={16} />}
+              autoFocus
+              value={existingGuardianSearch}
+              onChange={(e) => setExistingGuardianSearch(e.target.value)}
+            />
+            <div className="max-h-80 overflow-y-auto space-y-2">
+              {isExistingGuardianSearching && (
+                <p className="text-sm text-text-muted text-center py-4">Buscando…</p>
+              )}
+              {!isExistingGuardianSearching && existingGuardianSearch.trim().length === 0 && (
+                <p className="text-sm text-text-muted text-center py-4">
+                  Escribe al menos 2 caracteres (o 10 dígitos) para buscar un tutor ya registrado en la escuela.
+                </p>
+              )}
+              {!isExistingGuardianSearching &&
+                existingGuardianSearch.trim().length > 0 &&
+                existingGuardianSearch.trim().length < 2 && (
+                  <p className="text-sm text-text-muted text-center py-4">
+                    Escribe al menos 2 caracteres para buscar.
+                  </p>
+                )}
+              {!isExistingGuardianSearching &&
+                existingGuardianSearch.trim().length >= 2 &&
+                existingGuardianResults.length === 0 && (
+                  <p className="text-sm text-text-muted text-center py-4">
+                    Sin coincidencias. Cambia al tab "Registrar nuevo" para crear al tutor a mano.
+                  </p>
+                )}
+              {existingGuardianResults.map((g) => (
+                <button
+                  key={g._id}
+                  type="button"
+                  disabled={isLinkingGuardian}
+                  onClick={() => linkExistingGuardianToStudent(g)}
+                  className="w-full text-left p-3 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-medium text-text-primary truncate">
+                        {[g.name, g.lastname].filter(Boolean).join(" ") || "—"}
+                      </div>
+                      <div className="text-xs text-text-muted mt-0.5">
+                        {g.phone} · {g.relationship}
+                      </div>
+                    </div>
+                    <Badge variant="sky">
+                      {g.students?.length ?? 0} alumno{(g.students?.length ?? 0) === 1 ? "" : "s"}
+                    </Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsTutorOpen(false);
+                  setEditingGuardianId(null);
+                  setTutorFormError(null);
+                  setExistingGuardianSearch("");
+                  setExistingGuardianResults([]);
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Registrar nuevo / modo EDIT (form manual) */}
+        {(editingGuardianId || tutorModalTab === "new") && (
+          <div className="space-y-4">
+            <Input
+              label="Nombre(s)"
+              value={tutorForm.name}
+              onChange={(e) => setTutorForm({ ...tutorForm, name: e.target.value })}
+            />
+            <Input
+              label="Apellido(s)"
+              value={tutorForm.lastname}
+              onChange={(e) => setTutorForm({ ...tutorForm, lastname: e.target.value })}
+            />
+            <Input
+              label="Teléfono"
+              value={tutorForm.phone}
+              onChange={(e) => setTutorForm({ ...tutorForm, phone: e.target.value })}
+              placeholder="10 digitos"
+            />
+            <Select
+              label="Parentesco"
+              value={tutorForm.relationship}
+              onChange={(e) => setTutorForm({ ...tutorForm, relationship: e.target.value })}
+              options={[
+                { value: "madre", label: "Madre" },
+                { value: "padre", label: "Padre" },
+                { value: "abuelo", label: "Abuelo/a" },
+                { value: "tutor legal", label: "Tutor legal" },
+                { value: "otro", label: "Otro..." },
+              ]}
+            />
+            {tutorForm.relationship === "otro" && (
+              <Input
+                label="Especifica el parentesco"
+                value={customRelationship}
+                onChange={(e) => setCustomRelationship(e.target.value)}
+                placeholder="Ej: Tio, Hermano, etc."
+              />
+            )}
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsTutorOpen(false);
+                  setEditingGuardianId(null);
+                  setTutorFormError(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button variant="sky" isLoading={isSavingTutor} onClick={handleSaveTutor}>
+                Guardar
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Confirm: Dar de Baja */}
