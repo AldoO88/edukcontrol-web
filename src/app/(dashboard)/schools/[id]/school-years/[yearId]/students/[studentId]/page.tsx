@@ -20,6 +20,7 @@ import { ENDPOINTS } from "@/lib/constants";
 import type { Student, Enrollment, Group, Guardian } from "@/lib/types";
 import {
   User,
+  UserPlus,
   Phone,
   MapPin,
   Calendar,
@@ -120,12 +121,24 @@ export default function StudentDetailPage() {
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
   const [isCropOpen, setIsCropOpen] = useState(false);
 
-  // Tutor edit modal
+  // Tutor edit/add modal (también usado para agregar tutor cuando
+  // el alumno no tiene ninguno — `editingGuardianId === null`).
   const [isTutorOpen, setIsTutorOpen] = useState(false);
   const [tutorForm, setTutorForm] = useState({ name: "", lastname: "", phone: "", relationship: "" });
   const [editingGuardianId, setEditingGuardianId] = useState<string | null>(null);
   const [isSavingTutor, setIsSavingTutor] = useState(false);
   const [customRelationship, setCustomRelationship] = useState("");
+  // Error visible dentro del modal: el `error` global solo se
+  // muestra en la carga inicial del expediente, no después.
+  const [tutorFormError, setTutorFormError] = useState<string | null>(null);
+
+  const openAddTutorModal = () => {
+    setTutorForm({ name: "", lastname: "", phone: "", relationship: "" });
+    setCustomRelationship("");
+    setEditingGuardianId(null);
+    setTutorFormError(null);
+    setIsTutorOpen(true);
+  };
 
   const [groupsRes, setGroupsRes] = useState<Group[]>([]);
   const [talleresRes, setTalleresRes] = useState<Group[]>([]);
@@ -271,20 +284,61 @@ export default function StudentDetailPage() {
   };
 
   const handleSaveTutor = async () => {
-    if (!editingGuardianId) return;
+    const name = tutorForm.name.trim();
+    const lastname = tutorForm.lastname.trim();
+    const phone = tutorForm.phone.trim();
+    const relationshipRaw =
+      tutorForm.relationship === "otro" ? customRelationship.trim() : tutorForm.relationship;
+
+    // Validación mínima antes de pegar al backend. El schema del
+    // backend exige `name` y `phone` (10 dígitos) y rechaza
+    // parentescos vacíos; mostramos el error inline porque el
+    // `error` global solo se renderiza en la carga inicial.
+    if (!name) {
+      setTutorFormError("El nombre del tutor es obligatorio.");
+      return;
+    }
+    if (!/^\d{10}$/.test(phone)) {
+      setTutorFormError("El teléfono debe tener 10 dígitos.");
+      return;
+    }
+    if (!relationshipRaw) {
+      setTutorFormError("Selecciona un parentesco.");
+      return;
+    }
+
     setIsSavingTutor(true);
+    setTutorFormError(null);
     try {
       const payload = {
-        ...tutorForm,
-        relationship: tutorForm.relationship === "otro" ? customRelationship : tutorForm.relationship,
+        name,
+        lastname,
+        phone,
+        relationship: relationshipRaw,
       };
-      await api.put(`${ENDPOINTS.GUARDIANS}/${editingGuardianId}`, payload);
+      if (editingGuardianId) {
+        // Modo edición: actualiza el tutor existente.
+        await api.put(`${ENDPOINTS.GUARDIANS}/${editingGuardianId}`, payload);
+      } else {
+        // Modo alta: crea el tutor y lo vincula a este alumno en
+        // el mismo request (`POST /api/guardians` acepta
+        // `students: [...]` y hace el mirror en ambos lados).
+        // Si el teléfono ya pertenece a un tutor de la escuela,
+        // el backend lo REUSA y solo suma este alumno — los datos
+        // existentes del tutor no se pisan.
+        await api.post(ENDPOINTS.GUARDIANS, {
+          ...payload,
+          school: schoolId,
+          students: [studentId],
+        });
+      }
       setIsTutorOpen(false);
       setEditingGuardianId(null);
       setCustomRelationship("");
+      setTutorForm({ name: "", lastname: "", phone: "", relationship: "" });
       await fetchData();
-    } catch {
-      setError("Error al guardar tutor.");
+    } catch (err) {
+      setTutorFormError(err instanceof Error ? err.message : "Error al guardar tutor.");
     } finally {
       setIsSavingTutor(false);
     }
@@ -480,7 +534,13 @@ export default function StudentDetailPage() {
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-text-muted">Sin tutor registrado.</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-text-muted">Sin tutor registrado.</p>
+                  <Button type="button" variant="sky" size="sm" onClick={openAddTutorModal}>
+                    <UserPlus size={14} className="mr-1" />
+                    Agregar tutor
+                  </Button>
+                </div>
               )}
             </CardBody>
           </Card>
@@ -871,8 +931,21 @@ export default function StudentDetailPage() {
       </Modal>
 
       {/* Modal: Editar Tutor */}
-      <Modal isOpen={isTutorOpen} onClose={() => { setIsTutorOpen(false); setEditingGuardianId(null); }} title="Editar Tutor">
+      <Modal
+        isOpen={isTutorOpen}
+        onClose={() => {
+          setIsTutorOpen(false);
+          setEditingGuardianId(null);
+          setTutorFormError(null);
+        }}
+        title={editingGuardianId ? "Editar Tutor" : "Agregar Tutor"}
+      >
         <div className="space-y-4">
+          {tutorFormError && (
+            <div className="p-3 rounded-xl border border-error/30 bg-error/5 text-sm text-error">
+              {tutorFormError}
+            </div>
+          )}
           <Input
             label="Nombre(s)"
             value={tutorForm.name}
@@ -910,8 +983,19 @@ export default function StudentDetailPage() {
             />
           )}
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={() => { setIsTutorOpen(false); setEditingGuardianId(null); }}>Cancelar</Button>
-            <Button variant="sky" isLoading={isSavingTutor} onClick={handleSaveTutor}>Guardar</Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsTutorOpen(false);
+                setEditingGuardianId(null);
+                setTutorFormError(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button variant="sky" isLoading={isSavingTutor} onClick={handleSaveTutor}>
+              Guardar
+            </Button>
           </div>
         </div>
       </Modal>
