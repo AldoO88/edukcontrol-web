@@ -19,6 +19,13 @@ export interface User {
   isActive: boolean;
   sex?: string | null;
   academicPreparation?: AcademicRecord[];
+  notification_prefs?: {
+    whatsapp?: {
+      opted_in?: boolean;
+      opted_in_at?: string | null;
+      source?: string | null;
+    };
+  };
 }
 
 export type UserRole =

@@ -105,12 +105,14 @@ export default function SchoolStaffPage() {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<StaffFormData>({
     resolver: zodResolver(staffSchema),
   });
 
   const selectedRole = watch("role");
+const whatsappOptIn = watch("whatsapp_opt_in");
 
   const fetchUsers = async () => {
     try {
@@ -159,6 +161,7 @@ export default function SchoolStaffPage() {
       sex: (user.sex as "male" | "female" | "") || "",
       role: user.role,
       isActive: user.isActive ? "true" : "false",
+      whatsapp_opt_in: user.notification_prefs?.whatsapp?.opted_in ?? false,
     });
     setIsModalOpen(true);
   };
@@ -168,6 +171,7 @@ export default function SchoolStaffPage() {
     setSubmitError(null);
     try {
       const isActive = data.isActive === "true";
+      const whatsappOptIn = data.whatsapp_opt_in ?? false;
       if (editingUser) {
         await api.put(
           ENDPOINTS.DASHBOARD_UPDATE_USER(schoolId, editingUser._id),
@@ -180,6 +184,7 @@ export default function SchoolStaffPage() {
             role: data.role,
             academicPreparation: academicPrep,
             isActive,
+            whatsapp_opt_in: whatsappOptIn,
           }
         );
       } else {
@@ -193,7 +198,7 @@ export default function SchoolStaffPage() {
           school: schoolId,
           academicPreparation: academicPrep,
           isActive,
-          whatsapp_opt_in: data.whatsapp_opt_in ?? true,
+          whatsapp_opt_in: whatsappOptIn,
         });
       }
       setIsModalOpen(false);
@@ -400,13 +405,12 @@ export default function SchoolStaffPage() {
             {...register("isActive")}
           />
 
-          {!editingUser && (
-            <Checkbox
-              label="Autorizar mensajes de WhatsApp"
-              description="Requerido para que el miembro reciba códigos de activación y recuperación por WhatsApp. Se guarda con source 'signup'."
-              {...register("whatsapp_opt_in")}
-            />
-          )}
+          <Checkbox
+            label="Autorizar mensajes de WhatsApp"
+            description="Requerido para que el miembro reciba códigos de activación y recuperación por WhatsApp."
+            checked={!!whatsappOptIn}
+            onChange={(e) => setValue("whatsapp_opt_in", e.target.checked, { shouldDirty: true })}
+          />
 
           <div className="border-t border-border pt-4">
             <AcademicRecordTable

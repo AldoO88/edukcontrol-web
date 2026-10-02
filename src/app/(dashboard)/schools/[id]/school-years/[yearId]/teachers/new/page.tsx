@@ -44,6 +44,8 @@ export default function NewTeacherPage() {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<TeacherFormData>({
     resolver: zodResolver(teacherSchema),
@@ -52,6 +54,7 @@ export default function NewTeacherPage() {
       whatsapp_opt_in: true,
     },
   });
+  const whatsappOptIn = watch("whatsapp_opt_in");
 
   const onSubmit = async (data: TeacherFormData) => {
     setError(null);
@@ -140,7 +143,8 @@ export default function NewTeacherPage() {
             <Checkbox
               label="Autorizar mensajes de WhatsApp"
               description="Requerido para que el maestro reciba códigos de activación y recuperación por WhatsApp."
-              {...register("whatsapp_opt_in")}
+              checked={!!whatsappOptIn}
+              onChange={(e) => setValue("whatsapp_opt_in", e.target.checked, { shouldDirty: true })}
             />
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="ghost" onClick={() => router.back()}>

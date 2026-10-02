@@ -65,6 +65,8 @@ export default function UsersPage() {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
@@ -74,6 +76,7 @@ export default function UsersPage() {
       whatsapp_opt_in: true,
     },
   });
+  const whatsappOptIn = watch("whatsapp_opt_in");
 
   const onSubmit = async (data: UserFormData) => {
     setError(null);
@@ -193,7 +196,8 @@ export default function UsersPage() {
           <Checkbox
             label="Autorizar mensajes de WhatsApp"
             description="Requerido para que el usuario pueda recuperar contraseña por WhatsApp."
-            {...register("whatsapp_opt_in")}
+            checked={!!whatsappOptIn}
+            onChange={(e) => setValue("whatsapp_opt_in", e.target.checked, { shouldDirty: true })}
           />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>

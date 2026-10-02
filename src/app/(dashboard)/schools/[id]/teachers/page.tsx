@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { AcademicRecordTable } from "@/components/ui/AcademicRecordTable";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -61,6 +62,7 @@ export default function SchoolTeachersPage() {
   const [editSex, setEditSex] = useState("");
   const [editActive, setEditActive] = useState(true);
   const [editAcademic, setEditAcademic] = useState<AcademicRecord[]>([]);
+  const [editWhatsapp, setEditWhatsapp] = useState(false);
 
   const fetchTeachers = async () => {
     try {
@@ -90,6 +92,7 @@ export default function SchoolTeachersPage() {
     setEditSex(teacher.sex || "");
     setEditActive(teacher.isActive);
     setEditAcademic(teacher.academicPreparation || []);
+    setEditWhatsapp(teacher.notification_prefs?.whatsapp?.opted_in ?? false);
   };
 
   const closeModal = () => {
@@ -113,6 +116,7 @@ export default function SchoolTeachersPage() {
           sex: editSex || undefined,
           isActive: editActive,
           academicPreparation: editAcademic,
+          whatsapp_opt_in: editWhatsapp,
         }
       );
       setTeachers((prev) =>
@@ -406,6 +410,35 @@ export default function SchoolTeachersPage() {
                 <div className="mt-1">
                   <Badge variant={selectedTeacher.isActive ? "emerald" : "rose"}>
                     {selectedTeacher.isActive ? "Activo" : "Inactivo"}
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            {/* Notificaciones WhatsApp */}
+            <div>
+              <label className="text-sm font-semibold text-text-primary">Notificaciones WhatsApp</label>
+              {isEditing ? (
+                <div className="mt-1">
+                  <Checkbox
+                    label="Autorizar mensajes de WhatsApp"
+                    description="Requerido para que el maestro reciba códigos de activación y recuperación por WhatsApp."
+                    checked={editWhatsapp}
+                    onChange={(e) => setEditWhatsapp(e.target.checked)}
+                  />
+                </div>
+              ) : (
+                <div className="mt-1">
+                  <Badge
+                    variant={
+                      selectedTeacher.notification_prefs?.whatsapp?.opted_in
+                        ? "emerald"
+                        : "rose"
+                    }
+                  >
+                    {selectedTeacher.notification_prefs?.whatsapp?.opted_in
+                      ? "Autorizado"
+                      : "No autorizado"}
                   </Badge>
                 </div>
               )}
