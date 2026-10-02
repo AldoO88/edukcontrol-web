@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { AcademicRecordTable } from "@/components/ui/AcademicRecordTable";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
@@ -25,9 +26,18 @@ const teacherSchema = z.object({
   phoneNumber: z.string().regex(/^\d{10}$/, "Teléfono debe tener 10 dígitos"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   sex: z.enum(["M", "F", ""]).optional(),
+  isActive: z.enum(["true", "false"], {
+    errorMap: () => ({ message: "Selecciona el estado de la cuenta" }),
+  }),
+  whatsapp_opt_in: z.boolean().optional(),
 });
 
 type TeacherFormData = z.infer<typeof teacherSchema>;
+
+const estadoOptions = [
+  { value: "true", label: "Activo" },
+  { value: "false", label: "Inactivo (baja)" },
+];
 
 export default function NewTeacherPage() {
   const router = useRouter();
@@ -43,6 +53,10 @@ export default function NewTeacherPage() {
     formState: { errors },
   } = useForm<TeacherFormData>({
     resolver: zodResolver(teacherSchema),
+    defaultValues: {
+      isActive: "true",
+      whatsapp_opt_in: true,
+    },
   });
 
   const onSubmit = async (data: TeacherFormData) => {
@@ -58,6 +72,8 @@ export default function NewTeacherPage() {
         academicPreparation: academicPrep,
         role: "teacher",
         school: schoolId,
+        isActive: data.isActive === "true",
+        whatsapp_opt_in: data.whatsapp_opt_in ?? true,
       });
       router.push(`/schools/${schoolId}/teachers`);
     } catch (err) {
@@ -117,6 +133,17 @@ export default function NewTeacherPage() {
                 { value: "female", label: "Femenino" },
               ]}
               {...register("sex")}
+            />
+            <Select
+              label="Estado de la cuenta"
+              options={estadoOptions}
+              error={errors.isActive?.message}
+              {...register("isActive")}
+            />
+            <Checkbox
+              label="Autorizar mensajes de WhatsApp"
+              description="Requerido para que el maestro reciba códigos de activación y recuperación por WhatsApp."
+              {...register("whatsapp_opt_in")}
             />
             <AcademicRecordTable
               value={academicPrep}

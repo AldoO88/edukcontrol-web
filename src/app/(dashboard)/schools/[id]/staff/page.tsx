@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { AcademicRecordTable } from "@/components/ui/AcademicRecordTable";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -71,11 +72,19 @@ const staffSchema = z.object({
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   sex: z.enum(["male", "female", ""]).optional(),
   role: z.string().min(1, "Rol requerido"),
+  isActive: z.enum(["true", "false"], {
+    errorMap: () => ({ message: "Selecciona el estado de la cuenta" }),
+  }),
+  whatsapp_opt_in: z.boolean().optional(),
 });
 
 type StaffFormData = z.infer<typeof staffSchema>;
 
 const roleOptions = STAFF_ROLES.map((r) => ({ value: r.role, label: r.label }));
+const estadoOptions = [
+  { value: "true", label: "Activo" },
+  { value: "false", label: "Inactivo (baja)" },
+];
 
 export default function SchoolStaffPage() {
   const params = useParams();
@@ -125,7 +134,16 @@ export default function SchoolStaffPage() {
     setDefaultRole(role);
     setSubmitError(null);
     setAcademicPrep([]);
-    reset({ name: "", last_name: "", phoneNumber: "", email: "", sex: "", role });
+    reset({
+      name: "",
+      last_name: "",
+      phoneNumber: "",
+      email: "",
+      sex: "",
+      role,
+      isActive: "true",
+      whatsapp_opt_in: true,
+    });
     setIsModalOpen(true);
   };
 
@@ -140,6 +158,7 @@ export default function SchoolStaffPage() {
       email: user.email || "",
       sex: (user.sex as "male" | "female" | "") || "",
       role: user.role,
+      isActive: user.isActive ? "true" : "false",
     });
     setIsModalOpen(true);
   };
@@ -148,6 +167,7 @@ export default function SchoolStaffPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      const isActive = data.isActive === "true";
       if (editingUser) {
         await api.put(
           ENDPOINTS.DASHBOARD_UPDATE_USER(schoolId, editingUser._id),
@@ -159,6 +179,7 @@ export default function SchoolStaffPage() {
             sex: data.sex || undefined,
             role: data.role,
             academicPreparation: academicPrep,
+            isActive,
           }
         );
       } else {
@@ -171,6 +192,8 @@ export default function SchoolStaffPage() {
           role: data.role,
           school: schoolId,
           academicPreparation: academicPrep,
+          isActive,
+          whatsapp_opt_in: data.whatsapp_opt_in ?? true,
         });
       }
       setIsModalOpen(false);
@@ -369,6 +392,21 @@ export default function SchoolStaffPage() {
             error={errors.email?.message}
             {...register("email")}
           />
+
+          <Select
+            label="Estado de la cuenta"
+            options={estadoOptions}
+            error={errors.isActive?.message}
+            {...register("isActive")}
+          />
+
+          {!editingUser && (
+            <Checkbox
+              label="Autorizar mensajes de WhatsApp"
+              description="Requerido para que el miembro reciba códigos de activación y recuperación por WhatsApp. Se guarda con source 'signup'."
+              {...register("whatsapp_opt_in")}
+            />
+          )}
 
           <div className="border-t border-border pt-4">
             <AcademicRecordTable

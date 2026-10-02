@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
@@ -32,6 +33,10 @@ const userSchema = z.object({
     ROLES.PREFECT,
     ROLES.SOCIAL_WORKER,
   ]),
+  isActive: z.enum(["true", "false"], {
+    errorMap: () => ({ message: "Selecciona el estado de la cuenta" }),
+  }),
+  whatsapp_opt_in: z.boolean().optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -43,6 +48,11 @@ const ROLE_OPTIONS = [
   { value: ROLES.TEACHER, label: "Maestro/a" },
   { value: ROLES.PREFECT, label: "Prefecto/a" },
   { value: ROLES.SOCIAL_WORKER, label: "Trabajador/a Social" },
+];
+
+const estadoOptions = [
+  { value: "true", label: "Activo" },
+  { value: "false", label: "Inactivo (baja)" },
 ];
 
 export default function UsersPage() {
@@ -60,6 +70,8 @@ export default function UsersPage() {
     resolver: zodResolver(userSchema),
     defaultValues: {
       role: ROLES.ADMIN,
+      isActive: "true",
+      whatsapp_opt_in: true,
     },
   });
 
@@ -75,6 +87,8 @@ export default function UsersPage() {
         email: data.email || undefined,
         password: data.password,
         role: data.role,
+        isActive: data.isActive === "true",
+        whatsapp_opt_in: data.whatsapp_opt_in ?? true,
       });
       setSuccess("Usuario creado exitosamente.");
       setIsModalOpen(false);
@@ -169,6 +183,17 @@ export default function UsersPage() {
             options={ROLE_OPTIONS}
             error={errors.role?.message}
             {...register("role")}
+          />
+          <Select
+            label="Estado de la cuenta"
+            options={estadoOptions}
+            error={errors.isActive?.message}
+            {...register("isActive")}
+          />
+          <Checkbox
+            label="Autorizar mensajes de WhatsApp"
+            description="Requerido para que el usuario pueda recuperar contraseña por WhatsApp."
+            {...register("whatsapp_opt_in")}
           />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>

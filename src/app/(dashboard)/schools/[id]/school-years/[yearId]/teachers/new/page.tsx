@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
@@ -22,9 +23,18 @@ const teacherSchema = z.object({
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   password: z.string().min(8, "Contraseña debe tener al menos 8 caracteres"),
   sex: z.enum(["M", "F", ""]).optional(),
+  isActive: z.enum(["true", "false"], {
+    errorMap: () => ({ message: "Selecciona el estado de la cuenta" }),
+  }),
+  whatsapp_opt_in: z.boolean().optional(),
 });
 
 type TeacherFormData = z.infer<typeof teacherSchema>;
+
+const estadoOptions = [
+  { value: "true", label: "Activo" },
+  { value: "false", label: "Inactivo (baja)" },
+];
 
 export default function NewTeacherPage() {
   const router = useRouter();
@@ -37,6 +47,10 @@ export default function NewTeacherPage() {
     formState: { errors },
   } = useForm<TeacherFormData>({
     resolver: zodResolver(teacherSchema),
+    defaultValues: {
+      isActive: "true",
+      whatsapp_opt_in: true,
+    },
   });
 
   const onSubmit = async (data: TeacherFormData) => {
@@ -48,6 +62,8 @@ export default function NewTeacherPage() {
         role: "teacher",
         email: data.email || undefined,
         sex: data.sex || undefined,
+        isActive: data.isActive === "true",
+        whatsapp_opt_in: data.whatsapp_opt_in ?? true,
       });
       router.push("/teachers");
     } catch (err) {
@@ -114,6 +130,17 @@ export default function NewTeacherPage() {
                 { value: "F", label: "Femenino" },
               ]}
               {...register("sex")}
+            />
+            <Select
+              label="Estado de la cuenta"
+              options={estadoOptions}
+              error={errors.isActive?.message}
+              {...register("isActive")}
+            />
+            <Checkbox
+              label="Autorizar mensajes de WhatsApp"
+              description="Requerido para que el maestro reciba códigos de activación y recuperación por WhatsApp."
+              {...register("whatsapp_opt_in")}
             />
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="ghost" onClick={() => router.back()}>
