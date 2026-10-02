@@ -3,17 +3,22 @@
 // negrita, alineación), logos (solo se mueve/redimensiona/borrera), y
 // figuras básicas (línea / rect / elipse: stroke, fill, grosor).
 //
-// La geometría siempre se edita en pt del marco CR80 (242.64 × 153.07).
+// La geometría siempre se muestra y edita en pt del marco del lienzo
+// (orientado según el PDF de fondo: 243 × 153 horizontal o 153 × 243
+// vertical). Internamente se guarda en el marco horizontal canónico y
+// se mapea al lienzo con un afín (mapper) — lo que ves es lo que imprime.
 
 "use client";
 
 import { AlignCenter, AlignLeft, AlignRight, Bold, Copy, Trash2 } from "lucide-react";
 import {
-  CR80_HEIGHT_PT,
-  CR80_WIDTH_PT,
   TEXT_FIELD_OPTIONS,
   cr80TextAutoHeight,
+  createFrameMapper,
+  getFrame,
   type Cr80Element,
+  type Cr80Frame,
+  type FrameMapper,
 } from "@/lib/credential-cr80";
 
 interface PropertiesPanelProps {
@@ -21,11 +26,17 @@ interface PropertiesPanelProps {
   onChange: (el: Cr80Element) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  frame?: Cr80Frame;
+  mapper?: FrameMapper;
 }
 
 const labelCls = "block text-[11px] font-semibold text-text-muted mb-1";
 const inputCls =
   "w-full px-2 py-1.5 text-xs border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-accent/30";
+
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
+}
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 gap-2">{children}</div>;
@@ -43,6 +54,8 @@ export function PropertiesPanel({
   onChange,
   onDelete,
   onDuplicate,
+  frame: frameProp,
+  mapper: mapperProp,
 }: PropertiesPanelProps) {
   if (!element) {
     return (
@@ -57,8 +70,30 @@ export function PropertiesPanel({
   const st = element.style;
   const setStyle = (patch: Partial<Cr80Element["style"]>) =>
     onChange({ ...element, style: { ...st, ...patch } });
-  const setGeom = (patch: Partial<Pick<Cr80Element, "x" | "y" | "w" | "h">>) =>
-    onChange({ ...element, ...patch });
+
+  // Marco y mapper (con fallback horizontal si el padre no los pasa, p.ej.
+  // en estados de carga sin bgImage todavía).
+  const frame: Cr80Frame = frameProp || getFrame(null, null);
+  const mapper: FrameMapper =
+    mapperProp || createFrameMapper(frame.w, frame.h, frame);
+
+  // Rectángulo view (lo que muestra el panel y el lienzo) y factor k.
+  const vRect = mapper.toViewRect({ x: element.x, y: element.y, w: element.w, h: element.h });
+  const k = mapper.scale || 1;
+
+  const setGeomView = (
+    patch: Partial<Pick<{ x: number; y: number; w: number; h: number }, "x" | "y" | "w" | "h">>
+  ) => {
+    const merged = { ...vRect, ...patch };
+    const stored = mapper.fromViewRect(merged);
+    onChange({
+      ...element,
+      x: round2(stored.x),
+      y: round2(stored.y),
+      w: round2(stored.w),
+      h: round2(stored.h),
+    });
+  };
 
   const num = (v: number | undefined, fallback = 0) =>
     v === undefined ? fallback : v;
@@ -132,18 +167,29 @@ export function PropertiesPanel({
 
       {/* Tipografía (solo texto) */}
       {element.kind === "text" && (() => {
-        // Tamaño efectivo (lo que de verdad se imprime). Lo mostramos bajo
-        // el input para que el cambio de tamaño sea visible aunque el ancho
-        // de la caja obligue al auto-shrink a reducir el número real.
-        const currentSize = num(st.fontSize, 11);
-        const { size: effectiveSize, h: effectiveH } = cr80TextAutoHeight(
-          element,
-          currentSize
+        // Tamaño efectivo (lo que de verdad se imprime, en view space).
+        // El input también muestra valor en view; al guardar se divide por
+        // k para escribir en stored. El ancho/alto de cr80TextAutoHeight
+        // recibe el elemento ya en view space.
+        const currentSizeView = (num(st.fontSize, 11)) * k;
+        const viewEl: Cr80Element = {
+          ...element,
+          x: vRect.x,
+          y: vRect.y,
+          w: vRect.w,
+          h: vRect.h,
+          style: { ...st, fontSize: currentSizeView },
+        };
+        const { size: effectiveSizeView, h: effectiveHView } = cr80TextAutoHeight(
+          viewEl,
+          currentSizeView
         );
+        const effectiveSizeStr = effectiveSizeView.toFixed(1);
+        const requestedStr = currentSizeView.toFixed(1);
         const effectiveHint =
-          effectiveSize.toFixed(1) === currentSize.toString()
-            ? `${effectiveSize.toFixed(1)} pt`
-            : `${effectiveSize.toFixed(1)} pt (limitado por el ancho)`;
+          effectiveSizeStr === requestedStr
+            ? `${effectiveSizeStr} pt`
+            : `${effectiveSizeStr} pt (limitado por el ancho)`;
         return (
           <div className="space-y-2">
             <Row>
@@ -152,9 +198,10 @@ export function PropertiesPanel({
                 <input
                   className={inputCls}
                   type="number"
-                  min={4}
-                  max={96}
-                  value={currentSize}
+                  min={4 * k}
+                  max={96 * k}
+                  step={0.1}
+                  value={Math.round(currentSizeView * 10) / 10}
                   onChange={(e) => {
                     const raw = e.target.value;
                     if (raw === "") {
@@ -163,24 +210,26 @@ export function PropertiesPanel({
                     }
                     const v = Number(raw);
                     if (!Number.isFinite(v)) return;
-                    const next = Math.max(4, Math.min(96, v));
+                    const viewSize = Math.max(4 * k, Math.min(96 * k, v));
+                    const storedSize = k > 0 ? viewSize / k : viewSize;
                     // Re-medimos la altura con el nuevo tamaño sobre un
-                    // elemento hipotético que ya tenga ese fontSize (el
-                    // wrap depende del tamaño real a estampar).
+                    // elemento hipotético que ya tenga ese fontSize en
+                    // view space.
                     const probe: Cr80Element = {
-                      ...element,
-                      style: { ...st, fontSize: next },
+                      ...viewEl,
+                      style: { ...st, fontSize: viewSize },
                     };
-                    const { h } = cr80TextAutoHeight(probe, next);
+                    const { h: hViewNew } = cr80TextAutoHeight(probe, viewSize);
+                    const storedH = k > 0 ? hViewNew / k : hViewNew;
                     onChange({
                       ...element,
-                      style: { ...st, fontSize: next },
-                      h,
+                      style: { ...st, fontSize: storedSize },
+                      h: round2(storedH),
                     });
                   }}
                 />
                 <p className="mt-1 text-[10px] text-text-muted">
-                  efectivo: {effectiveHint} · alto: {Math.round(effectiveH)} pt
+                  efectivo: {effectiveHint} · alto: {Math.round(effectiveHView)} pt
                 </p>
               </div>
             <div>
@@ -312,11 +361,12 @@ export function PropertiesPanel({
         </div>
       )}
 
-      {/* Geometría (pt del marco CR80) */}
+      {/* Geometría (pt del marco del lienzo / PDF) */}
       <div>
         <label className={labelCls}>
-          Posición y tamaño (pt · {Math.round(CR80_WIDTH_PT)} ×{" "}
-          {Math.round(CR80_HEIGHT_PT)})
+          Posición y tamaño (pt · {Math.round(frame.w)} ×{" "}
+          {Math.round(frame.h)}
+          {frame.portrait ? " · vertical" : " · horizontal"})
         </label>
         <Row>
           <input
@@ -324,25 +374,25 @@ export function PropertiesPanel({
             type="number"
             step="0.1"
             title="X"
-            value={element.x}
-            onChange={(e) => setGeom({ x: Number(e.target.value) })}
+            value={Math.round(vRect.x * 10) / 10}
+            onChange={(e) => setGeomView({ x: Number(e.target.value) })}
           />
           <input
             className={inputCls}
             type="number"
             step="0.1"
             title="Y"
-            value={element.y}
-            onChange={(e) => setGeom({ y: Number(e.target.value) })}
+            value={Math.round(vRect.y * 10) / 10}
+            onChange={(e) => setGeomView({ y: Number(e.target.value) })}
           />
           <input
             className={inputCls}
             type="number"
             step="0.1"
             title="Ancho"
-            value={element.w}
+            value={Math.round(vRect.w * 10) / 10}
             onChange={(e) =>
-              setGeom({ w: Math.max(4, Number(e.target.value)) })
+              setGeomView({ w: Math.max(4 * k, Number(e.target.value)) })
             }
           />
           <input
@@ -350,9 +400,9 @@ export function PropertiesPanel({
             type="number"
             step="0.1"
             title="Alto"
-            value={element.h}
+            value={Math.round(vRect.h * 10) / 10}
             onChange={(e) =>
-              setGeom({ h: Math.max(4, Number(e.target.value)) })
+              setGeomView({ h: Math.max(4 * k, Number(e.target.value)) })
             }
           />
         </Row>

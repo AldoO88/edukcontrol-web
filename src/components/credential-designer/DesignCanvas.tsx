@@ -1,8 +1,10 @@
-// Lienzo del diseñador CR80: marco de tarjeta PVC (242.64 × 153.07 pt) con
-// el PDF de fondo escalado "contain" (misma fórmula que el backend) y los
-// elementos encima. Drag & resize con pointer events; las coordenadas se
-// guardan en pt reales (origen arriba-izquierda) — lo que ves es lo que
-// imprime. Resize desde 8 puntos (4 esquinas + 4 medios).
+// Lienzo del diseñador CR80: marco de tarjeta PVC orientado como el PDF de
+// fondo (85.6 × 54 mm horizontal o 54 × 85.6 mm vertical). Las coordenadas
+// se guardan en el marco HORIZONTAL canónico (origen arriba-izquierda) y
+// se mapean al marco del lienzo con un afín uniforme (ver mapper abajo).
+// Para fondos horizontales con cover/contain equivalente al histórico, el
+// afín es identidad → cero regresión. Drag & resize con pointer events.
+// Resize desde 8 puntos (4 esquinas + 4 medios).
 
 "use client";
 
@@ -12,9 +14,13 @@ import {
   CR80_HEIGHT_PT,
   CR80_WIDTH_PT,
   cr80TextPreview,
-  scaleToFit,
+  fitBackground,
   type Cr80Element,
+  type Cr80Frame,
   type Cr80LogoEntry,
+  type FrameMapper,
+  getFrame,
+  createFrameMapper,
 } from "@/lib/credential-cr80";
 import {
   CR80_ASCENDER_RATIO,
@@ -38,6 +44,10 @@ interface DesignCanvasProps {
   logos: Cr80LogoEntry[];
   onSelect: (id: string | null) => void;
   onElementsChange: (elements: Cr80Element[]) => void;
+  /** Marco del lienzo / página de salida; default horizontal. */
+  frame?: Cr80Frame;
+  /** Mapper afín entre el marco horizontal canónico y el marco del lienzo. */
+  mapper?: FrameMapper;
 }
 
 type ResizeHandle =
@@ -56,6 +66,7 @@ type DragState = {
   handle?: ResizeHandle;
   startX: number;
   startY: number;
+  /** Orig siempre en view space (lo que ve el usuario en pantalla). */
   orig: { x: number; y: number; w: number; h: number };
 };
 
@@ -85,6 +96,8 @@ export function DesignCanvas({
   logos,
   onSelect,
   onElementsChange,
+  frame: frameProp,
+  mapper: mapperProp,
 }: DesignCanvasProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -92,18 +105,32 @@ export function DesignCanvas({
   const [manualScale, setManualScale] = useState<number | null>(null);
   const scale = manualScale ?? fitScale;
 
+  // Frame y mapper derivados del bgImage si el padre no los pasa (compat).
+  const frame: Cr80Frame =
+    frameProp ||
+    (bgImage
+      ? getFrame(bgImage.width, bgImage.height)
+      : { w: CR80_WIDTH_PT, h: CR80_HEIGHT_PT, portrait: false });
+  const mapper: FrameMapper =
+    mapperProp ||
+    createFrameMapper(
+      bgImage ? bgImage.width : CR80_WIDTH_PT,
+      bgImage ? bgImage.height : CR80_HEIGHT_PT,
+      frame,
+    );
+
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const measure = () => {
       const w = el.clientWidth;
-      setFitScale(Math.max(0.5, Math.min(w / CR80_WIDTH_PT, 3.2)));
+      setFitScale(Math.max(0.5, Math.min(w / frame.w, 3.2)));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [frame.w]);
 
   const MIN_ZOOM = 0.4;
   const MAX_ZOOM = 8;
@@ -112,6 +139,10 @@ export function DesignCanvas({
     setManualScale(Math.round(next * 100) / 100);
   };
   const zoomPercent = Math.round(scale * 100);
+
+  // Devuelve el rect view de un elemento guardado (stored → view).
+  const viewRectOf = (el: Cr80Element) =>
+    mapper.toViewRect({ x: el.x, y: el.y, w: el.w, h: el.h });
 
   const startDrag = (
     e: React.PointerEvent,
@@ -122,13 +153,15 @@ export function DesignCanvas({
     e.stopPropagation();
     onSelect(el.id);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // orig en VIEW space — todo el cálculo de drag/resize ocurre en view.
+    const v = viewRectOf(el);
     dragRef.current = {
       id: el.id,
       mode,
       handle,
       startX: e.clientX,
       startY: e.clientY,
-      orig: { x: el.x, y: el.y, w: el.w, h: el.h },
+      orig: { x: v.x, y: v.y, w: v.w, h: v.h },
     };
   };
 
@@ -165,34 +198,58 @@ export function DesignCanvas({
     if (!d) return;
     const dx = (e.clientX - d.startX) / scale;
     const dy = (e.clientY - d.startY) / scale;
+    const minSize = 4;
 
     const next = elements.map((el) => {
       if (el.id !== d.id) return el;
+      // Calculamos todo en view space, luego invertimos a stored para
+      // guardar.
       if (d.mode === "move") {
+        const candX = clamp(d.orig.x + dx, 0, Math.max(0, frame.w - d.orig.w));
+        const candY = clamp(d.orig.y + dy, 0, Math.max(0, frame.h - d.orig.h));
+        const stored = mapper.fromViewRect({
+          x: candX,
+          y: candY,
+          w: d.orig.w,
+          h: d.orig.h,
+        });
         return {
           ...el,
-          x: round2(clamp(d.orig.x + dx, 0, CR80_WIDTH_PT - el.w)),
-          y: round2(clamp(d.orig.y + dy, 0, CR80_HEIGHT_PT - el.h)),
+          x: round2(stored.x),
+          y: round2(stored.y),
+          w: round2(stored.w),
+          h: round2(stored.h),
         };
       }
       const cand = resizeNew(d.orig, dx, dy, d.handle || "se");
-      // Mantener la cara opuesta fija: w/h en [4, card] y el elemento
-      // dentro del marco (clamp x,y respetando w,h resultantes).
-      const minSize = 4;
-      const wNew = round2(clamp(cand.w, minSize, CR80_WIDTH_PT));
-      const hNew = round2(clamp(cand.h, minSize, CR80_HEIGHT_PT));
-      // Ajustar x cuando hace falta para no salirse.
-      const cxRaw = cand.w >= minSize ? cand.x : d.orig.x + (d.orig.w - minSize) * (d.handle === "nw" || d.handle === "sw" || d.handle === "w" ? -1 : 0);
-      const cyRaw = cand.h >= minSize ? cand.y : d.orig.y + (d.orig.h - minSize) * (d.handle === "nw" || d.handle === "ne" || d.handle === "n" ? -1 : 0);
-      const xNew = round2(clamp(cxRaw, 0, Math.max(0, CR80_WIDTH_PT - wNew)));
-      const yNew = round2(clamp(cyRaw, 0, Math.max(0, CR80_HEIGHT_PT - hNew)));
-      // Si el clamp de w/h modificó los valores, re-clamp x,y de nuevo.
-      return {
-        ...el,
+      const wNew = clamp(cand.w, minSize, frame.w);
+      const hNew = clamp(cand.h, minSize, frame.h);
+      const cxRaw =
+        cand.w >= minSize
+          ? cand.x
+          : d.orig.x +
+            (d.orig.w - minSize) *
+              (d.handle === "nw" || d.handle === "sw" || d.handle === "w" ? -1 : 0);
+      const cyRaw =
+        cand.h >= minSize
+          ? cand.y
+          : d.orig.y +
+            (d.orig.h - minSize) *
+              (d.handle === "nw" || d.handle === "ne" || d.handle === "n" ? -1 : 0);
+      const xNew = clamp(cxRaw, 0, Math.max(0, frame.w - wNew));
+      const yNew = clamp(cyRaw, 0, Math.max(0, frame.h - hNew));
+      const stored = mapper.fromViewRect({
+        x: xNew,
+        y: yNew,
         w: wNew,
         h: hNew,
-        x: round2(clamp(xNew, 0, Math.max(0, CR80_WIDTH_PT - wNew))),
-        y: round2(clamp(yNew, 0, Math.max(0, CR80_HEIGHT_PT - hNew))),
+      });
+      return {
+        ...el,
+        x: round2(stored.x),
+        y: round2(stored.y),
+        w: round2(stored.w),
+        h: round2(stored.h),
       };
     });
     onElementsChange(next);
@@ -208,24 +265,25 @@ export function DesignCanvas({
   const lookupLogo = (logoId: string | null | undefined) =>
     logoId ? logos.find((l) => l.id === logoId) || null : null;
 
-  const renderShape = (el: Cr80Element) => {
+  const renderShape = (el: Cr80Element, vw: number, vh: number) => {
     const st = el.style || {};
-    const w = st.strokeWidth ?? 1;
+    const k = mapper.scale || 1;
+    const w = (st.strokeWidth ?? 1) * k;
     const stroke = st.stroke || "#1e293b";
     const fill = el.shape === "line" ? "transparent" : st.fill || "#ffffff";
     if (el.shape === "line") {
-      const y = el.h / 2;
+      const y = vh / 2;
       return (
         <svg
-          width={el.w}
-          height={el.h}
-          viewBox={`0 0 ${el.w} ${el.h}`}
+          width={vw}
+          height={vh}
+          viewBox={`0 0 ${vw} ${vh}`}
           style={{ overflow: "visible", pointerEvents: "none" }}
         >
           <line
             x1={0}
             y1={y}
-            x2={el.w}
+            x2={vw}
             y2={y}
             stroke={stroke}
             strokeWidth={w}
@@ -237,16 +295,16 @@ export function DesignCanvas({
     if (el.shape === "ellipse") {
       return (
         <svg
-          width={el.w}
-          height={el.h}
-          viewBox={`0 0 ${el.w} ${el.h}`}
+          width={vw}
+          height={vh}
+          viewBox={`0 0 ${vw} ${vh}`}
           style={{ overflow: "visible", pointerEvents: "none" }}
         >
           <ellipse
-            cx={el.w / 2}
-            cy={el.h / 2}
-            rx={el.w / 2}
-            ry={el.h / 2}
+            cx={vw / 2}
+            cy={vh / 2}
+            rx={vw / 2}
+            ry={vh / 2}
             fill={fill}
             stroke={stroke}
             strokeWidth={w}
@@ -271,6 +329,7 @@ export function DesignCanvas({
 
   const renderLogo = (el: Cr80Element) => {
     const lg = lookupLogo(el.logoId);
+    const k = mapper.scale || 1;
     return (
       <div
         style={{
@@ -283,7 +342,7 @@ export function DesignCanvas({
           alignItems: "center",
           justifyContent: "center",
           color: "#64748b",
-          fontSize: 6,
+          fontSize: 6 * k,
           overflow: "hidden",
           pointerEvents: "none",
         }}
@@ -307,17 +366,27 @@ export function DesignCanvas({
 
   const renderElement = (el: Cr80Element) => {
     const isSelected = el.id === selectedId;
+    // Rectángulo del elemento en view space (lo que pinta el canvas).
+    const v = viewRectOf(el);
     const box: CSSProperties = {
       position: "absolute",
-      left: el.x,
-      top: el.y,
-      width: el.w,
-      height: el.h,
+      left: v.x,
+      top: v.y,
+      width: v.w,
+      height: v.h,
       outline: isSelected ? "2px solid #0284c7" : "none",
       outlineOffset: 1,
       touchAction: "none",
       cursor: "move",
     };
+
+    // Para los hijos del elemento, usamos las dimensiones y fontSize en
+    // VIEW space (los que ven el lienzo y, por el mapeo, también lo que
+    // estampa el PDF). El factor k del mapper es uniforme, así que
+    // escalamos w/h/fontSize por igual.
+    const k = mapper.scale || 1;
+    const vw = v.w;
+    const vh = v.h;
 
     let content: React.ReactNode = null;
 
@@ -333,7 +402,7 @@ export function DesignCanvas({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 7,
+            fontSize: 7 * k,
             color: "#475569",
             pointerEvents: "none",
           }}
@@ -344,7 +413,7 @@ export function DesignCanvas({
     } else if (el.kind === "logo") {
       content = renderLogo(el);
     } else if (el.kind === "shape") {
-      content = renderShape(el);
+      content = renderShape(el, vw, vh);
     } else {
       const st = el.style;
       const kind: Cr80FontKind =
@@ -354,27 +423,27 @@ export function DesignCanvas({
       const paragraphs = cr80TextPreview(el).split("\n");
       const { lines, size } = layoutCr80Text(
         paragraphs,
-        el.w,
-        el.h,
-        st.fontSize ?? 16,
+        vw,
+        vh,
+        (st.fontSize ?? 16) * k,
         kind
       );
       const spacing = size * CR80_LINE_SPACING;
       const lineH = cr80LineHeight(size);
-      const blockTop = Math.max(0, (el.h - lines.length * spacing) / 2);
+      const blockTop = Math.max(0, (vh - lines.length * spacing) / 2);
       const align = st.textAlign ?? "left";
       content = (
         <svg
-          width={el.w}
-          height={el.h}
-          viewBox={`0 0 ${el.w} ${el.h}`}
+          width={vw}
+          height={vh}
+          viewBox={`0 0 ${vw} ${vh}`}
           style={{ overflow: "visible", pointerEvents: "none" }}
         >
           {lines.map((line, i) => {
             const tw = cr80TextWidth(line, size, kind);
             let lx = 0;
-            if (align === "center") lx = Math.max(0, (el.w - tw) / 2);
-            else if (align === "right") lx = Math.max(0, el.w - tw);
+            if (align === "center") lx = Math.max(0, (vw - tw) / 2);
+            else if (align === "right") lx = Math.max(0, vw - tw);
             const ly =
               blockTop + i * spacing + lineH * CR80_ASCENDER_RATIO;
             return (
@@ -435,8 +504,11 @@ export function DesignCanvas({
     );
   };
 
+  // Fit del fondo dentro del marco del lienzo (orientado). Misma fórmula
+  // que el backend (fitBackground = cover si el recorte ≤ 8.5 pt, si no
+  // contain), por lo que WYSIWYG es exacto.
   const fit = bgImage
-    ? scaleToFit(bgImage.width, bgImage.height, CR80_WIDTH_PT, CR80_HEIGHT_PT)
+    ? fitBackground(bgImage.width, bgImage.height, frame.w, frame.h)
     : null;
 
   return (
@@ -481,16 +553,16 @@ export function DesignCanvas({
       </div>
       <div
         style={{
-          width: CR80_WIDTH_PT * scale,
-          height: CR80_HEIGHT_PT * scale,
+          width: frame.w * scale,
+          height: frame.h * scale,
         }}
         className="relative"
       >
         <div
           onPointerDown={() => onSelect(null)}
           style={{
-            width: CR80_WIDTH_PT,
-            height: CR80_HEIGHT_PT,
+            width: frame.w,
+            height: frame.h,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
             position: "absolute",

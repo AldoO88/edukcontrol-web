@@ -16,9 +16,12 @@ import {
   CR80_WIDTH_PT,
   createCr80Element,
   emptySides,
+  getFrame,
+  createFrameMapper,
   normalizeSides,
   type Cr80Element,
   type Cr80Sides,
+  type FrameMapper,
   type TemplatePdfMeta,
 } from "@/lib/credential-cr80";
 import { DesignCanvas, type CanvasBgImage } from "./DesignCanvas";
@@ -35,6 +38,10 @@ interface CredentialDesignerProps {
   onChange: (next: { pdf: TemplatePdfMeta | null; sides: Cr80Sides }) => void;
   onChangeLogos?: (logos: Cr80LogoEntry[]) => void;
   onPreview?: () => void;
+}
+
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
 }
 
 export function CredentialDesigner({
@@ -114,12 +121,29 @@ export function CredentialDesigner({
   const side = sides[activeIndex] || { elements: [] };
   const bgImage = bgPages[activeIndex] || null;
 
+  // Marco de salida: dicta la orientación según el PDF de fondo. Si no hay
+  // fondo todavía, default horizontal (la convención histórica). El mapper
+  // afín traduce entre coords del marco horizontal canónico (donde se
+  // guardan los elementos) y el marco del lienzo (donde se dibujan).
+  const frame = getFrame(pdfMeta?.widthPt, pdfMeta?.heightPt);
+  const mapper: FrameMapper = bgImage
+    ? createFrameMapper(bgImage.width, bgImage.height, frame)
+    : createFrameMapper(CR80_WIDTH_PT, CR80_HEIGHT_PT, frame);
+
   const handleAdd = (
     kind: "photo" | "text" | "logo" | "shape",
     opts: { field?: string; logoId?: string; shape?: Cr80ShapeKind } = {}
   ) => {
     if (!hasPdf) return;
     const el = createCr80Element(kind, opts);
+    // Centra el elemento en el marco de salida (lienzo y PDF) y guarda las
+    // coords del marco horizontal canónico via fromViewRect. Si la salida
+    // es horizontal con k=1, equivale al centro del marco histórico.
+    const viewX = (frame.w - el.w) / 2;
+    const viewY = (frame.h - el.h) / 2;
+    const stored = mapper.fromViewRect({ x: viewX, y: viewY, w: el.w, h: el.h });
+    el.x = round2(stored.x);
+    el.y = round2(stored.y);
     const next = sides.map((s, i) =>
       i === activeIndex ? { elements: [...s.elements, el] } : s
     );
@@ -146,16 +170,17 @@ export function CredentialDesigner({
       return;
     }
     const el = createCr80Element("logo", { logoId });
-    // Posición default para el nuevo logo cerca del margen superior.
-    const cw = (window?.innerWidth || 1024) / 4;
-    el.x = Math.max(8, Math.min(60, (CR80_WIDTH_PT - el.w) / 2));
-    el.y = Math.max(8, Math.min(60, (CR80_HEIGHT_PT - el.h) / 2));
+    // Centra el logo en el marco de salida (lienzo/PDF).
+    const viewX = (frame.w - el.w) / 2;
+    const viewY = (frame.h - el.h) / 2;
+    const stored = mapper.fromViewRect({ x: viewX, y: viewY, w: el.w, h: el.h });
+    el.x = round2(stored.x);
+    el.y = round2(stored.y);
     const next = sides.map((s, i) =>
       i === activeIndex ? { elements: [...s.elements, el] } : s
     );
     setSides(next);
     setSelectedId(el.id);
-    void cw;
   };
 
   const handleChangeLogos = (next: Cr80LogoEntry[]) => {
@@ -204,11 +229,21 @@ export function CredentialDesigner({
 
   const handleDuplicate = () => {
     if (!selected) return;
+    // +8 pt en view space (= +8/k en stored space). Si k=1, equivale al
+    // offset histórico; si k>1, el desplazamiento es más pequeño en
+    // stored (porque se ve más grande en pantalla y "8 px" debe ser
+    // uniforme visualmente).
+    const dxView = 8;
+    const dyView = 8;
+    const dxStored = dxView / mapper.scale;
+    const dyStored = dyView / mapper.scale;
+    const maxX = Math.max(0, CR80_WIDTH_PT - selected.w);
+    const maxY = Math.max(0, CR80_HEIGHT_PT - selected.h);
     const copy: Cr80Element = {
       ...selected,
       id: `el_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-      x: Math.min(selected.x + 8, CR80_WIDTH_PT - selected.w),
-      y: Math.min(selected.y + 8, CR80_HEIGHT_PT - selected.h),
+      x: round2(Math.min(selected.x + dxStored, maxX)),
+      y: round2(Math.min(selected.y + dyStored, maxY)),
     };
     setSides(
       sides.map((s, i) =>
@@ -359,6 +394,8 @@ export function CredentialDesigner({
                 logos={logos}
                 onSelect={setSelectedId}
                 onElementsChange={handleElementsChange}
+                frame={frame}
+                mapper={mapper}
               />
               {bgError && (
                 <p className="text-xs text-rose-600 text-center max-w-[420px] mx-auto">
@@ -380,6 +417,8 @@ export function CredentialDesigner({
             onChange={handleSelectedChange}
             onDelete={handleDelete}
             onDuplicate={handleDuplicate}
+            frame={frame}
+            mapper={mapper}
           />
         </div>
       </div>

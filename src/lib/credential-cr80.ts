@@ -102,6 +102,134 @@ export function scaleToFit(
   return { scale, width, height, x: (maxW - width) / 2, y: (maxH - height) / 2 };
 }
 
+// Espejo del backend (services/credential-template.service.js#fitBackground):
+// cover si el recorte queda dentro del sangrado típico (≤ 8.5 pt ≈ 3 mm),
+// si no contain. Espejo exacto: mantenerlo idéntico al backend para que el
+// preview del lienzo coincida con el PDF que se imprime.
+export const MAX_BG_CROP_PT = 8.5;
+
+export interface FitRect {
+  scale: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export function fitBackground(
+  srcW: number,
+  srcH: number,
+  frameW: number,
+  frameH: number
+): FitRect {
+  if (!(srcW > 0) || !(srcH > 0) || !(frameW > 0) || !(frameH > 0)) {
+    return scaleToFit(srcW, srcH, frameW, frameH);
+  }
+  const coverScale = Math.max(frameW / srcW, frameH / srcH);
+  const drawnW = srcW * coverScale;
+  const drawnH = srcH * coverScale;
+  const overflowW = Math.max(0, (drawnW - frameW) / 2);
+  const overflowH = Math.max(0, (drawnH - frameH) / 2);
+  if (Math.max(overflowW, overflowH) <= MAX_BG_CROP_PT) {
+    return {
+      scale: coverScale,
+      x: (frameW - drawnW) / 2,
+      y: (frameH - drawnH) / 2,
+      width: drawnW,
+      height: drawnH,
+    };
+  }
+  return scaleToFit(srcW, srcH, frameW, frameH);
+}
+
+// Marco de salida del lienzo/PDF: la orientación la dicta el PDF de fondo
+// (alto > ancho → vertical). Si no hay fondo, default horizontal (la
+// convención histórica). Retorna { w, h, portrait } en pt PDF.
+export interface Cr80Frame {
+  w: number;
+  h: number;
+  portrait: boolean;
+}
+
+export function getFrame(widthPt: number | null | undefined, heightPt: number | null | undefined): Cr80Frame {
+  if (
+    Number.isFinite(widthPt) &&
+    Number.isFinite(heightPt) &&
+    (widthPt as number) > 0 &&
+    (heightPt as number) > 0
+  ) {
+    const w = widthPt as number;
+    const h = heightPt as number;
+    return { w, h, portrait: h > w };
+  }
+  return { w: CR80_WIDTH_PT, h: CR80_HEIGHT_PT, portrait: false };
+}
+
+// Mapper afín entre el marco horizontal canónico (donde se guardan los
+// elementos en BD) y el marco de salida del lienzo/PDF (orientado como el
+// fondo). Si la salida es horizontal y el fit es idéntico, k = 1 → identidad
+// (cero regresión). Los elementos se GUARDAN en coordenadas canónicas
+// (stored) y se PINTAN / EDITA el usuario en coordenadas view.
+export interface FrameMapper {
+  /** Convierte un rect del marco horizontal canónico al marco de salida. */
+  toViewRect: (r: { x: number; y: number; w: number; h: number }) => {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  };
+  /** Inverso: del marco de salida al canónico (lo que se guarda). */
+  fromViewRect: (r: { x: number; y: number; w: number; h: number }) => {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  };
+  /** Factor uniforme k = sView / sStored (1 = identidad). */
+  scale: number;
+  /** Marco destino del lienzo y de la página de salida. */
+  frame: Cr80Frame;
+}
+
+export function createFrameMapper(
+  srcWidth: number,
+  srcHeight: number,
+  frame: Cr80Frame
+): FrameMapper {
+  const fitOld = fitBackground(srcWidth, srcHeight, CR80_WIDTH_PT, CR80_HEIGHT_PT);
+  const fitNew = fitBackground(srcWidth, srcHeight, frame.w, frame.h);
+  const k =
+    fitOld.scale > 0 && fitNew.scale > 0 ? fitNew.scale / fitOld.scale : 1;
+  const ox = fitOld.x;
+  const oy = fitOld.y;
+  const nx = fitNew.x;
+  const ny = fitNew.y;
+  return {
+    scale: k,
+    frame,
+    toViewRect: (r) => {
+      const w = Math.max(4, r.w * k);
+      const h = Math.max(4, r.h * k);
+      const x = nx + (r.x - ox) * k;
+      const y = ny + (r.y - oy) * k;
+      return {
+        x: Math.min(Math.max(0, x), Math.max(0, frame.w - w)),
+        y: Math.min(Math.max(0, y), Math.max(0, frame.h - h)),
+        w,
+        h,
+      };
+    },
+    fromViewRect: (r) => {
+      if (k <= 0) return { x: r.x, y: r.y, w: r.w, h: r.h };
+      const w = r.w / k;
+      const h = r.h / k;
+      const x = ox + (r.x - nx) / k;
+      const y = oy + (r.y - ny) / k;
+      return { x, y, w, h };
+    },
+  };
+}
+
 export function emptySides(pages = 1): Cr80Sides {
   const n = clamp(Math.round(pages), 1, MAX_PDF_PAGES);
   return Array.from({ length: n }, () => ({ elements: [] }));
