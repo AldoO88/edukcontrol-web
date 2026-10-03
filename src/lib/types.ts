@@ -90,6 +90,11 @@ export interface Guardian {
   lastname?: string;
   phone: string;
   relationship: string;
+  // `false` = dado de baja (registro conservado como historial pero
+  // sin vínculos a estudiantes y con la cuenta User tutor
+  // desactivada). Ausente/null cuenta como activo (backfill
+  // backfill-guardian-active.js normaliza a `true`).
+  isActive?: boolean;
   // Cuando el backend detecta que el celular ya está registrado con
   // otro perfil (teacher/admin/etc) devuelve la respuesta 201 con
   // `warning` para que la UI lo muestre al administrador.
@@ -103,6 +108,16 @@ export interface Guardian {
     first_name?: string;
     last_name?: string;
   }>;
+  // User tutor asociado (populado por GET /api/guardians y detail).
+  // Si está presente, se considera "Cuenta activa" solo si
+  // user_id.isActive === true.
+  user_id?: string | {
+    _id: string;
+    name?: string;
+    email?: string;
+    role?: string;
+    isActive?: boolean;
+  };
 }
 
 export interface Group {

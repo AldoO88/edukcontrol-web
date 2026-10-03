@@ -28,22 +28,40 @@ import {
 } from "lucide-react";
 import type { SchoolShift } from "@/lib/types";
 
+interface GuardiansStats {
+  total: number;
+  con_hijos_en_ciclo?: number;
+  alumnos_sin_tutor?: number;
+}
+
 export default function SchoolYearOverviewPage() {
   const params = useParams();
   const schoolId = params.id as string;
   const yearId = params.yearId as string;
   const [schoolYear, setSchoolYear] = useState<SchoolYear | null>(null);
   const [shifts, setShifts] = useState<SchoolShift[]>([]);
+  const [studentsCount, setStudentsCount] = useState<number | null>(null);
+  const [guardiansStats, setGuardiansStats] = useState<GuardiansStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAll = async () => {
     try {
-      const [yearRes, shiftsRes] = await Promise.all([
+      const [yearRes, shiftsRes, studentsRes, guardiansRes] = await Promise.all([
         api.get<SchoolYear>(`${ENDPOINTS.SCHOOL_YEARS}/${yearId}`),
         api.get<SchoolShift[]>(`${ENDPOINTS.SCHOOL_SHIFTS}?school_year_id=${yearId}`),
+        api
+          .get<{ total: number }>(
+            `${ENDPOINTS.STUDENTS}?school_year_id=${yearId}&limit=1`
+          )
+          .catch(() => null),
+        api
+          .get<GuardiansStats>(ENDPOINTS.GUARDIANS_STATS)
+          .catch(() => null),
       ]);
       setSchoolYear(yearRes);
       setShifts(shiftsRes || []);
+      setStudentsCount(studentsRes?.total ?? null);
+      setGuardiansStats(guardiansRes);
     } catch {
       // silent
     } finally {
@@ -78,7 +96,25 @@ export default function SchoolYearOverviewPage() {
     {
       title: "3. Alumnado",
       links: [
-        { label: "Alumnado", href: "students", icon: <GraduationCap size={20} />, color: "text-orange-600", bgColor: "bg-orange-100" },
+        {
+          label: "Alumnado",
+          href: "students",
+          icon: <GraduationCap size={20} />,
+          color: "text-orange-600",
+          bgColor: "bg-orange-100",
+          summary:
+            studentsCount !== null ? `${studentsCount} alumno${studentsCount === 1 ? "" : "s"}` : null,
+        },
+        {
+          label: "Padres",
+          href: "guardians",
+          icon: <Users size={20} />,
+          color: "text-teal-600",
+          bgColor: "bg-teal-100",
+          summary: guardiansStats
+            ? `${guardiansStats.total} padre${guardiansStats.total === 1 ? "" : "s"}`
+            : null,
+        },
       ],
     },
     {
@@ -168,17 +204,24 @@ export default function SchoolYearOverviewPage() {
                     <Link key={link.href} href={`${basePath}/${link.href}`}>
                       <Card className="hover:shadow-md transition-shadow cursor-pointer">
                         <CardBody>
-                          <div className="flex items-center gap-4">
-                            <div
-                              className={`flex items-center justify-center w-12 h-12 rounded-xl ${link.bgColor}`}
-                            >
-                              <span className={link.color}>{link.icon}</span>
+                            <div className="flex items-center gap-4">
+                              <div
+                                className={`flex items-center justify-center w-12 h-12 rounded-xl ${link.bgColor}`}
+                              >
+                                <span className={link.color}>{link.icon}</span>
+                              </div>
+                              <div className="min-w-0">
+                                <span className="font-medium text-text-primary">
+                                  {link.label}
+                                </span>
+                                {link.summary && (
+                                  <p className="text-xs text-text-secondary mt-0.5">
+                                    {link.summary}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                            <span className="font-medium text-text-primary">
-                              {link.label}
-                            </span>
-                          </div>
-                        </CardBody>
+                          </CardBody>
                       </Card>
                     </Link>
                   );
