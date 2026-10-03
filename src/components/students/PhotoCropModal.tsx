@@ -110,11 +110,40 @@ function CropBody({ file, onConfirm, onCancel }: CropBodyProps) {
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+}, []);
 
-  const fitScale = naturalSize && containerSize.w && containerSize.h
-    ? Math.max(containerSize.w / naturalSize.w, containerSize.h / naturalSize.h)
-    : 1;
+  const side = containerSize.w && containerSize.h ? Math.min(containerSize.w, containerSize.h) : 0;
+  // Contain dentro del marco, no cover sobre el contenedor entero: al
+  // abrir la foto se ve completa y sin zoom automático. El usuario
+  // decide con los controles (slider/±/reset/rueda) si la recorta.
+  const fitScale =
+    naturalSize && side
+      ? Math.min(side / naturalSize.w, side / naturalSize.h)
+      : 1;
+
+  // Tamaño efectivo en pantalla y límites de arrastre. El marco
+  // cuadrado es de lado `side`, centrado en el contenedor. Para que
+  // siempre exista intersección (y no se pueda guardar un cuadrado
+  // totalmente blanco), |offset| ≤ (display + side) / 2 por eje.
+  const displayW = naturalSize ? naturalSize.w * fitScale * zoom : 0;
+  const displayH = naturalSize ? naturalSize.h * fitScale * zoom : 0;
+  const limitX = (displayW + side) / 2;
+  const limitY = (displayH + side) / 2;
+  const clampOffset = (o: { x: number; y: number }) => ({
+    x: clamp(o.x, -limitX, limitX),
+    y: clamp(o.y, -limitY, limitY),
+  });
+
+  // Reacotar offset cuando cambia el zoom (la imagen se hace más
+  // grande o más pequeña y pueden aparecer offsets fuera de rango).
+  useEffect(() => {
+    if (!naturalSize || !side) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOffset((o) => ({
+      x: clamp(o.x, -limitX, limitX),
+      y: clamp(o.y, -limitY, limitY),
+    }));
+  }, [zoom, side, naturalSize, limitX, limitY]);
 
   const handleImageLoad = useCallback(() => {
     const img = imageRef.current;
@@ -134,7 +163,11 @@ function CropBody({ file, onConfirm, onCancel }: CropBodyProps) {
   const onPointerMove = (clientX: number, clientY: number) => {
     const d = dragStateRef.current;
     if (!d.active) return;
-    setOffset({ x: d.ox + (clientX - d.sx), y: d.oy + (clientY - d.sy) });
+    const proposed = {
+      x: d.ox + (clientX - d.sx),
+      y: d.oy + (clientY - d.sy),
+    };
+    setOffset(clampOffset(proposed));
   };
 
   const onPointerUp = () => {
@@ -198,9 +231,6 @@ function CropBody({ file, onConfirm, onCancel }: CropBodyProps) {
       const img = await loadImage(dataUrl ?? "");
       const c = computeCrop();
       if (!c) throw new Error("No se pudo calcular el recorte.");
-      const srcX = clamp(c.srcX, 0, naturalSize.w - c.srcSize);
-      const srcY = clamp(c.srcY, 0, naturalSize.h - c.srcSize);
-      const srcSize = Math.min(c.srcSize, naturalSize.w - srcX, naturalSize.h - srcY);
 
       const canvas = document.createElement("canvas");
       canvas.width = TARGET_SIZE;
@@ -208,13 +238,36 @@ function CropBody({ file, onConfirm, onCancel }: CropBodyProps) {
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("No se pudo crear el canvas.");
 
-      const fillSize = Math.min(TARGET_SIZE, Math.floor(srcSize * (TARGET_SIZE / Math.max(srcSize, 1))));
-      const offsetX = (TARGET_SIZE - fillSize) / 2;
-      const offsetY = (TARGET_SIZE - fillSize) / 2;
-
+      // Fondo blanco (cubre cualquier hueco entre la foto y el
+      // cuadrado — p.ej. fotos no cuadradas que no tocan los bordes).
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
-      ctx.drawImage(img, srcX, srcY, srcSize, srcSize, offsetX, offsetY, fillSize, fillSize);
+
+      // Intersección del rect del marco en coords de la imagen con
+      // los bordes reales de la imagen. WYSIWYG: lo que ves es lo
+      // que se guarda. Si la imagen no cubre el marco (zoom=1 con
+      // foto no cuadrada) → quedan bandas blancas; si la cubre
+      // completamente (zoom > 1 o desplazada) → solo la región
+      // encuadrada.
+      const imgW = naturalSize.w;
+      const imgH = naturalSize.h;
+      const fx0 = c.srcX;
+      const fy0 = c.srcY;
+      const fx1 = c.srcX + c.srcSize;
+      const fy1 = c.srcY + c.srcSize;
+      const ix0 = Math.max(0, fx0);
+      const iy0 = Math.max(0, fy0);
+      const ix1 = Math.min(imgW, fx1);
+      const iy1 = Math.min(imgH, fy1);
+      const iw = ix1 - ix0;
+      const ih = iy1 - iy0;
+      if (iw > 0 && ih > 0) {
+        const destX = ((ix0 - fx0) / c.srcSize) * TARGET_SIZE;
+        const destY = ((iy0 - fy0) / c.srcSize) * TARGET_SIZE;
+        const destW = (iw / c.srcSize) * TARGET_SIZE;
+        const destH = (ih / c.srcSize) * TARGET_SIZE;
+        ctx.drawImage(img, ix0, iy0, iw, ih, destX, destY, destW, destH);
+      }
 
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
@@ -234,8 +287,10 @@ function CropBody({ file, onConfirm, onCancel }: CropBodyProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-text-secondary">
-        Arrastra la imagen para centrar el rostro. Usa los botones o la rueda
-        (Ctrl) para hacer zoom. La foto final es un cuadrado 1:1.
+        La foto se muestra completa al abrir. Arrastra para encuadrar y usa
+        los botones, el slider o la rueda (Ctrl/Cmd) para hacer zoom. Al
+        guardar se conserva exactamente lo que se ve en el marco: si la foto
+        no es cuadrada, las áreas vacías quedan en blanco.
       </p>
 
       <div
