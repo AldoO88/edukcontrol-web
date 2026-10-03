@@ -1964,6 +1964,10 @@ export default function StudentsPage() {
                     const sinTutor = (importResult.results || []).filter((r: any) => r.status === "ok" && r.guardian_missing).length;
                     return sinTutor > 0 ? ` · ${sinTutor} creados sin tutor` : null;
                   })()}
+                  {(() => {
+                    const sinGrupo = ((importResult.results || []) as { status: string; pending_group?: boolean }[]).filter((r) => r.status === "ok" && r.pending_group).length;
+                    return sinGrupo > 0 ? ` · ${sinGrupo} creados sin grupo (control pendiente)` : null;
+                  })()}
                 </p>
               </div>
               {importResult.failed > 0 && (
@@ -2084,6 +2088,42 @@ export default function StudentsPage() {
                   </div>
                 );
               })()}
+              {/* Alumnos creados sin grupo: la fila del Excel no traía
+                  columna `grupo` o el valor no se resolvió — el pre-save
+                  del backend no puede generar el controlNumber sin el
+                  grupo (necesita grade+shift). Asignar el grupo desde
+                  la pestaña "Alumnos" dispara la generación del
+                  controlNumber con el último consecutivo del grado. */}
+              {(() => {
+                type PendingGroupRow = { index: number; status: string; pending_group?: boolean; student_name?: string; curp?: string };
+                const sinGrupo: PendingGroupRow[] = ((importResult.results || []) as PendingGroupRow[]).filter((r) => r.status === "ok" && r.pending_group);
+                if (sinGrupo.length === 0) return null;
+                return (
+                  <div className="max-h-48 overflow-y-auto border border-amber-200 rounded-xl bg-amber-50/40">
+                    <div className="px-3 py-2 text-xs font-semibold text-amber-800 border-b border-amber-200">
+                      Alumnos creados sin grupo ({sinGrupo.length}) — número de control pendiente hasta asignar grupo
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-amber-200">
+                          <th className="px-3 py-2 text-left font-semibold text-amber-900">Fila</th>
+                          <th className="px-3 py-2 text-left font-semibold text-amber-900">Alumno</th>
+                          <th className="px-3 py-2 text-left font-semibold text-amber-900">CURP</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sinGrupo.map((r, i: number) => (
+                          <tr key={i} className="border-b border-amber-100 last:border-b-0">
+                            <td className="px-3 py-2 text-text-secondary">{r.index + 1}</td>
+                            <td className="px-3 py-2 text-amber-900">{r.student_name || "—"}</td>
+                            <td className="px-3 py-2 text-text-secondary font-mono text-xs">{r.curp || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
               <div className="flex justify-end pt-4">
                 <Button variant="ghost" onClick={() => { setIsImportOpen(false); setImportResult(null); setImportFile(null); }}>
                   Cerrar
@@ -2114,7 +2154,7 @@ export default function StudentsPage() {
                   <li><span className="font-mono bg-slate-200 px-1 rounded">direccion</span> Direccion completa</li>
                   <li><span className="font-mono bg-slate-200 px-1 rounded">fecha_nacimiento</span> Formato: YYYY-MM-DD</li>
                   <li><span className="font-mono bg-slate-200 px-1 rounded">tipo_sangre</span> Ej: A+, O-</li>
-                  <li><span className="font-mono bg-slate-200 px-1 rounded">grupo</span> Grupo destino (ej: 1A, 2B). El alumno se asigna automaticamente</li>
+                  <li><span className="font-mono bg-slate-200 px-1 rounded">grupo</span> Grupo destino (ej: 1A, 2B). Si la fila no incluye esta columna el alumno se crea sin grupo y <strong>sin número de control</strong> hasta que le asignes uno (lo que la verás de todas formas como “control pendiente” en el resumen).</li>
                 </ul>
 
                 <h4 className="font-medium text-text-primary mt-4 mb-2">
