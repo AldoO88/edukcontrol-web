@@ -16,7 +16,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
-import type { Guardian, Student } from "@/lib/types";
+import type { Group, Guardian, Student } from "@/lib/types";
 import {
   Users,
   Search,
@@ -29,6 +29,8 @@ import {
   Trash2,
   UserPlus,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   UserX,
   CheckCircle2,
 } from "lucide-react";
@@ -91,6 +93,10 @@ export default function GuardiansPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
   const [noStudentsOnly, setNoStudentsOnly] = useState(false);
+  const [page, setPage] = useState(1);
+  const [groupId, setGroupId] = useState<string>("");
+  const [tallerId, setTallerId] = useState<string>("");
+  const [groups, setGroups] = useState<Group[]>([]);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editing, setEditing] = useState<Guardian | null>(null);
@@ -127,10 +133,18 @@ export default function GuardiansPage() {
     try {
       const params = new URLSearchParams();
       params.set("limit", "50");
-      params.set("page", "1");
+      params.set("page", String(page));
       if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (noStudentsOnly) params.set("no_students", "1");
+      if (groupId) {
+        params.set("group_id", groupId);
+        params.set("school_year_id", yearId);
+      }
+      if (tallerId) {
+        params.set("taller_id", tallerId);
+        params.set("school_year_id", yearId);
+      }
 
       const [listRes, statsRes] = await Promise.all([
         api.get<PaginatedGuardians>(`${ENDPOINTS.GUARDIANS}?${params.toString()}`),
@@ -144,7 +158,30 @@ export default function GuardiansPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, statusFilter, noStudentsOnly]);
+  }, [debouncedSearch, statusFilter, noStudentsOnly, page, groupId, tallerId, yearId]);
+
+  // Cargar los grupos del ciclo una vez para popular los Selects.
+  useEffect(() => {
+    let mounted = true;
+    api
+      .get<Group[]>(`${ENDPOINTS.GROUPS}?school_year_id=${yearId}`)
+      .then((res) => {
+        if (mounted) setGroups(Array.isArray(res) ? res : []);
+      })
+      .catch(() => {
+        if (mounted) setGroups([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [yearId]);
+
+  // Resetear a la página 1 cuando cambia cualquier filtro (excepto la
+  // propia página).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
+  }, [debouncedSearch, statusFilter, noStudentsOnly, groupId, tallerId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -352,6 +389,36 @@ export default function GuardiansPage() {
                 ]}
                 className="w-40"
               />
+              <Select
+                value={groupId}
+                onChange={(e) => setGroupId(e.target.value)}
+                options={[
+                  { value: "", label: "Todos los grupos" },
+                  ...groups
+                    .filter((g) => g.type !== "taller")
+                    .sort((a, b) => a.grade - b.grade || a.section.localeCompare(b.section))
+                    .map((g) => ({
+                      value: g._id,
+                      label: `${g.grade}${g.section}`,
+                    })),
+                ]}
+                className="w-40"
+              />
+              <Select
+                value={tallerId}
+                onChange={(e) => setTallerId(e.target.value)}
+                options={[
+                  { value: "", label: "Todos los talleres" },
+                  ...groups
+                    .filter((g) => g.type === "taller")
+                    .sort((a, b) => a.grade - b.grade || a.section.localeCompare(b.section))
+                    .map((g) => ({
+                      value: g._id,
+                      label: `${g.grade}° ${g.section}`,
+                    })),
+                ]}
+                className="w-44"
+              />
               <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
                 <input
                   type="checkbox"
@@ -391,7 +458,7 @@ export default function GuardiansPage() {
           icon={<Users size={48} />}
           title="Sin padres registrados"
           description={
-            debouncedSearch || statusFilter !== "active" || noStudentsOnly
+            debouncedSearch || statusFilter !== "active" || noStudentsOnly || groupId || tallerId
               ? "Ninguna coincidencia con los filtros actuales."
               : "Aún no hay tutores dados de alta."
           }
@@ -403,6 +470,7 @@ export default function GuardiansPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-slate-50">
+                    <th className="text-center px-4 py-3 font-semibold text-text-primary w-12">No.</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Nombre</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Teléfono</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Parentesco</th>
@@ -413,14 +481,18 @@ export default function GuardiansPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.items.map((g) => {
+                  {list.items.map((g, idx) => {
                     const isActive = g.isActive !== false;
                     const kids = (g.students || []).filter(
                       (s): s is NonNullable<Guardian["students"]>[number] & object =>
                         typeof s === "object" && s !== null
                     );
+                    const rowNum = (list.page - 1) * list.limit + idx + 1;
                     return (
                       <tr key={g._id} className="border-b border-border last:border-b-0 hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-center text-text-secondary tabular-nums">
+                          {rowNum}
+                        </td>
                         <td className="px-4 py-3 font-medium text-text-primary">
                           {g.name} {g.lastname || ""}
                         </td>
@@ -559,8 +631,44 @@ export default function GuardiansPage() {
                 </tbody>
               </table>
             </div>
-            <div className="px-4 py-3 border-t border-border text-xs text-text-secondary">
-              Mostrando {list.items.length} de {list.total}
+            <div className="px-4 py-3 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-text-secondary">
+              <span>
+                {list.total > 0 ? (
+                  <>
+                    Mostrando{" "}
+                    <strong className="text-text-primary tabular-nums">
+                      {(list.page - 1) * list.limit + 1}–
+                      {Math.min(list.page * list.limit, list.total)}
+                    </strong>{" "}
+                    de <strong className="text-text-primary tabular-nums">{list.total}</strong>
+                  </>
+                ) : (
+                  <>Sin resultados</>
+                )}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={list.page <= 1 || isLoading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft size={14} className="mr-1" />
+                  Anterior
+                </Button>
+                <span className="px-2 tabular-nums">
+                  {list.page} / {list.pages}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={list.page >= list.pages || isLoading}
+                  onClick={() => setPage((p) => Math.min(list.pages || 1, p + 1))}
+                >
+                  Siguiente
+                  <ChevronRight size={14} className="ml-1" />
+                </Button>
+              </div>
             </div>
           </CardBody>
         </Card>
