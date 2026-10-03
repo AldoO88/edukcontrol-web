@@ -75,7 +75,16 @@ export default function SchoolYearOverviewPage() {
 
   const basePath = `/schools/${schoolId}/school-years/${yearId}`;
 
-  const linkCategories = [
+  type OverviewLink = {
+    label: string;
+    href: string;
+    icon: React.ReactElement;
+    color: string;
+    bgColor: string;
+    summary?: string | null;
+  };
+
+  const linkCategories: Array<{ title: string; links: OverviewLink[] }> = [
     {
       title: "1. Estructura Académica",
       links: [

@@ -278,15 +278,14 @@ export default function GuardiansPage() {
       <PageHeader
         title="Padres de familia"
         subtitle={`Tutores registrados en la escuela. Los cambios aplican a todos los ciclos.`}
-        actions={
-          <Link
-            href={`${basePath}`}
-            className="text-sm text-text-secondary hover:text-accent-dark"
-          >
-            ← Volver al ciclo
-          </Link>
-        }
-      />
+      >
+        <Link
+          href={`${basePath}`}
+          className="text-sm text-text-secondary hover:text-accent-dark"
+        >
+          ← Volver al ciclo
+        </Link>
+      </PageHeader>
 
       {/* Stats row */}
       {stats && (
@@ -364,7 +363,7 @@ export default function GuardiansPage() {
               </label>
             </div>
             <Button
-              variant="accent"
+              variant="primary"
               onClick={() => {
                 setEditing({
                   _id: "",
@@ -686,7 +685,7 @@ export default function GuardiansPage() {
                 Cancelar
               </Button>
               <Button
-                variant="accent"
+                variant="primary"
                 disabled={selectedToLink.size === 0 || linking}
                 isLoading={linking}
                 onClick={handleLinkStudents}
@@ -818,7 +817,7 @@ function GuardianEditForm({ initial, saving, onCancel, onSubmit }: GuardianEditF
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
         <Button
-          variant="accent"
+          variant="primary"
           isLoading={saving}
           disabled={!name || !/^\d{10}$/.test(phone)}
           onClick={() => onSubmit({ name, lastname, phone, relationship })}
