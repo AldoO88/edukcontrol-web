@@ -934,6 +934,7 @@ export default function StudentsPage() {
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Grupo</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Taller</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Estado</th>
+                    <th className="text-left px-4 py-3 font-semibold text-text-primary">Tutor</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Acceso</th>
                     <th className="text-right px-4 py-3 font-semibold text-text-primary w-12"></th>
                   </tr>
@@ -994,6 +995,24 @@ export default function StudentsPage() {
                         <Badge variant={(CYCLE_STATUS_COLORS[e.enrollment.cycle_status] as any) || "slate"}>
                           {CYCLE_STATUS_LABELS[e.enrollment.cycle_status] || e.enrollment.cycle_status}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const list = (e.student.guardians || []).filter(
+                            (g): g is Guardian => typeof g === "object" && g !== null && "name" in g
+                          );
+                          if (list.length === 0) {
+                            return (
+                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700">
+                                Sin tutor
+                              </span>
+                            );
+                          }
+                          const nombres = list.map(
+                            (g) => `${g.name}${g.lastname ? " " + g.lastname : ""}`.trim()
+                          );
+                          return <span className="text-text-primary">{nombres.join(", ")}</span>;
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         {e.student.isFaceEnrolled ? (
