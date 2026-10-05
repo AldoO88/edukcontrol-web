@@ -148,7 +148,7 @@ export default function GuardiansPage() {
 
       const [listRes, statsRes] = await Promise.all([
         api.get<PaginatedGuardians>(`${ENDPOINTS.GUARDIANS}?${params.toString()}`),
-        api.get<GuardiansStats>(ENDPOINTS.GUARDIANS_STATS).catch(() => null),
+        api.get<GuardiansStats>(`${ENDPOINTS.GUARDIANS_STATS}?school_year_id=${yearId}`).catch(() => null),
       ]);
       setList(listRes);
       setStats(statsRes);
