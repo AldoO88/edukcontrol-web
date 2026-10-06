@@ -33,6 +33,27 @@ interface GroupedRow {
   groups: { group: Group; assignmentId: string }[];
 }
 
+// Fila ya con los metadatos de presentación: la celda del maestro se
+// emite una sola vez con rowSpan y lleva su color de paleta.
+interface DisplayRow extends GroupedRow {
+  isFirstOfTeacher: boolean;
+  teacherSpan: number;
+  colorClass: string;
+}
+
+// Paleta por maestro (barra vertical + nombre en su tono). Clases
+// estáticas para que Tailwind las detecte al escanear el source.
+const TEACHER_PALETTE = [
+  "border-sky-500 text-sky-700",
+  "border-violet-500 text-violet-700",
+  "border-emerald-500 text-emerald-700",
+  "border-amber-500 text-amber-700",
+  "border-rose-500 text-rose-700",
+  "border-indigo-500 text-indigo-700",
+  "border-teal-500 text-teal-700",
+  "border-orange-500 text-orange-700",
+];
+
 export default function TeacherSubjectsPage() {
   const params = useParams();
   const schoolId = params.id as string;
@@ -145,8 +166,11 @@ export default function TeacherSubjectsPage() {
     }
   };
 
-  // Agrupar por teacher+subject
-  const grouped = useMemo<GroupedRow[]>(() => {
+  // Agrupar por teacher+subject, y luego preparar las filas de
+// presentación: orden (nombre, desempate por _id para que las filas
+// de un maestro queden SIEMPRE consecutivas), rowSpan del nombre y
+// color asignado por maestro único.
+const grouped = useMemo<DisplayRow[]>(() => {
     const map = new Map<string, GroupedRow>();
     for (const a of assignments) {
       const teacher = a.teacher_id as User;
@@ -161,10 +185,41 @@ export default function TeacherSubjectsPage() {
       map.get(key)!.groups.push({ group, assignmentId: a._id });
     }
 
-    return Array.from(map.values()).sort((a, b) => {
+    const sorted = Array.from(map.values()).sort((a, b) => {
       const nameA = `${a.teacher.name} ${a.teacher.last_name || ""}`;
       const nameB = `${b.teacher.name} ${b.teacher.last_name || ""}`;
-      return nameA.localeCompare(nameB);
+      return (
+        nameA.localeCompare(nameB) ||
+        a.teacher._id.localeCompare(b.teacher._id)
+      );
+    });
+
+    // Conteo de filas por maestro (ya están consecutivas por el sort).
+    const spanByTeacher = new Map<string, number>();
+    for (const row of sorted) {
+      spanByTeacher.set(
+        row.teacher._id,
+        (spanByTeacher.get(row.teacher._id) || 0) + 1
+      );
+    }
+
+    const seen = new Set<string>();
+    const colorByTeacher = new Map<string, string>();
+    return sorted.map((row) => {
+      const isFirst = !seen.has(row.teacher._id);
+      seen.add(row.teacher._id);
+      if (!colorByTeacher.has(row.teacher._id)) {
+        colorByTeacher.set(
+          row.teacher._id,
+          TEACHER_PALETTE[colorByTeacher.size % TEACHER_PALETTE.length]
+        );
+      }
+      return {
+        ...row,
+        isFirstOfTeacher: isFirst,
+        teacherSpan: spanByTeacher.get(row.teacher._id) || 1,
+        colorClass: colorByTeacher.get(row.teacher._id)!,
+      };
     });
   }, [assignments]);
 
@@ -252,11 +307,16 @@ export default function TeacherSubjectsPage() {
                 <tbody>
                   {grouped.map((row) => (
                     <tr key={row.key} className="border-b border-border last:border-b-0 hover:bg-slate-50/50">
-                      <td className="px-4 py-3">
-                        <span className="font-medium text-text-primary">
-                          {row.teacher.name} {row.teacher.last_name || ""}
-                        </span>
-                      </td>
+                      {row.isFirstOfTeacher && (
+                        <td
+                          rowSpan={row.teacherSpan}
+                          className={`px-4 py-3 border-l-4 align-top ${row.colorClass}`}
+                        >
+                          <span className="font-medium">
+                            {row.teacher.name} {row.teacher.last_name || ""}
+                          </span>
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {row.subject.code && (
