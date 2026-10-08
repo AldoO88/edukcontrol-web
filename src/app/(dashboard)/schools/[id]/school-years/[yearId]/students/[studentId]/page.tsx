@@ -232,6 +232,10 @@ export default function StudentDetailPage() {
   const [faceError, setFaceError] = useState("");
 
   const fetchData = async () => {
+    // Limpiamos el error previo para que un reintento (o un refetch
+    // tras una acción) pueda sacar la pantalla de ErrorState — antes
+    // el error quedaba pegado hasta un reload manual de la página.
+    setError(null);
     try {
       const [studentRes, enrollmentsRes, groupsData] = await Promise.all([
         api.get<Student>(`${ENDPOINTS.STUDENTS}/${studentId}`),
@@ -264,11 +268,28 @@ export default function StudentDetailPage() {
         currentGroup,
         enrollments: enrollList,
       });
-    } catch {
-      setError("Error al cargar expediente.");
+    } catch (err) {
+      // No descartar `err` a ciegas: el mensaje real (401/403/500,
+      // sesión expirada, backend caído…) es lo único que permite
+      // diagnosticar por qué falló la carga del expediente.
+      console.error("[expediente] Error al cargar expediente:", err);
+      const msg = err instanceof Error ? err.message : "";
+      setError(
+        !msg || msg === "Failed to fetch"
+          ? "No se pudo conectar con el servidor. Verifica que el backend esté disponible e inténtalo de nuevo."
+          : msg
+      );
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Reintento desde el ErrorState: marca isLoading para mostrar
+  // "Cargando…" en vez de parpadear contra "Alumno no encontrado"
+  // (data sigue en null hasta que la nueva carga resuelva).
+  const retryFetch = () => {
+    setIsLoading(true);
+    fetchData();
   };
 
   useEffect(() => { fetchData(); }, [studentId, yearId]);
@@ -473,7 +494,7 @@ export default function StudentDetailPage() {
   };
 
   if (isLoading) return <LoadingState message="Cargando expediente..." height="page" />;
-  if (error) return <ErrorState title="Error" message={error} action={{ label: "Reintentar", onClick: fetchData }} />;
+  if (error) return <ErrorState title="Error" message={error} action={{ label: "Reintentar", onClick: retryFetch }} />;
   if (!data) return <ErrorState title="No encontrado" message="Alumno no encontrado." />;
 
   const { student, currentEnrollment, currentGroup, enrollments } = data;

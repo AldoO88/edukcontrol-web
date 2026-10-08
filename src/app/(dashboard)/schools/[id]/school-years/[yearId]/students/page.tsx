@@ -210,6 +210,10 @@ export default function StudentsPage() {
 
   // --- Fetch ---
   const fetchData = useCallback(async () => {
+    // Limpia el error previo: sin esto, un solo fallo dejaba la
+    // pantalla en ErrorState de forma permanente (el "Reintentar"
+    // volvía a fetchear pero nunca borraba `error`).
+    setError(null);
     try {
       const [enrollmentsRes, groupsRes] = await Promise.all([
         api.get<Enrollment[]>(`${ENDPOINTS.ENROLLMENTS}?school_year_id=${yearId}`),
@@ -217,12 +221,26 @@ export default function StudentsPage() {
       ]);
       setEnrollments(Array.isArray(enrollmentsRes) ? enrollmentsRes : []);
       setAllGroups(Array.isArray(groupsRes) ? groupsRes : []);
-    } catch {
-      setError("Error al cargar datos.");
+    } catch (err) {
+      console.error("[alumnado] Error al cargar datos:", err);
+      const msg = err instanceof Error ? err.message : "";
+      setError(
+        !msg || msg === "Failed to fetch"
+          ? "No se pudo conectar con el servidor. Verifica que el backend esté disponible e inténtalo de nuevo."
+          : msg
+      );
     } finally {
       setIsLoading(false);
     }
   }, [yearId]);
+
+  // Reintento desde el ErrorState: isLoading a true para mostrar
+  // "Cargando alumnado…" en vez de parpadear con la tabla vacía
+  // (enrollments sigue vacío hasta que la nueva carga resuelva).
+  const retryFetch = useCallback(() => {
+    setIsLoading(true);
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -825,7 +843,7 @@ export default function StudentsPage() {
 
   if (isLoading) return <LoadingState message="Cargando alumnado..." height="page" />;
   if (error && !isRegisterOpen && !isReinscOpen) {
-    return <ErrorState title="Error" message={error} action={{ label: "Reintentar", onClick: fetchData }} />;
+    return <ErrorState title="Error" message={error} action={{ label: "Reintentar", onClick: retryFetch }} />;
   }
 
   return (
