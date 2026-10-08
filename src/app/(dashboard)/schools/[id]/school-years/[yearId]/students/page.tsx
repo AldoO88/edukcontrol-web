@@ -35,6 +35,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Download,
+  Images,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -159,6 +160,8 @@ export default function StudentsPage() {
   const [isImporting, setIsImporting] = useState(false);
   // Export Excel
   const [isExporting, setIsExporting] = useState(false);
+  // Export fotos (ZIP)
+  const [isExportingPhotos, setIsExportingPhotos] = useState(false);
   const [importResult, setImportResult] = useState<{
     total: number;
     succeeded: number;
@@ -674,6 +677,32 @@ export default function StudentsPage() {
     }
   };
 
+  // --- Export fotos ---
+  const handleExportPhotos = async () => {
+    setIsExportingPhotos(true);
+    try {
+      const buffer = await api.getBinary(
+        `${ENDPOINTS.STUDENTS_EXPORT_PHOTOS}?school_year_id=${yearId}`
+      );
+      const blob = new Blob([buffer], { type: "application/zip" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fotos-alumnos-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setError(
+        msg.includes("404") || msg.includes("No hay fotos")
+          ? "No hay fotos de alumnos para exportar."
+          : "Error al exportar las fotos de los alumnos."
+      );
+    } finally {
+      setIsExportingPhotos(false);
+    }
+  };
+
   // ===================================================================
   // RE-INSSCRIPTION WIZARD
   // ===================================================================
@@ -886,6 +915,10 @@ export default function StudentsPage() {
           <Button variant="ghost" size="sm" onClick={handleExport} isLoading={isExporting}>
             <Download size={16} className="mr-1" />
             Exportar Excel
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExportPhotos} isLoading={isExportingPhotos}>
+            <Images size={16} className="mr-1" />
+            Exportar Fotos
           </Button>
         </div>
       </div>

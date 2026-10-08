@@ -41,6 +41,7 @@ export const ENDPOINTS = {
   STUDENTS: "/api/students",
   STUDENTS_IMPORT: "/api/students/import",
   STUDENTS_EXPORT: "/api/students/export",
+  STUDENTS_EXPORT_PHOTOS: "/api/students/export/photos",
   STUDENT_PHOTO: (id: string) => `/api/students/${id}/photo`,
   STUDENT_PROMOTE: (id: string) => `/api/students/${id}/promote`,
   STUDENT_ENROLLMENTS: (id: string) => `/api/students/${id}/enrollments`,
