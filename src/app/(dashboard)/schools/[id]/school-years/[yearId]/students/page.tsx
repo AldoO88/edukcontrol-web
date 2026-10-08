@@ -34,6 +34,7 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
+  Download,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -156,6 +157,8 @@ export default function StudentsPage() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  // Export Excel
+  const [isExporting, setIsExporting] = useState(false);
   const [importResult, setImportResult] = useState<{
     total: number;
     succeeded: number;
@@ -630,6 +633,29 @@ export default function StudentsPage() {
     }
   };
 
+  // --- Export ---
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const buffer = await api.getBinary(
+        `${ENDPOINTS.STUDENTS_EXPORT}?school_year_id=${yearId}`
+      );
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `alumnos-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setError("Error al exportar alumnos a Excel.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // ===================================================================
   // RE-INSSCRIPTION WIZARD
   // ===================================================================
@@ -838,6 +864,10 @@ export default function StudentsPage() {
           <Button variant="ghost" size="sm" onClick={() => { setIsImportOpen(true); setImportResult(null); setImportFile(null); }}>
             <Upload size={16} className="mr-1" />
             Importar Excel
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExport} isLoading={isExporting}>
+            <Download size={16} className="mr-1" />
+            Exportar Excel
           </Button>
         </div>
       </div>
