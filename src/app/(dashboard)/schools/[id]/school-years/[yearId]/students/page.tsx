@@ -162,6 +162,10 @@ export default function StudentsPage() {
   const [isExporting, setIsExporting] = useState(false);
   // Export fotos (ZIP)
   const [isExportingPhotos, setIsExportingPhotos] = useState(false);
+  // Error inline del export de fotos: se muestra como banner junto a los
+  // botones en vez de setError() (que reemplaza TODA la pantalla con
+  // ErrorState y esconde el motivo real del fallo).
+  const [exportPhotosError, setExportPhotosError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<{
     total: number;
     succeeded: number;
@@ -680,6 +684,7 @@ export default function StudentsPage() {
   // --- Export fotos ---
   const handleExportPhotos = async () => {
     setIsExportingPhotos(true);
+    setExportPhotosError(null);
     try {
       const buffer = await api.getBinary(
         `${ENDPOINTS.STUDENTS_EXPORT_PHOTOS}?school_year_id=${yearId}`
@@ -693,11 +698,18 @@ export default function StudentsPage() {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      setError(
-        msg.includes("404") || msg.includes("No hay fotos")
-          ? "No hay fotos de alumnos para exportar."
-          : "Error al exportar las fotos de los alumnos."
-      );
+      console.error("[alumnado] Error al exportar fotos:", err);
+      if (msg.includes("No hay fotos")) {
+        setExportPhotosError(
+          "No hay fotos de alumnos para exportar en este ciclo (solo se incluyen las fotos de alumnos con numero de control)."
+        );
+      } else {
+        setExportPhotosError(
+          !msg || msg === "Failed to fetch"
+            ? "No se pudo conectar con el servidor. Verifica que el backend esté disponible e inténtalo de nuevo."
+            : `Error al exportar las fotos: ${msg}`
+        );
+      }
     } finally {
       setIsExportingPhotos(false);
     }
@@ -922,6 +934,21 @@ export default function StudentsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Error inline del export de fotos (banner, no ErrorState) */}
+      {exportPhotosError && (
+        <div className="flex items-start gap-2 p-3 rounded-xl border border-error/30 bg-error/5 text-sm text-error">
+          <span>{exportPhotosError}</span>
+          <button
+            type="button"
+            onClick={() => setExportPhotosError(null)}
+            className="ml-auto font-semibold hover:underline shrink-0"
+            aria-label="Cerrar error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-border">

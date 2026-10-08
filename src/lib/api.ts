@@ -166,19 +166,20 @@ class ApiClient {
     return this.request<T>(endpoint, { method: "DELETE" });
   }
 
-  // Descarga binaria (p. ej. el PDF de fondo vía proxy autenticado).
-  async getBinary(endpoint: string): Promise<ArrayBuffer> {
+  // Descarga binaria (PDFs, exports de Excel/ZIP).
+  // Refresh-on-401 igual que request(): las descargas son GET sin body,
+  // así que no hay nada que clonar — se refresca el token y se reintenta
+  // una sola vez. Sin refresh → limpiamos sesión y avisamos.
+  async getBinary(endpoint: string, didAttemptRefresh = false): Promise<ArrayBuffer> {
     const headers: Record<string, string> = {};
     const token = this.getAccessToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, { headers });
 
-    if (response.status === 401) {
-      // Para binarios NO hacemos refresh-on-401 (sería complejo clonar
-      // el body). El caller del binario es 100% controlado (descarga
-      // de fondo, exports), un token muerto simplemente se reintenta
-      // manualmente. Limpiamos igual para mantener simetría.
+    if (response.status === 401 && !didAttemptRefresh) {
+      const refreshed = await this.refreshTokens();
+      if (refreshed) return this.getBinary(endpoint, true);
       this.removeTokens();
       this.onUnauthorized();
       throw new Error("Sesión expirada. Por favor, inicia sesión de nuevo.");
