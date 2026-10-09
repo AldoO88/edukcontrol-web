@@ -36,6 +36,7 @@ import {
   CheckCircle2,
   Download,
   Images,
+  ScanFace,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -715,6 +716,46 @@ export default function StudentsPage() {
     }
   };
 
+  // --- Export fotos (iVMS-4200) ---
+  // Mismo endpoint que handleExportPhotos pero con ?format=ivms:
+  // los archivos del ZIP van nombrados <ID8>.jpg (8 dígitos
+  // YY+SHIFT+CCT2+CONSEC, ver buildIvmsId en el backend) y las fotos
+  // se re-escalan a 640x640 JPEG — el formato que acepta la
+  // importación de caras de iVMS-4200. Reusa isExportingPhotos /
+  // exportPhotosError: un export a la vez y el mismo banner.
+  const handleExportPhotosIvms = async () => {
+    setIsExportingPhotos(true);
+    setExportPhotosError(null);
+    try {
+      const buffer = await api.getBinary(
+        `${ENDPOINTS.STUDENTS_EXPORT_PHOTOS}?school_year_id=${yearId}&format=ivms`
+      );
+      const blob = new Blob([buffer], { type: "application/zip" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fotos-ivms-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      console.error("[alumnado] Error al exportar fotos iVMS:", err);
+      if (msg.includes("No hay fotos")) {
+        setExportPhotosError(
+          "No hay fotos de alumnos para exportar en este ciclo (solo se incluyen las fotos de alumnos con numero de control)."
+        );
+      } else {
+        setExportPhotosError(
+          !msg || msg === "Failed to fetch"
+            ? "No se pudo conectar con el servidor. Verifica que el backend esté disponible e inténtalo de nuevo."
+            : `Error al exportar las fotos (iVMS): ${msg}`
+        );
+      }
+    } finally {
+      setIsExportingPhotos(false);
+    }
+  };
+
   // ===================================================================
   // RE-INSSCRIPTION WIZARD
   // ===================================================================
@@ -931,6 +972,10 @@ export default function StudentsPage() {
           <Button variant="ghost" size="sm" onClick={handleExportPhotos} isLoading={isExportingPhotos}>
             <Images size={16} className="mr-1" />
             Exportar Fotos
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExportPhotosIvms} isLoading={isExportingPhotos}>
+            <ScanFace size={16} className="mr-1" />
+            Exportar Fotos (iVMS)
           </Button>
         </div>
       </div>
