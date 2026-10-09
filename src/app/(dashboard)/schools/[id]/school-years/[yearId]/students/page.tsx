@@ -718,9 +718,10 @@ export default function StudentsPage() {
 
   // --- Export fotos (iVMS-4200) ---
   // Mismo endpoint que handleExportPhotos pero con ?format=ivms:
-  // los archivos del ZIP van nombrados <ID8>.jpg (8 dígitos
-  // YY+SHIFT+CCT2+CONSEC, ver buildIvmsId en el backend) y las fotos
-  // se re-escalan a 640x640 JPEG — el formato que acepta la
+  // los archivos del ZIP van nombrados <ID8>_<APELLIDO NOMBRE>.jpeg
+  // (patrón Person ID_Name que exige iVMS; ID8 = 8 dígitos
+  // YY+SHIFT+CCT2+CONSEC, ver utils/ivms-id.js en el backend) y las
+  // fotos se re-escalan a 640x640 JPEG — el formato que acepta la
   // importación de caras de iVMS-4200. Reusa isExportingPhotos /
   // exportPhotosError: un export a la vez y el mismo banner.
   const handleExportPhotosIvms = async () => {
