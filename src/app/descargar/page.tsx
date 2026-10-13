@@ -1,6 +1,6 @@
 // Página pública: Descargar la app de EdukControl para Android (APK)
 // Enlace para las familias: se comparte directo (WhatsApp). El APK vive como
-// asset del release de GitHub (v1.0.0, repo AldoO88/edukcontrol-app — público,
+// asset del release de GitHub (v1.0.1, repo AldoO88/edukcontrol-app — público,
 // descarga anónima; Cloudinary free limita 100 MB y el APK pesa ~103 MB).
 // Es pública, no pasa por AuthGate.
 
@@ -9,8 +9,8 @@ import { LegalShell, LegalSection } from "@/components/legal/LegalShell";
 import { Download } from "lucide-react";
 
 const APK_URL =
-  "https://github.com/AldoO88/edukcontrol-app/releases/download/v1.0.0/EdukControl-1.0.0.apk";
-const APK_VERSION = "1.0.0";
+  "https://github.com/AldoO88/edukcontrol-app/releases/download/v1.0.1/EdukControl-1.0.1.apk";
+const APK_VERSION = "1.0.1";
 const APK_SIZE = "103 MB";
 
 export const metadata: Metadata = {
