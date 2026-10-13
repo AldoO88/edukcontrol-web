@@ -17,14 +17,14 @@ const APK_SIZE = "103 MB";
 export const metadata: Metadata = {
   title: "Descargar App — EdukControl",
   description:
-    "Descarga la app de EdukControl para Android, con instrucciones de instalación y activación de cuenta.",
+    "Descarga la app de EdukControl: Android (APK) e iPhone (TestFlight), con instrucciones de instalación y activación de cuenta.",
 };
 
 export default function DownloadPage() {
   return (
     <LegalShell
       title="Descargar la App"
-      subtitle="App oficial de EdukControl para Android — control de asistencia y calificaciones."
+      subtitle="App oficial de EdukControl — control de asistencia y calificaciones. Disponible para Android (APK) e iPhone (TestFlight)."
       updatedLabel={`Versión ${APK_VERSION} · 12 de octubre de 2026`}
     >
       {/* Botón de descarga */}
@@ -43,7 +43,7 @@ export default function DownloadPage() {
         </p>
       </div>
 
-      <LegalSection heading="Cómo instalar">
+      <LegalSection heading="Cómo instalar en Android">
         <ol className="list-decimal ml-5 space-y-3">
           <li>
             Toca <strong>«Descargar APK para Android</strong>» y espera a que
@@ -65,10 +65,59 @@ export default function DownloadPage() {
             EdukControl.
           </li>
           <li>
-            Abre EdukControl y entra con tu <strong>teléfono celular</strong> y
-            contraseña.
+            Abre EdukControl. Si es tu primera vez, sigue la sección
+            «Activar tu cuenta» de abajo; si ya la activaste, entra con tu{" "}
+            <strong>teléfono celular</strong> y contraseña.
           </li>
         </ol>
+      </LegalSection>
+
+      {/* Sección iOS: TestFlight. El enlace público de prueba se añadirá
+          cuando Apple apruebe la Beta App Review (grupo "Comunidad
+          Escolar" en App Store Connect). */}
+      <LegalSection heading="iPhone / iPad (TestFlight)">
+        <p>
+          En iPhone y iPad, EdukControl se distribuye con{" "}
+          <strong>TestFlight</strong>, la app oficial de pruebas de Apple
+          (gratis). Necesitas iOS 16.4 o superior.
+        </p>
+
+        <ol className="list-decimal ml-5 space-y-3">
+          <li>
+            Instala <strong>TestFlight</strong> desde el App Store: búscalo
+            por nombre o toca{" "}
+            <a
+              href="https://apps.apple.com/app/testflight/id899247664"
+              className="text-accent underline underline-offset-2"
+            >
+              este enlace
+            </a>
+            .
+          </li>
+          <li>
+            {/* TODO(link): cuando Apple apruebe la beta, habilitar el
+                enlace público del grupo "Comunidad Escolar" en App Store
+                Connect y poner aquí el link:
+                https://testflight.apple.com/join/<codigo> */}
+            Abre el <strong>enlace de prueba</strong> de EdukControl y toca{" "}
+            <strong>«Aceptar»</strong> cuando aparezca «Únete a la prueba
+            beta».
+          </li>
+          <li>
+            En TestFlight toca <strong>«Instalar»</strong> en EdukControl y
+            después <strong>«Abrir»</strong>.
+          </li>
+          <li>
+            Abre EdukControl y activa tu cuenta con los pasos de la sección
+            siguiente: es el mismo proceso que en Android (celular, código
+            por WhatsApp y contraseña).
+          </li>
+        </ol>
+
+        <p>
+          En iOS la app <strong>se actualiza sola</strong> desde TestFlight:
+          cuando publiquemos una versión nueva no tienes que descargar nada.
+        </p>
       </LegalSection>
 
       {/* Manual de activación: primer ingreso. El código OTP llega por
@@ -170,7 +219,8 @@ export default function DownloadPage() {
       <LegalSection heading="Notas importantes">
         <ul className="list-disc ml-5 space-y-3">
           <li>
-            Esta versión se instala directo (no viene de Play Store).{" "}
+            En Android, la app se instala directo del archivo APK (no viene
+            de Play Store).{" "}
             <strong>No se actualiza sola</strong>: cuando salga una versión
             nueva te compartiremos este mismo enlace con el archivo actualizado.
           </li>
