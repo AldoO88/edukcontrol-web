@@ -74,7 +74,11 @@ export default function SchoolShiftsPage() {
 
   const fetchTemplates = async () => {
     try {
-      const res = await api.get<{ items: ShiftTemplate[] }>(ENDPOINTS.SHIFT_TEMPLATES);
+      // `school=` acota las plantillas a la escuela seleccionada (el
+      // backend lo aplica solo para super_admin; el resto va por JWT).
+      const res = await api.get<{ items: ShiftTemplate[] }>(
+        `${ENDPOINTS.SHIFT_TEMPLATES}?school=${schoolId}`
+      );
       setTemplates(res.items || []);
     } catch {
       setError("Error al cargar las plantillas de turnos.");

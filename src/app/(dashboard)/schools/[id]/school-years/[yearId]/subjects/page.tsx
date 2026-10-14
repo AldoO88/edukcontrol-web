@@ -4,7 +4,8 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -21,14 +22,22 @@ import {
 import { BookOpen, Search } from "lucide-react";
 
 export default function SubjectsPage() {
+  // Escuela del contexto (URL /schools/[id]/school-years/[yearId]/subjects)
+  const params = useParams();
+  const schoolId = params.id as string;
+
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     try {
-      const res = await api.get<{ items: Subject[] }>(ENDPOINTS.SUBJECTS);
+      // `school=` acota el catálogo a la escuela del ciclo (backend solo
+      // lo aplica para super_admin; el resto de roles ya va por JWT).
+      const res = await api.get<{ items: Subject[] }>(
+        `${ENDPOINTS.SUBJECTS}?school=${schoolId}`
+      );
       // Solo materias activas
       setSubjects((res.items || []).filter((s) => s.isActive !== false));
     } catch {
@@ -36,11 +45,11 @@ export default function SubjectsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [schoolId]);
 
   useEffect(() => {
     fetchSubjects();
-  }, []);
+  }, [fetchSubjects]);
 
   const grouped = useMemo(() => {
     const filtered = subjects.filter((s) => {

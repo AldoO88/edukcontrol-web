@@ -90,8 +90,10 @@ export default function SchoolGroupsPage() {
 
   const fetchTemplates = async () => {
     try {
+      // `school=` acota las plantillas a la escuela seleccionada (el
+      // backend lo aplica solo para super_admin; el resto va por JWT).
       const res = await api.get<{ items: GroupTemplate[] }>(
-        ENDPOINTS.GROUP_TEMPLATES
+        `${ENDPOINTS.GROUP_TEMPLATES}?school=${schoolId}`
       );
       setTemplates(res.items || []);
     } catch {

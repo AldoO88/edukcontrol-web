@@ -171,7 +171,9 @@ export default function StudentDetailPage() {
     }
     setIsExistingGuardianSearching(true);
     try {
-      const params = new URLSearchParams({ limit: "10" });
+      // `school=` acota a la escuela del ciclo (solo aplica super_admin;
+      // el resto de roles ya va por el tenant del JWT).
+      const params = new URLSearchParams({ limit: "10", school: schoolId });
       if (/^\d{10}$/.test(trimmed)) {
         params.set("phone", trimmed);
       } else if (trimmed.length >= 2) {
@@ -186,7 +188,7 @@ export default function StudentDetailPage() {
     } finally {
       setIsExistingGuardianSearching(false);
     }
-  }, []);
+  }, [schoolId]);
 
   useEffect(() => {
     if (!isTutorOpen || tutorModalTab !== "existing") return;

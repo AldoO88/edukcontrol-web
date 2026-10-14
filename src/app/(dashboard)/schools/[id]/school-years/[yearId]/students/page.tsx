@@ -364,7 +364,9 @@ export default function StudentsPage() {
   const searchGuardians = useCallback(async (q: string) => {
     setIsGuardianSearching(true);
     try {
-      const params = new URLSearchParams({ limit: "10" });
+      // `school=` acota a la escuela del ciclo (solo aplica super_admin;
+      // el resto de roles ya va por el tenant del JWT).
+      const params = new URLSearchParams({ limit: "10", school: schoolId });
       if (/^\d{10}$/.test(q.trim())) {
         params.set("phone", q.trim());
       } else if (q.trim().length >= 2) {
@@ -379,7 +381,7 @@ export default function StudentsPage() {
     } finally {
       setIsGuardianSearching(false);
     }
-  }, []);
+  }, [schoolId]);
 
   // Dispara búsqueda cada vez que cambia `guardianSearch` (mientras la
   // modal está abierta). Debounce simple.
@@ -405,7 +407,7 @@ export default function StudentsPage() {
     setGuardianLookup({ status: "loading" });
     try {
       const res = await api.get<{ items: Guardian[] }>(
-        `${ENDPOINTS.GUARDIANS}?phone=${phone}`
+        `${ENDPOINTS.GUARDIANS}?phone=${phone}&school=${schoolId}`
       );
       const found = res?.items?.[0];
       if (found) {
@@ -416,7 +418,7 @@ export default function StudentsPage() {
     } catch {
       setGuardianLookup({ status: "idle" });
     }
-  }, [selectedGuardian, watch]);
+  }, [selectedGuardian, watch, schoolId]);
 
   // --- Register new student ---
   const onRegister = async (data: RegisterFormData) => {

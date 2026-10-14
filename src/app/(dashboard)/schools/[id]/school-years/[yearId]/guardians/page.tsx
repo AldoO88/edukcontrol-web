@@ -134,6 +134,9 @@ export default function GuardiansPage() {
       const params = new URLSearchParams();
       params.set("limit", "50");
       params.set("page", String(page));
+      // Acota a la escuela del ciclo (solo aplica para super_admin; el
+      // resto de roles ya va con el tenant del JWT).
+      params.set("school", schoolId);
       if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (noStudentsOnly) params.set("no_students", "1");
@@ -148,7 +151,11 @@ export default function GuardiansPage() {
 
       const [listRes, statsRes] = await Promise.all([
         api.get<PaginatedGuardians>(`${ENDPOINTS.GUARDIANS}?${params.toString()}`),
-        api.get<GuardiansStats>(`${ENDPOINTS.GUARDIANS_STATS}?school_year_id=${yearId}`).catch(() => null),
+        api
+          .get<GuardiansStats>(
+            `${ENDPOINTS.GUARDIANS_STATS}?school_year_id=${yearId}&school=${schoolId}`
+          )
+          .catch(() => null),
       ]);
       setList(listRes);
       setStats(statsRes);
@@ -158,7 +165,7 @@ export default function GuardiansPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, statusFilter, noStudentsOnly, page, groupId, tallerId, yearId]);
+  }, [debouncedSearch, statusFilter, noStudentsOnly, page, groupId, tallerId, yearId, schoolId]);
 
   // Cargar los grupos del ciclo una vez para popular los Selects.
   useEffect(() => {
@@ -272,9 +279,11 @@ export default function GuardiansPage() {
       setLinkSearching(true);
       try {
         const q = debouncedLinkSearch.trim();
+        // `school=` acota la búsqueda a la escuela del ciclo (evita
+        // sugerir/alumno de otra escuela al super_admin).
         const url = q
-          ? `${ENDPOINTS.STUDENTS}?search=${encodeURIComponent(q)}&limit=20`
-          : `${ENDPOINTS.STUDENTS}?limit=20`;
+          ? `${ENDPOINTS.STUDENTS}?search=${encodeURIComponent(q)}&limit=20&school=${schoolId}`
+          : `${ENDPOINTS.STUDENTS}?limit=20&school=${schoolId}`;
         const res = await api.get<{ items: Student[]; total: number }>(url);
         setLinkResults(res.items || []);
       } catch {
@@ -284,7 +293,7 @@ export default function GuardiansPage() {
       }
     };
     run();
-  }, [debouncedLinkSearch, isLinkOpen]);
+  }, [debouncedLinkSearch, isLinkOpen, schoolId]);
 
   const handleLinkStudents = async () => {
     if (!linkingTarget || selectedToLink.size === 0) return;

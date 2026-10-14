@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
@@ -42,14 +42,16 @@ export default function AssignWorkshopPage() {
   const [assigning, setAssigning] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
+      // `school=` acota los dos listados a la escuela del ciclo (el
+      // backend lo aplica solo para super_admin; el resto va por JWT).
       const [studentsRes, groupsRes] = await Promise.all([
         api.get<{ items: Student[] } | Student[]>(
-          `${ENDPOINTS.STUDENTS}?status=active&limit=500`
+          `${ENDPOINTS.STUDENTS}?status=active&limit=500&school=${schoolId}`
         ),
         api.get<Group[]>(
-          `${ENDPOINTS.GROUPS}?school_year_id=${yearId}`
+          `${ENDPOINTS.GROUPS}?school_year_id=${yearId}&school=${schoolId}`
         ),
       ]);
 
@@ -63,11 +65,11 @@ export default function AssignWorkshopPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [schoolId, yearId]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const sinTaller = useMemo(() => {
     const filtered = students.filter((s) => {

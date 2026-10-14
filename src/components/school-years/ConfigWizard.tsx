@@ -98,11 +98,13 @@ export function ConfigWizard({
     // Fetch all data upfront
     const fetchAll = async () => {
       try {
+        // `school=` acota todos los catálogos a la escuela del ciclo (el
+        // backend lo aplica solo para super_admin; el resto va por JWT).
         const [shiftsRes, subjectsRes, staffRes, groupsRes] = await Promise.all([
-          api.get<{ items: ShiftTemplate[] }>(ENDPOINTS.SHIFT_TEMPLATES),
+          api.get<{ items: ShiftTemplate[] }>(`${ENDPOINTS.SHIFT_TEMPLATES}?school=${schoolId}`),
           api.get<{ items: Subject[] }>(`${ENDPOINTS.SUBJECTS}?school=${schoolId}`),
           api.get<{ items: User[] }>(ENDPOINTS.DASHBOARD_USERS(schoolId)),
-          api.get<{ items: GroupTemplate[] }>(ENDPOINTS.GROUP_TEMPLATES),
+          api.get<{ items: GroupTemplate[] }>(`${ENDPOINTS.GROUP_TEMPLATES}?school=${schoolId}`),
         ]);
 
         const shifts = shiftsRes.items || [];

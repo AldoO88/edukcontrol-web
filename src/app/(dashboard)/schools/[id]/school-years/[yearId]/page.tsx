@@ -55,7 +55,9 @@ export default function SchoolYearOverviewPage() {
           )
           .catch(() => null),
         api
-          .get<GuardiansStats>(ENDPOINTS.GUARDIANS_STATS)
+          .get<GuardiansStats>(
+            `${ENDPOINTS.GUARDIANS_STATS}?school_year_id=${yearId}&school=${schoolId}`
+          )
           .catch(() => null),
       ]);
       setSchoolYear(yearRes);

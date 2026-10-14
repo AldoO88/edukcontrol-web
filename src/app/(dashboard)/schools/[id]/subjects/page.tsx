@@ -103,7 +103,11 @@ export default function SchoolSubjectsPage() {
 
   const fetchSubjects = async () => {
     try {
-      const res = await api.get<{ items: Subject[] }>(ENDPOINTS.SUBJECTS);
+      // `school=` acota el listado a la escuela seleccionada (el backend
+      // lo aplica solo para super_admin; el resto de roles ya va por JWT).
+      const res = await api.get<{ items: Subject[] }>(
+        `${ENDPOINTS.SUBJECTS}?school=${schoolId}`
+      );
       setSubjects(res.items || []);
     } catch {
       setError("Error al cargar las materias.");
