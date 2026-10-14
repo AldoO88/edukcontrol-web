@@ -47,6 +47,75 @@ interface FlatSlot {
   allBlockIds: string[];
 }
 
+// Celda ocupada en el grid de los modales: materia/maestro ya asignado.
+interface OccupiedCell {
+  subject: Subject;
+  teacher: string;
+}
+
+// Mapa de ocupación `${day}-${blockId}` → { subject, teacher } para el
+// grupo dado. Incluye los horarios de Tecnología vía grupos taller del
+// mismo grado (etiquetados "Taller" como la grilla principal), para que
+// no se agende otra materia encima del bloque de taller.
+// `excludeScheduleId` permite ignorar el horario que se está editando.
+function buildOccupancyMap(
+  schedules: ClassSchedule[],
+  groups: Group[],
+  groupId: string,
+  excludeScheduleId?: string
+): Map<string, OccupiedCell> {
+  const map = new Map<string, OccupiedCell>();
+  const targetGroup = groups.find((g) => g._id === groupId);
+  if (!targetGroup) return map;
+
+  const isTecnologiaSubject = (s: Subject | string | undefined): boolean => {
+    const subj = typeof s === "object" ? s : null;
+    if (!subj) return false;
+    const name = subj.name?.toLowerCase() || "";
+    const code = subj.code?.toLowerCase() || "";
+    return name.includes("tecnolog") || code.includes("tec");
+  };
+
+  for (const schedule of schedules) {
+    if (excludeScheduleId && schedule._id === excludeScheduleId) continue;
+    const gId =
+      typeof schedule.group_id === "object"
+        ? (schedule.group_id as Group)._id
+        : schedule.group_id;
+    const scheduleGroup =
+      typeof schedule.group_id === "object"
+        ? (schedule.group_id as Group)
+        : groups.find((g) => g._id === gId);
+
+    // Mismo grupo, o Tecnología de un taller del mismo grado
+    const isSameGroup = gId === groupId;
+    const isTallerTecnologia =
+      targetGroup.type !== "taller" &&
+      scheduleGroup?.type === "taller" &&
+      scheduleGroup.grade === targetGroup.grade &&
+      isTecnologiaSubject(schedule.subject_id);
+    if (!isSameGroup && !isTallerTecnologia) continue;
+
+    const subject = schedule.subject_id as Subject;
+    const teacher = schedule.teacher_id as User;
+    const teacherLabel = isTallerTecnologia
+      ? "Taller"
+      : teacher
+      ? `${teacher.name} ${teacher.last_name || ""}`.trim()
+      : "";
+
+    for (const slot of schedule.scheduleSlots) {
+      for (const blockId of slot.timeBlockRefs) {
+        const key = `${slot.dayOfWeek}-${blockId}`;
+        if (!map.has(key)) {
+          map.set(key, { subject, teacher: teacherLabel });
+        }
+      }
+    }
+  }
+  return map;
+}
+
 export default function SchedulesPage() {
   const params = useParams();
   const schoolId = params.id as string;
@@ -362,6 +431,35 @@ export default function SchedulesPage() {
     }
     return Array.from(map.values());
   }, [editingSchedule, teacherSubjects, groups]);
+
+  // --- Ocupación de bloques (grid de los modales Agregar/Editar) ---
+  // Mapa `${day}-${blockId}` → materia/maestro ya asignado en ese bloque
+  // para el grupo seleccionado (incluye Tecnología vía talleres del mismo
+  // grado, consistente con la grilla principal). Las celdas ocupadas se
+  // muestran con la materia y NO son clickeables — el backend rechaza
+  // empalmes, así que evitamos el error tardío.
+  const addOccupiedBlocks = useMemo(
+    () =>
+      addForm.group_id
+        ? buildOccupancyMap(schedules, groups, addForm.group_id)
+        : new Map<string, OccupiedCell>(),
+    [schedules, groups, addForm.group_id]
+  );
+
+  const editOccupiedBlocks = useMemo(
+    () =>
+      editingSchedule
+        ? buildOccupancyMap(
+            schedules,
+            groups,
+            typeof editingSchedule.group_id === "object"
+              ? editingSchedule.group_id._id
+              : editingSchedule.group_id,
+            editingSchedule._id
+          )
+        : new Map<string, OccupiedCell>(),
+    [schedules, groups, editingSchedule]
+  );
 
   const toggleBlock = (dayOfWeek: number, blockId: string) => {
     setSelectedBlocks((prev) => {
@@ -837,6 +935,20 @@ export default function SchedulesPage() {
                             const dayNum = idx + 1;
                             const selected = selectedBlocks[dayNum] || [];
                             const isSelected = selected.includes(block._id);
+                            const occupied = addOccupiedBlocks.get(`${dayNum}-${block._id}`);
+                            if (occupied && !isSelected) {
+                              return (
+                                <td
+                                  key={dayNum}
+                                  title={`${occupied.subject?.name || "—"}${occupied.teacher ? ` — ${occupied.teacher}` : ""}`}
+                                  className="px-2 py-1.5 border border-gray-200 text-center bg-slate-100 text-text-secondary cursor-default"
+                                >
+                                  <span className="block truncate max-w-[80px] mx-auto text-[10px] font-medium">
+                                    {occupied.subject?.name || "—"}
+                                  </span>
+                                </td>
+                              );
+                            }
                             return (
                               <td
                                 key={dayNum}
@@ -961,6 +1073,20 @@ export default function SchedulesPage() {
                                 const dayNum = idx + 1;
                                 const selected = editSelectedBlocks[dayNum] || [];
                                 const isSelected = selected.includes(block._id);
+                                const occupied = editOccupiedBlocks.get(`${dayNum}-${block._id}`);
+                                if (occupied && !isSelected) {
+                                  return (
+                                    <td
+                                      key={dayNum}
+                                      title={`${occupied.subject?.name || "—"}${occupied.teacher ? ` — ${occupied.teacher}` : ""}`}
+                                      className="px-2 py-1.5 border border-gray-200 text-center bg-slate-100 text-text-secondary cursor-default"
+                                    >
+                                      <span className="block truncate max-w-[80px] mx-auto text-[10px] font-medium">
+                                        {occupied.subject?.name || "—"}
+                                      </span>
+                                    </td>
+                                  );
+                                }
                                 return (
                                   <td
                                     key={dayNum}
