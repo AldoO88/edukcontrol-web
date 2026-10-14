@@ -211,16 +211,14 @@ export function ConfigWizard({
         ).catch(() => {});
       }
 
-      // 4. Clone selected groups (best-effort)
-      const selectedGroupData = groupTemplates.filter((g) => selectedGroups.has(g._id));
-      for (const tpl of selectedGroupData) {
-        await api.post(ENDPOINTS.GROUPS, {
-          school: schoolId,
+      // 4. Clone selected groups (best-effort) — batch con dedupe server-side
+      const selectedGroupIds = groupTemplates
+        .filter((g) => selectedGroups.has(g._id))
+        .map((g) => g._id);
+      if (selectedGroupIds.length > 0) {
+        await api.post(ENDPOINTS.GROUPS_IMPORT_TEMPLATES, {
           school_year_id: schoolYearId,
-          grade: tpl.grade,
-          section: tpl.section,
-          shift: tpl.shift,
-          type: tpl.type,
+          template_ids: selectedGroupIds,
         }).catch(() => {});
       }
 

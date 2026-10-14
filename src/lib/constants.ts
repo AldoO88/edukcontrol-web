@@ -21,6 +21,7 @@ export const ENDPOINTS = {
 
   // Groups
   GROUPS: "/api/groups",
+  GROUPS_IMPORT_TEMPLATES: "/api/groups/import-templates",
   GROUP_STUDENTS: (id: string) => `/api/groups/${id}/students`,
   GROUP_SCHEDULE: (id: string) => `/api/groups/${id}/schedule`,
 
