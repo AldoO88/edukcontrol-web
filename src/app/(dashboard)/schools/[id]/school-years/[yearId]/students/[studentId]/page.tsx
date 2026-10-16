@@ -590,10 +590,12 @@ export default function StudentDetailPage() {
           {/* Tutor */}
           <Card>
             <CardBody>
-              <h2 className="text-lg font-semibold text-text-primary mb-4">Tutor</h2>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                {Array.isArray(student.guardians) && student.guardians.length > 1 ? "Tutores" : "Tutor"}
+              </h2>
               {Array.isArray(student.guardians) && student.guardians.length > 0 ? (
                 <div className="space-y-3">
-                  {student.guardians.map((g) => {
+                  {student.guardians.map((g, idx) => {
                     const guardian = typeof g === "object" ? g as Guardian : null;
                     if (!guardian) return null;
                     return (
@@ -614,6 +616,14 @@ export default function StudentDetailPage() {
                             <p className="mt-0.5 capitalize">{guardian.relationship || "—"}</p>
                           </div>
                         </div>
+                        {idx === 0 && (
+                          <div className="mt-1.5">
+                            {/* El guardian en [0] es el tutor legal de la ficha            de inscripción: las vistas legales (credencial, reports,
+                                citatorios) muestran a este. Los demás son padres
+                                con capacidad de trámite. */}
+                            <Badge variant="sky">Tutor legal (ficha de inscripción)</Badge>
+                          </div>
+                        )}
                         <button
                           onClick={() => {
                             setEditingGuardianId(guardian._id);
@@ -637,14 +647,21 @@ export default function StudentDetailPage() {
                   })}
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-text-muted">Sin tutor registrado.</p>
-                  <Button type="button" variant="sky" size="sm" onClick={openAddTutorModal}>
-                    <UserPlus size={14} className="mr-1" />
-                    Agregar tutor
-                  </Button>
-                </div>
+                <p className="text-sm text-text-muted">Sin tutor registrado.</p>
               )}
+              {/* Alta de tutor: SIEMPRE visible (antes solo aparecía en el
+                  estado vacío). El backend conserva al tutor legal de la
+                  ficha en [0] ($addToSet agrega al final), así que aquí se
+                  puede registrar al segundo padre —o vincular uno ya
+                  existente (p. ej. el papá que ya es tutor de un hermano). */}
+              <div className="mt-4">
+                <Button type="button" variant="sky" size="sm" onClick={openAddTutorModal}>
+                  <UserPlus size={14} className="mr-1" />
+                  {Array.isArray(student.guardians) && student.guardians.length > 0
+                    ? "Agregar otro tutor"
+                    : "Agregar tutor"}
+                </Button>
+              </div>
             </CardBody>
           </Card>
 

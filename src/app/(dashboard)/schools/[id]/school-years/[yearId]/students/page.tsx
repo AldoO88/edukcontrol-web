@@ -58,6 +58,14 @@ const registerSchema = z.object({
   guardian_lastname: z.string().optional(),
   guardian_phone: z.string().optional(),
   guardian_relationship: z.string().optional(),
+  // Segundo tutor (opcional): otro padre con capacidad de trámite.
+  // NO es el tutor legal (el de arriba, en [0]). Requiere los 3
+  // datos (nombre, celular, parentesco) para guardarse; si viene
+  // incompleto se omite con aviso (ver handleRegisterSubmit).
+  guardian2_name: z.string().optional(),
+  guardian2_lastname: z.string().optional(),
+  guardian2_phone: z.string().optional(),
+  guardian2_relationship: z.string().optional(),
 });
 type RegisterFormData = z.infer<typeof registerSchema>;
 
@@ -433,7 +441,18 @@ export default function StudentsPage() {
       // En cualquier otro caso, si el admin tecleó teléfono + nombre,
       // se manda al flujo clásico de POST /api/guardians (el backend
       // ya reusa por teléfono; nunca pisa name/lastname/relationship).
-      const { guardian_name, guardian_lastname, guardian_phone, guardian_relationship, grade, ...studentData } = data;
+      const {
+        guardian_name,
+        guardian_lastname,
+        guardian_phone,
+        guardian_relationship,
+        guardian2_name,
+        guardian2_lastname,
+        guardian2_phone,
+        guardian2_relationship,
+        grade,
+        ...studentData
+      } = data;
       const student = await api.post<Student>(`${ENDPOINTS.STUDENTS}/register`, {
         ...studentData,
         school: schoolId,
@@ -481,6 +500,45 @@ export default function StudentsPage() {
         } catch {
           guardianLinkWarning = "Alumno creado, pero no se pudo registrar el tutor. Revisa los datos e inténtalo desde el detalle del alumno.";
         }
+      }
+
+      // Segundo tutor (opcional): mismo endpoint que el tutor legal —
+      // el backend reusa por teléfono si ese celular ya es tutor de un
+      // hermano, crea sus credenciales (ensureTutorUser → OTP a SU
+      // celular para activar) y lo agrega AL FINAL del array con
+      // $addToSet, así el tutor legal de la ficha sigue en [0].
+      // Se requiere nombre + celular + parentesco; incompleto → se
+      // omite con aviso (el form ya muestra el ámbar correspondiente).
+      const g2Name = (guardian2_name || "").trim();
+      const g2Phone = (guardian2_phone || "").trim();
+      const g2Relationship = (guardian2_relationship || "").trim();
+      if (g2Name && g2Phone && g2Relationship) {
+        try {
+          const guardian2 = await api.post<any>(ENDPOINTS.GUARDIANS, {
+            name: g2Name,
+            lastname: (guardian2_lastname || "").trim(),
+            phone: g2Phone,
+            relationship: g2Relationship,
+            school: schoolId,
+            students: [studentId],
+          });
+          if ((guardian2 as any)?.warning) {
+            guardianLinkWarning = guardianLinkWarning
+              ? `${guardianLinkWarning} · Segundo tutor: ${(guardian2 as any).warning}`
+              : `Segundo tutor: ${(guardian2 as any).warning}`;
+          } else if (!guardianLinkedLabel) {
+            guardianLinkedLabel =
+              "Segundo tutor registrado: recibirá notificaciones y tendrá su propia cuenta en la app.";
+          }
+        } catch {
+          guardianLinkWarning = guardianLinkWarning
+            ? `${guardianLinkWarning} · El segundo tutor no se pudo registrar.`
+            : "El alumno se creó, pero el segundo tutor no se pudo registrar.";
+        }
+      } else if (g2Name || g2Phone || g2Relationship) {
+        guardianLinkWarning = guardianLinkWarning
+          ? `${guardianLinkWarning} · Segundo tutor omitido: faltan datos.`
+          : "Segundo tutor omitido: faltan datos (nombre, celular y parentesco).";
       }
 
       await api.post(ENDPOINTS.ENROLLMENTS, {
@@ -1445,6 +1503,52 @@ export default function StudentsPage() {
             )}
           </div>
 
+          {/* Segundo Tutor (opcional): otro papá/mamá con capacidad de
+              trámite. NO es el tutor legal (ese queda siendo el de arriba —
+              el backend conserva al primero en [0]). Cada tutor tiene su
+              propia cuenta (OTP a SU celular) para entrar a la app, y ambos
+              reciben notificaciones de asistencia/citatorios. */}
+          <div className="border-t border-border pt-4 mt-4">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">Segundo Tutor (opcional)</h3>
+            <p className="text-xs text-text-muted mb-3">
+              Otro padre o familiar con capacidad de trámite. Recibirá notificaciones y tendrá su propia cuenta en la app.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Nombre(s)" placeholder="Nombre(s)" {...register("guardian2_name")} />
+              <Input label="Apellido(s)" placeholder="Apellido(s)" {...register("guardian2_lastname")} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Teléfono" placeholder="10 dígitos" {...register("guardian2_phone")} />
+              <Select
+                label="Parentesco"
+                options={[
+                  { value: "", label: "Selecciona…" },
+                  { value: "madre", label: "Madre" },
+                  { value: "padre", label: "Padre" },
+                  { value: "abuelo/a", label: "Abuelo/a" },
+                  { value: "otro", label: "Otro" },
+                ]}
+                {...register("guardian2_relationship")}
+              />
+            </div>
+            {/* Aviso: el segundo tutor es opcional, pero si se empezó a
+                capturar debe ir completo (nombre + celular + parentesco)
+                o se omite con warning en el resumen. */}
+            {(() => {
+              const g2Name = (watch("guardian2_name") || "").trim();
+              const g2Phone = (watch("guardian2_phone") || "").trim();
+              const g2Rel = (watch("guardian2_relationship") || "").trim();
+              if (!g2Name && !g2Phone && !g2Rel) return null; // vacío = ok (opcional)
+              if (g2Name && g2Phone && g2Rel) return null; // completo = ok
+              return (
+                <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900">
+                  <strong>El segundo tutor no se guardará:</strong>{" "}
+                  faltan datos (se requiere nombre, celular de 10 dígitos y parentesco).
+                </div>
+              );
+            })()}
+          </div>
+
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setIsRegisterOpen(false)}>Cancelar</Button>
             <Button type="submit" variant="sky" isLoading={isRegistering}>Registrar</Button>
@@ -2370,6 +2474,42 @@ export default function StudentsPage() {
                     <span className="font-mono">tutor legal</span>).
                   </li>
                 </ul>
+
+                <h4 className="font-medium text-text-primary mt-4 mb-2">
+                  Segundo tutor <span className="font-normal text-text-secondary">(opcional)</span>
+                </h4>
+                <p className="text-xs text-text-secondary mb-2">
+                  Para alumnos con dos tutores, agrega las columnas{" "}
+                  <code className="font-mono bg-slate-200 px-1 rounded">tutor2_*</code>.
+                  El tutor de la sección anterior sigue siendo el{" "}
+                  <strong>tutor legal</strong> (ficha de inscripción); este queda como
+                  padre con capacidad de trámite: recibe las mismas notificaciones y tiene
+                  su propia cuenta en la app (activación con OTP a su celular).
+                </p>
+                <ul className="text-xs text-text-secondary space-y-1">
+                  <li>
+                    <span className="font-mono bg-slate-200 px-1 rounded">tutor2_nombre</span>{" "}
+                    Nombres del segundo tutor. Si el celular ya es tutor de un hermano, se
+                    reusa ese registro (no se duplica).
+                  </li>
+                  <li>
+                    <span className="font-mono bg-slate-200 px-1 rounded">tutor2_apellido</span>{" "}
+                    Apellidos (opcional: si lo omites, se separan del nombre como en el tutor).
+                  </li>
+                  <li>
+                    <span className="font-mono bg-slate-200 px-1 rounded">tutor2_telefono</span>{" "}
+                    10 dígitos.
+                  </li>
+                  <li>
+                    <span className="font-mono bg-slate-200 px-1 rounded">tutor2_parentesco</span>{" "}
+                    Ej: madre, padre, abuelo/a.
+                  </li>
+                </ul>
+                <p className="text-xs text-text-secondary mt-2">
+                  Si las columnas <code className="font-mono bg-slate-200 px-1 rounded">tutor2_*</code>{" "}
+                  vienen incompletas (falta nombre, teléfono o parentesco), el segundo tutor
+                  se omite con aviso en el resumen y el alumno se importa con su tutor legal.
+                </p>
 
                 <div className="mt-3 p-2 bg-slate-100 border border-slate-200 rounded-lg">
                   <p className="text-xs text-slate-700">
