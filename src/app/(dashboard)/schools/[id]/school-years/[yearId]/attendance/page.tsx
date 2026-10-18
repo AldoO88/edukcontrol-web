@@ -6,7 +6,11 @@
 //
 // Fuente de datos: GET /api/attendance/daily-history — el backend
 // agrega AttendanceLog por día calendario UTC con alumnos ÚNICOS por
-// status (presentes = on_time + retardos; faltas = absent).
+// status (presentes = on_time + retardos; faltas = absent). El response
+// trae además `totalStudents` (matrícula activa) y el % de asistencia
+// se calcula como presentes ÷ matrícula — NO presentes ÷ registros del
+// día: el número responde "¿cuántos de los matriculados vinieron?" y
+// los días son comparables entre sí.
 //
 // Drill-down: click en un renglón → lista de ALUMNOS AUSENTES de ese
 // día vía GET /api/attendance/logs?status=absent (con populate de
@@ -75,13 +79,20 @@ const formatDay = (dateStr: string) =>
     timeZone: "UTC",
   });
 
-// Badge del % de asistencia del día: ≥90 emerald, ≥75 amber, menos rose.
-// Día sin registros (total 0) → slate "—" (misma semántica que el
-// "% Asist." del dashboard móvil desde el fix del umbral).
-const PctBadge = ({ row }: { row: DailyRow }) => {
+// Badge del % de asistencia del día = presentes ÷ MATRÍCULA activa
+// (totalStudents del response — misma convención que el "Alumnos" del
+// dashboard móvil). Día sin registros (total 0) → slate "—": vacío =
+// sin dato, no "todos ausentes" (el cron no marca faltas de un día sin
+// eventos). Umbrales: ≥85 emerald, ≥70 amber, <70 rose — un día normal
+// ronda ~88%, con los thresholds viejos 90/75 siempre quedaría ámbar.
+const PctBadge = ({ row, totalStudents }: { row: DailyRow; totalStudents: number }) => {
   if (row.total === 0) return <Badge variant="slate">—</Badge>;
-  const pct = Math.round((row.present / row.total) * 100);
-  const variant = pct >= 90 ? "emerald" : pct >= 75 ? "amber" : "rose";
+  // Defensivo: sin matrícula conocida se cae al % sobre registros del día.
+  const pct =
+    totalStudents > 0
+      ? Math.round((row.present / totalStudents) * 100)
+      : Math.round((row.present / row.total) * 100);
+  const variant = pct >= 85 ? "emerald" : pct >= 70 ? "amber" : "rose";
   return <Badge variant={variant}>{pct}%</Badge>;
 };
 
@@ -91,6 +102,8 @@ export default function AttendanceHistoryPage() {
   const yearId = params.yearId;
 
   const [days, setDays] = useState<DailyRow[]>([]);
+  // Matrícula activa del response — denominador del % de asistencia.
+  const [totalStudents, setTotalStudents] = useState(0);
   const [range, setRange] = useState<{ from: string; to: string }>({
     from: daysAgoStr(29),
     to: todayStr(),
@@ -117,9 +130,15 @@ export default function AttendanceHistoryPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await api.get<{ from: string; to: string; days: DailyRow[] }>(
+      const res = await api.get<{
+        from: string;
+        to: string;
+        totalStudents: number;
+        days: DailyRow[];
+      }>(
         `${ENDPOINTS.ATTENDANCE_DAILY_HISTORY}?school=${schoolId}&from=${range.from}&to=${range.to}&school_year_id=${yearId}`
       );
+      setTotalStudents(res.totalStudents || 0);
       setDays(res.days || []);
     } catch (e: unknown) {
       setError((e as Error)?.message || "No se pudo cargar el historial.");
@@ -163,7 +182,7 @@ export default function AttendanceHistoryPage() {
     { key: "late", label: "Retardos" },
     { key: "absent", label: "Faltas" },
     { key: "total", label: "Total registros" },
-    { key: "pct", label: "% Asist.", render: (r) => <PctBadge row={r} /> },
+    { key: "pct", label: "% Asist.", render: (r) => <PctBadge row={r} totalStudents={totalStudents} /> },
   ];
 
   return (
@@ -209,6 +228,11 @@ export default function AttendanceHistoryPage() {
               </Button>
             )}
             <span className="ml-auto text-sm text-text-secondary">
+              Matrícula:{" "}
+              <span className="font-semibold text-text-primary">
+                {totalStudents || "—"}
+              </span>
+              {" · "}
               {days.length} día{days.length === 1 ? "" : "s"} con registros
             </span>
           </div>
