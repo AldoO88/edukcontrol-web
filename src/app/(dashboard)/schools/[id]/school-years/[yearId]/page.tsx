@@ -25,6 +25,7 @@ import {
   Key,
   UserCheck,
   Wrench,
+  Activity,
 } from "lucide-react";
 import type { SchoolShift } from "@/lib/types";
 
@@ -133,6 +134,7 @@ export default function SchoolYearOverviewPage() {
       links: [
         { label: "Horarios", href: "schedules", icon: <Bell size={20} />, color: "text-indigo-600", bgColor: "bg-indigo-100" },
         { label: "Credenciales", href: "credentials", icon: <Key size={20} />, color: "text-pink-600", bgColor: "bg-pink-100" },
+        { label: "Asistencia", href: "attendance", icon: <Activity size={20} />, color: "text-cyan-700", bgColor: "bg-cyan-100" },
       ],
     },
   ];

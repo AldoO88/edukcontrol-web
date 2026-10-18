@@ -74,6 +74,7 @@ export const ENDPOINTS = {
 
   // Attendance
   ATTENDANCE_LOGS: "/api/attendance/logs",
+  ATTENDANCE_DAILY_HISTORY: "/api/attendance/daily-history",
 
   // Credentials
   CREDENTIALS_PDF: (schoolYearId: string, schoolId: string, ids?: string) =>
