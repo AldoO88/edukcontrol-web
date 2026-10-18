@@ -12,9 +12,9 @@
 // día: el número responde "¿cuántos de los matriculados vinieron?" y
 // los días son comparables entre sí.
 //
-// Drill-down: click en un renglón → lista de ALUMNOS AUSENTES de ese
-// día vía GET /api/attendance/logs?status=absent (con populate de
-// nombre/control number y flag de justificación).
+// Drill-down: click en un renglón → PANTALLA NUEVA
+// attendance/[date]/page.tsx con el detalle por alumno (foto, nombre,
+// grupo, hora de entrada, hora de salida y estatus).
 //
 // Nota de día UTC: el backend agrupa por la fecha UTC de event_time —
 // misma convención del dashboard móvil (utils/school-time.js del
@@ -25,7 +25,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -37,7 +37,6 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
 import type { SchoolYear } from "@/lib/types";
-import { X } from "lucide-react";
 
 // Fila del agregado diario (respuesta de /daily-history).
 type DailyRow = {
@@ -47,20 +46,6 @@ type DailyRow = {
   absent: number;
   present: number; // on_time + late
   total: number; // present + absent
-};
-
-// Ítem de /logs con student poblado (populate: controlNumber,
-// first_name, last_name, current_group_id).
-type AbsenceLogItem = {
-  _id: string;
-  event_time: string;
-  status: string;
-  justified?: boolean;
-  student_id?: {
-    controlNumber?: string;
-    first_name?: string;
-    last_name?: string;
-  } | null;
 };
 
 // Helpers de fecha: TODO en strings "YYYY-MM-DD" (días calendario UTC
@@ -100,6 +85,7 @@ export default function AttendanceHistoryPage() {
   const params = useParams<{ id: string; yearId: string }>();
   const schoolId = params.id;
   const yearId = params.yearId;
+  const router = useRouter();
 
   const [days, setDays] = useState<DailyRow[]>([]);
   // Matrícula activa del response — denominador del % de asistencia.
@@ -111,11 +97,6 @@ export default function AttendanceHistoryPage() {
   const [schoolYear, setSchoolYear] = useState<SchoolYear | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Drill-down del día seleccionado (ausencias del día).
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [absences, setAbsences] = useState<AbsenceLogItem[]>([]);
-  const [absencesLoading, setAbsencesLoading] = useState(false);
 
   // Ciclo escolar: solo se usa para el botón "Ciclo completo" (startDate).
   useEffect(() => {
@@ -151,25 +132,10 @@ export default function AttendanceHistoryPage() {
     fetchDays();
   }, [fetchDays]);
 
-  // Click en un renglón → drill-down de ausencias de ese día (toggle).
-  const openDay = async (row: DailyRow) => {
-    if (selectedDay === row.date) {
-      setSelectedDay(null);
-      return;
-    }
-    setSelectedDay(row.date);
-    try {
-      setAbsencesLoading(true);
-      setAbsences([]);
-      const res = await api.get<{ items: AbsenceLogItem[] }>(
-        `${ENDPOINTS.ATTENDANCE_LOGS}?school=${schoolId}&event_type=entry&status=absent&from=${row.date}T00:00:00.000Z&to=${row.date}T23:59:59.999Z&limit=200`
-      );
-      setAbsences(res.items || []);
-    } catch {
-      // silent: se queda la lista vacía con el mensaje de "sin faltas"
-    } finally {
-      setAbsencesLoading(false);
-    }
+  // Click en un renglón → pantalla de detalle del día
+  // (/attendance/[date]: foto, nombre, grupo, entrada, salida, estatus).
+  const openDay = (row: DailyRow) => {
+    router.push(`/schools/${schoolId}/school-years/${yearId}/attendance/${row.date}`);
   };
 
   const columns: Column<DailyRow>[] = [
@@ -178,8 +144,10 @@ export default function AttendanceHistoryPage() {
       label: "Día",
       render: (r) => <span className="font-semibold text-text-primary">{formatDay(r.date)}</span>,
     },
+    // Presentes incluye los retardos (on_time + late) — a nivel día la
+    // columna "Retardos" se quitó por decisión de monitoreo; los
+    // retardos individuales se ven en la pantalla de detalle del día.
     { key: "present", label: "Presentes" },
-    { key: "late", label: "Retardos" },
     { key: "absent", label: "Faltas" },
     { key: "total", label: "Total registros" },
     { key: "pct", label: "% Asist.", render: (r) => <PctBadge row={r} totalStudents={totalStudents} /> },
@@ -189,7 +157,7 @@ export default function AttendanceHistoryPage() {
     <div className="space-y-6">
       <PageHeader
         title="Asistencia — Historial por día"
-        subtitle="Monitoreo diario de la escuela: presentes, retardos y faltas por día calendario"
+        subtitle="Monitoreo diario de la escuela: asistencia por día calendario"
       />
 
       {/* Filtros de rango */}
@@ -256,56 +224,10 @@ export default function AttendanceHistoryPage() {
             />
           )}
           <p className="text-xs text-text-secondary mt-3">
-            Haz click en un día para ver los alumnos con falta ese día.
+            Haz click en un día para ver el detalle por alumno (foto, entrada, salida y estatus).
           </p>
         </CardBody>
       </Card>
-
-      {/* Drill-down: ausencias del día seleccionado */}
-      {selectedDay && (
-        <Card>
-          <CardBody>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-text-primary">
-                Faltas del {formatDay(selectedDay)}
-              </h3>
-              <Button variant="ghost" onClick={() => setSelectedDay(null)}>
-                <X size={16} className="mr-1" />
-                Cerrar
-              </Button>
-            </div>
-            {absencesLoading ? (
-              <LoadingState height="inline" message="Cargando faltas…" />
-            ) : absences.length === 0 ? (
-              <p className="text-sm text-text-secondary">
-                Sin faltas registradas este día.
-              </p>
-            ) : (
-              <ul className="divide-y divide-slate-100">
-                {absences.map((a) => (
-                  <li key={a._id} className="py-2 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="font-medium text-text-primary">
-                        {a.student_id?.first_name} {a.student_id?.last_name}
-                      </span>
-                      {a.student_id?.controlNumber && (
-                        <span className="ml-2 text-xs text-text-secondary">
-                          #{a.student_id.controlNumber}
-                        </span>
-                      )}
-                    </div>
-                    {a.justified ? (
-                      <Badge variant="sky">Justificada</Badge>
-                    ) : (
-                      <Badge variant="rose">Injustificada</Badge>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardBody>
-        </Card>
-      )}
     </div>
   );
 }
