@@ -5,10 +5,11 @@
 // dashboard del prefecto. Muestra los registros de ENTRADA y SALIDA de
 // hoy por alumno con su foto, con un selector de dos vistas:
 //
-//   1. "Asistencias" — los registros: un renglón por alumno con foto,
-//      nombre, #control, grupo, hora de entrada, hora de salida y
-//      estatus (DataTable, misma estructura que el detalle de día del
-//      monitoreo admin).
+//   1. "Asistencias" — los registros de ENTRADA y SALIDA: solo los
+//      alumnos con registro (presentes y retardos), un renglón con
+//      foto, nombre, #control, grupo, horas y estatus (DataTable,
+//      misma estructura que el detalle de día del monitoreo admin).
+//      Las FALTAS NO aparecen aquí — viven en el otro selector.
 //   2. "Faltas" — solo los alumnos con estatus de FALTA (falta simple
 //      o justificada) o SIN REGISTRO — todo lo que no es presente —
 //      fila con foto, nombre, grupo, horas y badge que distingue los
@@ -126,6 +127,11 @@ export default function PrefectTodayAttendancePage() {
   // + sin registro — todo lo que no es presente (los badges de la fila
   // distinguen cada caso; los presentes/retardos viven en el resumen).
   const absentRows = rows.filter((r) => r.status === "absent" || r.status === "no_record");
+
+  // Registros de la vista "Asistencias": SOLO presentes y retardos —
+  // las faltas/sin registro se muestran únicamente en el otro selector
+  // (decisión de UX: cada selector muestra lo suyo, sin duplicar).
+  const recordRows = rows.filter((r) => r.status === "present" || r.status === "late");
 
   // Columnas de la vista "Asistencias" (registros entry/exit).
   const columns: Column<AttendanceDayRow>[] = [
@@ -267,9 +273,9 @@ export default function PrefectTodayAttendancePage() {
           <CardBody>
             <DataTable
               columns={columns}
-              data={rows}
+              data={recordRows}
               keyExtractor={(r) => r.student.id}
-              emptyMessage="Sin alumnos con estos filtros."
+              emptyMessage="Sin registros de asistencia con estos filtros — revisa el selector de Faltas."
             />
           </CardBody>
         </Card>
