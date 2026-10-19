@@ -440,14 +440,16 @@ export interface TeacherScheduleData {
   stats?: { weeklyHours?: number; groupsCount?: number };
 }
 
-// GET /api/prefect/school-absences (shape verificado en prod).
+// GET /api/prefect/school-absences (shape verificado contra el
+// backend: { rank, _id, fullName, controlNumber, group, absenceCount }).
 export interface SchoolAbsencesData {
   summary: { totalAbsences: number; affectedStudents: number };
   topAbsentStudents: Array<{
     rank?: number;
+    _id: string;
     fullName: string;
-    group?: string;
-    controlNumber?: string;
+    group?: string | null;
+    controlNumber?: string | null;
     absenceCount: number;
   }>;
 }
@@ -559,7 +561,16 @@ export interface CitationItem {
   subject?: string | { name?: string } | null;
   location?: string;
   scheduledDate?: string;
-  creator?: { _id?: string; name?: string; last_name?: string; role?: string } | string;
+  // groupName denormalizado por el backend (lo lee normalizeCitation).
+  groupName?: string;
+  creator?: {
+    _id?: string;
+    name?: string;
+    last_name?: string;
+    fullName?: string;
+    role?: string;
+    sex?: string;
+  } | string;
   createdAt?: string;
   history?: Array<{
     status?: string;
@@ -569,6 +580,9 @@ export interface CitationItem {
     note?: string;
     reason?: string;
   }>;
+  // Solicitud de reagendar hecha por el tutor (banner ámbar del detalle).
+  rescheduleRequested?: boolean;
+  rescheduleReason?: string;
 }
 
 // GET /api/announcements (items) — avisos.
@@ -580,7 +594,7 @@ export interface AnnouncementItem {
   targetType?: "general" | "group" | "student" | string;
   targetGroups?: Array<string | { _id: string; grade?: number; section?: string }>;
   targetStudents?: Array<string | PrefectStudent>;
-  sender?: { _id?: string; name?: string; last_name?: string; role?: string } | string;
+  sender?: { _id?: string; name?: string; last_name?: string; fullName?: string; role?: string; sex?: string } | string;
   createdAt?: string;
   expiresAt?: string | null;
   readCount?: number;
@@ -598,5 +612,14 @@ export interface ExitPassItem {
   createdAt?: string;
   exit_time?: string;
   registered_by?: { _id?: string; name?: string; last_name?: string; role?: string } | string;
+  // Quien registró el pase (el detalle usa created_by con su rol).
+  created_by?: { _id?: string; name?: string; last_name?: string; fullName?: string; role?: string } | string;
+}
+
+// GET /api/exit-passes → envoltorio real { success, data, pagination }.
+export interface ExitPassListResponse {
+  success?: boolean;
+  data: ExitPassItem[];
+  pagination?: { total: number; page?: number; limit?: number };
 }
 
