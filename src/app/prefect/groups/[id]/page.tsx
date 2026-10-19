@@ -7,8 +7,10 @@
 //      fecha y botón "Marcar" (override manual → POST
 //      /api/attendance/manual-override, el backend deja on_time +
 //      notifica al tutor).
-//   2. Horario — horario semanal con pills de día (lun-vie) y slots
-//      coloreados por materia.
+//   2. Horario — rejilla SEMANAL COMPLETA (sin selector de días, como
+//      sí exige la app móvil por tamaño de pantalla): filas = hora de
+//      inicio, columnas = Lun–Vie, cada celda con su rango propio,
+//      materia coloreada, maestro y badge de taller.
 //   3. Alumnos — lista ordenada por apellido → ficha del alumno.
 // Fuente: hook usePrefectGroupDetail (alumnos + logs + horario).
 // =====================================================================
@@ -17,7 +19,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -28,12 +30,11 @@ import { usePrefectGroupDetail } from "@/lib/hooks/usePrefectGroupDetail";
 import { addDays } from "@/lib/dates";
 import { getSubjectIcon, hexToRgba } from "@/lib/subjectIcons";
 import { StudentAvatar } from "@/app/prefect/_components/StudentAvatar";
+import type { GroupScheduleSlot } from "@/lib/types";
 import {
   Calendar,
   ChevronRight,
   ClipboardCheck,
-  Clock,
-  MapPin,
   Users,
 } from "lucide-react";
 
@@ -60,6 +61,76 @@ function subjectHex(color?: string | null): string {
   return color && /^#[0-9A-Fa-f]{6}$/.test(color) ? color : "#6366F1";
 }
 
+// "HH:MM" → minutos desde medianoche (para ordenar la columna de hora
+// de la rejilla semanal).
+const toMinutes = (hhmm?: string): number => {
+  const [h, m] = (hhmm || "00:00").split(":").map((n) => Number(n) || 0);
+  return h * 60 + m;
+};
+
+// Celda de la rejilla horaria: 1..n slots que INICIAN a la misma hora
+// ese día (en prod los periodos no están alineados entre días — p. ej.
+// 07:30-08:20 un día y 07:30-09:10 otro — por eso la fila se agrupa
+// por hora de inicio y cada celda conserva su propio rango start–end).
+function ScheduleCell({ slots }: { slots: GroupScheduleSlot[] }) {
+  return (
+    <div className="space-y-1.5">
+      {slots.map((slot, idx) => {
+        // Receso — celda punteada gris (misma estética que la app).
+        if (slot.type === "receso") {
+          return (
+            <div
+              key={idx}
+              className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2 py-1.5 text-center"
+            >
+              <p className="text-slate-400 text-[11px] font-semibold">Receso</p>
+              <p className="text-slate-400 text-[10px]">
+                {slot.start} – {slot.end}
+              </p>
+            </div>
+          );
+        }
+
+        const hex = subjectHex(slot.color);
+        const SubjectIcon = getSubjectIcon(slot.icon);
+        const isTaller = slot.classificationType === "TALLER" || slot.is_taller;
+
+        return (
+          <div
+            key={idx}
+            className="rounded-lg bg-white border border-slate-200 px-2 py-1.5"
+            style={{ borderLeft: `3px solid ${hex}` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <SubjectIcon size={12} color={hex} />
+              <p className="text-[11px] font-bold text-text-primary truncate">
+                {slot.subject || "Sin materia"}
+              </p>
+            </div>
+            <p className="text-[10px] text-text-secondary mt-0.5">
+              {slot.start} – {slot.end}
+            </p>
+            {slot.teacher && (
+              <p className="text-[10px] text-text-secondary truncate">{slot.teacher}</p>
+            )}
+            {slot.classroom && (
+              <p className="text-[10px] text-slate-400 truncate">Aula: {slot.classroom}</p>
+            )}
+            {isTaller && (
+              <span
+                className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
+                style={{ backgroundColor: hexToRgba(hex, 0.15), color: hex }}
+              >
+                Taller
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function PrefectGroupDetailPage() {
   const params = useParams<{ id: string }>();
   const groupId = params.id;
@@ -80,11 +151,6 @@ export default function PrefectGroupDetailPage() {
   const [activeSegment, setActiveSegment] = useState<SegmentId>("attendance");
   // Feedback del override (equivalente al Alert.alert de la app).
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
-  // Día del horario: lunes-viernes (como la app: hoy si es entre semana).
-  const [selectedDay, setSelectedDay] = useState<number>(() => {
-    const day = new Date().getDay();
-    return day >= 1 && day <= 5 ? day : 1;
-  });
 
   // Auto-dismiss del banner de feedback.
   useEffect(() => {
@@ -129,6 +195,39 @@ export default function PrefectGroupDetailPage() {
     (typeof firstGroup === "object"
       ? `${firstGroup?.grade ?? ""}°${firstGroup?.section ?? ""}`
       : "");
+
+  // Rejilla del horario COMPLETO (sin selector de días — en web hay
+  // ancho de sobra; la app divide por día por tamaño de pantalla):
+  //   - dayKeys: días con al menos 1 slot, ordenados 1..7.
+  //   - starts: horas de INICIO únicas en toda la semana, ordenadas.
+  //   - byDay: día → Map<inicio, slots[]> (acceso O(1) por celda; un
+  //     mismo inicio puede tener >1 slot solo en datos degenerados —
+  //     se apilan en la celda).
+  const scheduleGrid = useMemo(() => {
+    const sched = schedule?.schedule;
+    if (!sched) return null;
+    const dayKeys = Object.keys(sched)
+      .filter((d) => (sched[d]?.length || 0) > 0)
+      .sort((a, b) => Number(a) - Number(b));
+    if (dayKeys.length === 0) return null;
+    const startSet = new Set<string>();
+    for (const d of dayKeys) {
+      for (const s of sched[d]) startSet.add(s.start ?? "");
+    }
+    const starts = [...startSet].sort((a, b) => toMinutes(a) - toMinutes(b));
+    const byDay = new Map<string, Map<string, GroupScheduleSlot[]>>();
+    for (const d of dayKeys) {
+      const m = new Map<string, GroupScheduleSlot[]>();
+      for (const s of sched[d]) {
+        const key = s.start ?? "";
+        const arr = m.get(key) || [];
+        arr.push(s);
+        m.set(key, arr);
+      }
+      byDay.set(d, m);
+    }
+    return { dayKeys, starts, byDay };
+  }, [schedule]);
 
   // Override manual → banner con el mensaje (la app muestra Alert).
   const handleOverride = async (studentId: string, fullName: string) => {
@@ -304,104 +403,65 @@ export default function PrefectGroupDetailPage() {
             </div>
           )}
 
-          {/* Pills de día (lun-vie) */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {[1, 2, 3, 4, 5].map((day) => (
-              <button
-                key={day}
-                onClick={() => setSelectedDay(day)}
-                className={`px-4 py-2 rounded-full text-xs whitespace-nowrap border transition-colors ${
-                  selectedDay === day
-                    ? "bg-indigo-600 border-indigo-600 text-white font-bold"
-                    : "bg-slate-100 border-slate-200 text-slate-500 font-medium hover:bg-slate-200"
-                }`}
-              >
-                {DAY_NAMES_FULL[day] || `Día ${day}`}
-              </button>
-            ))}
-          </div>
-
-          {/* Slots del día seleccionado */}
-          {schedule?.schedule?.[String(selectedDay)]?.length ? (
-            <div className="space-y-2">
-              {schedule.schedule[String(selectedDay)].map((slot, idx) => {
-                // Receso — slot punteado gris (como la app).
-                if (slot.type === "receso") {
-                  return (
-                    <div
-                      key={idx}
-                      className="flex items-center rounded-xl p-3 border border-dashed border-slate-200 bg-slate-50"
-                    >
-                      <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-200">
-                        <Clock size={16} className="text-slate-400" />
-                      </div>
-                      <div className="ml-3">
-                        <p className="text-slate-400 text-[13px] font-semibold">Receso</p>
-                        <p className="text-slate-400 text-xs">
-                          {slot.start} – {slot.end}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-
-                const hex = subjectHex(slot.color);
-                const SubjectIcon = getSubjectIcon(slot.icon);
-                const isTaller = slot.classificationType === "TALLER" || slot.is_taller;
-
-                return (
-                  <div
-                    key={idx}
-                    className="flex items-center rounded-xl p-3 bg-white border border-slate-200"
-                    style={{ borderLeft: `4px solid ${hex}` }}
-                  >
-                    <div
-                      className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
-                      style={{ backgroundColor: hexToRgba(hex, 0.12) }}
-                    >
-                      <SubjectIcon size={16} color={hex} />
-                    </div>
-                    <div className="ml-3 flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-text-primary truncate">
-                          {slot.subject || "Sin materia"}
-                        </p>
-                        {isTaller && (
-                          <span
-                            className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
-                            style={{ backgroundColor: hexToRgba(hex, 0.15), color: hex }}
-                          >
-                            Taller
-                          </span>
-                        )}
-                      </div>
-                      {slot.teacher && !isTaller && (
-                        <p className="text-xs text-text-secondary mt-0.5">
-                          {slot.teacher}
-                        </p>
-                      )}
-                      <p className="flex items-center gap-1 text-xs text-text-secondary mt-0.5">
-                        <Clock size={11} />
-                        {slot.start} – {slot.end}
-                        {slot.block_count && slot.block_count > 1
-                          ? ` (${slot.block_count} módulos)`
-                          : ""}
-                      </p>
-                      {slot.classroom && (
-                        <p className="flex items-center gap-1 text-xs text-text-secondary mt-0.5">
-                          <MapPin size={11} />
-                          <span className="truncate">{slot.classroom}</span>
-                        </p>
-                      )}
-                    </div>
+          {/* Rejilla SEMANAL COMPLETA — filas = hora de inicio,
+              columnas = Lun–Vie (en web NO se divide por días como en
+              la app; el ancho extra beneficia, ver AGENTS.md — los
+              grids con scroll horizontal no se limitan de ancho). */}
+          {scheduleGrid ? (
+            <div className="overflow-x-auto pb-2">
+              <div className="min-w-[880px]">
+                <div
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: `84px repeat(${scheduleGrid.dayKeys.length}, minmax(150px, 1fr))`,
+                  }}
+                >
+                  {/* Encabezados: columna de hora + días con clases */}
+                  <div className="px-2 pb-2 text-[11px] font-bold uppercase text-slate-400">
+                    Hora
                   </div>
-                );
-              })}
+                  {scheduleGrid.dayKeys.map((d) => (
+                    <div
+                      key={`head-${d}`}
+                      className="px-2 pb-2 text-center text-xs font-bold text-indigo-700 bg-indigo-50 rounded-t-lg"
+                    >
+                      {DAY_NAMES_FULL[Number(d)] || `Día ${d}`}
+                    </div>
+                  ))}
+
+                  {/* Filas: una por hora de inicio de toda la semana */}
+                  {scheduleGrid.starts.map((start) => (
+                    <Fragment key={start}>
+                      <div className="px-2 py-2 text-[11px] font-bold text-slate-500 border-t border-slate-100">
+                        {start || "—"}
+                      </div>
+                      {scheduleGrid.dayKeys.map((d) => {
+                        const slots = scheduleGrid.byDay.get(d)?.get(start);
+                        return (
+                          <div
+                            key={`${d}-${start}`}
+                            className="px-1.5 py-1.5 border-t border-slate-100 align-top"
+                          >
+                            {slots && slots.length > 0 ? (
+                              <ScheduleCell slots={slots} />
+                            ) : (
+                              /* Celda vacía: ese día no hay clase a esta
+                                  hora (receso/salida antes). */
+                              <div className="h-10 rounded-lg border border-dashed border-slate-100 bg-slate-50/50" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : (
             <EmptyState
               icon={<Calendar size={48} className="text-slate-300" />}
-              title="Sin clases este día"
+              title="Sin horario registrado"
+              description="Este grupo aún no tiene horario cargado."
             />
           )}
         </div>
