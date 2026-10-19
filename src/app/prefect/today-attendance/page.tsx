@@ -5,13 +5,15 @@
 // dashboard del prefecto. Muestra los registros de ENTRADA y SALIDA de
 // hoy por alumno con su foto, con un selector de dos vistas:
 //
-//   1. "Asistencias"       — los registros crudos: un renglón por
-//      alumno con foto, nombre, #control, grupo, hora de entrada, hora
-//      de salida y estatus (DataTable, misma estructura que el detalle
-//      de día del monitoreo admin).
-//   2. "Presentes y Faltas" — vista clasificada en DOS secciones con
-//      conteo: *Presentes* (present + retardos con badge) y *Faltas*
-//      (faltas simples/justificadas + sin registro).
+//   1. "Asistencias" — los registros: un renglón por alumno con foto,
+//      nombre, #control, grupo, hora de entrada, hora de salida y
+//      estatus (DataTable, misma estructura que el detalle de día del
+//      monitoreo admin).
+//   2. "Faltas" — solo los alumnos con estatus de FALTA (falta simple
+//      o justificada) o SIN REGISTRO — todo lo que no es presente —
+//      fila con foto, nombre, grupo, horas y badge que distingue los
+//      casos. Los presentes/retardos siguen visibles en los badges de
+//      resumen.
 //
 // Fuente: GET /api/attendance/day-detail?date=YYYY-MM-DD vía hook
 // useTodayAttendance (fecha LOCAL, tenant del JWT — el rol prefect se
@@ -41,7 +43,7 @@ import { useTodayAttendance } from "@/lib/hooks/useTodayAttendance";
 import { StudentAvatar } from "@/app/prefect/_components/StudentAvatar";
 import { SegmentTabs } from "@/app/prefect/_components/ListControls";
 import type { AttendanceDayRow } from "@/lib/types";
-import { CalendarX2, Search, UserCheck, UserX } from "lucide-react";
+import { CalendarX2, Search, UserX } from "lucide-react";
 
 // "YYYY-MM-DD" → "viernes 16 de octubre". T12:00Z + timeZone "UTC"
 // ancla al día calendario del backend (no se corre al día anterior).
@@ -86,8 +88,8 @@ function StatusBadge({ row }: { row: AttendanceDayRow }) {
 export default function PrefectTodayAttendancePage() {
   const { data, isLoading, error, refetch } = useTodayAttendance();
 
-  // Selector de vista: registros vs clasificación.
-  const [view, setView] = useState<"records" | "split">("records");
+  // Selector de vista: registros completos vs solo faltas.
+  const [view, setView] = useState<"records" | "faltas">("records");
   // Filtros client-side compartidos por ambas vistas.
   const [groupFilter, setGroupFilter] = useState("all");
   const [searchText, setSearchText] = useState("");
@@ -120,9 +122,9 @@ export default function PrefectTodayAttendancePage() {
     return list;
   }, [data, groupFilter, searchText]);
 
-  // Clasificación de la vista "Presentes y Faltas" (retardos cuentan
-  // como presentes — misma regla que los dashboards).
-  const presentRows = rows.filter((r) => r.status === "present" || r.status === "late");
+  // Faltas de la vista "Faltas": estatus absent (simple o justificada)
+  // + sin registro — todo lo que no es presente (los badges de la fila
+  // distinguen cada caso; los presentes/retardos viven en el resumen).
   const absentRows = rows.filter((r) => r.status === "absent" || r.status === "no_record");
 
   // Columnas de la vista "Asistencias" (registros entry/exit).
@@ -168,8 +170,8 @@ export default function PrefectTodayAttendancePage() {
     { key: "status", label: "Estatus", render: (r) => <StatusBadge row={r} /> },
   ];
 
-  // Fila compacta para las secciones de la vista "Presentes y Faltas".
-  const SplitRow = ({ row }: { row: AttendanceDayRow }) => (
+  // Fila compacta para la lista de la vista "Faltas".
+  const AbsentRow = ({ row }: { row: AttendanceDayRow }) => (
     <li className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-b-0">
       <StudentAvatar
         photoUrl={row.student.photoUrl}
@@ -217,14 +219,14 @@ export default function PrefectTodayAttendancePage() {
         {isLoading && <Spinner size="sm" />}
       </div>
 
-      {/* Selector de vista: registros vs presentes/faltas */}
+      {/* Selector de vista: registros completos vs solo faltas */}
       <SegmentTabs
         tabs={[
           { id: "records", label: "Asistencias" },
-          { id: "split", label: "Presentes y Faltas" },
+          { id: "faltas", label: "Faltas" },
         ]}
         active={view}
-        onChange={(id) => setView(id as "records" | "split")}
+        onChange={(id) => setView(id as "records" | "faltas")}
       />
 
       {/* Filtros client-side (compartidos por ambas vistas) */}
@@ -272,35 +274,8 @@ export default function PrefectTodayAttendancePage() {
           </CardBody>
         </Card>
       ) : (
-        /* ------------ VISTA 2: PRESENTES Y FALTAS (clasificación) -------- */
+        /* ------------------ VISTA 2: FALTAS (estatus falta) --------------- */
         <div className="space-y-4">
-          {/* Presentes (incluye retardos) */}
-          <Card className="border-l-4 border-l-emerald-500">
-            <CardBody>
-              <div className="flex items-center justify-between mb-1">
-                <p className="flex items-center gap-1.5 text-sm font-bold text-emerald-700">
-                  <UserCheck size={15} />
-                  Presentes
-                </p>
-                <span className="text-sm font-extrabold text-emerald-600">
-                  {presentRows.length}
-                </span>
-              </div>
-              {presentRows.length === 0 ? (
-                <p className="text-sm text-text-secondary py-2">
-                  Sin alumnos presentes con estos filtros.
-                </p>
-              ) : (
-                <ul>
-                  {presentRows.map((row) => (
-                    <SplitRow key={row.student.id} row={row} />
-                  ))}
-                </ul>
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Faltas (incluye sin registro) */}
           <Card className="border-l-4 border-l-rose-500">
             <CardBody>
               <div className="flex items-center justify-between mb-1">
@@ -317,7 +292,7 @@ export default function PrefectTodayAttendancePage() {
               ) : (
                 <ul>
                   {absentRows.map((row) => (
-                    <SplitRow key={row.student.id} row={row} />
+                    <AbsentRow key={row.student.id} row={row} />
                   ))}
                 </ul>
               )}
