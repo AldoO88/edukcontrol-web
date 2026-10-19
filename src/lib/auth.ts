@@ -3,7 +3,7 @@
 
 import { api } from "./api";
 import { ENDPOINTS } from "./constants";
-import type { AuthResponse, User } from "./types";
+import type { AuthResponse, User, UserRole } from "./types";
 
 interface VerifyResponse {
   user: {
@@ -107,4 +107,17 @@ export async function changePassword(
     const message = error instanceof Error ? error.message : "Error al cambiar la contraseña";
     return { success: false, message };
   }
+}
+
+// Fuente ÚNICA de home por rol (patrón roleHomeHref de la app móvil —
+// prevenir bucles de redirect: NUNCA calcular destinos con ternarios
+// repartidos por la UI). El prefecto tiene su propio namespace
+// /prefect/*; el resto de staff/super_admin vive en el panel de
+// administración (/dashboard...). El rol tutor no tiene panel web (la
+// app es su superficie) — si llegara a loguearse cae al dashboard
+// admin, que mostrará sus endpoints con datos vacíos/403, pero nunca
+// un bucle.
+export function homeHrefForRole(role: UserRole): string {
+  if (role === "prefect") return "/prefect/dashboard";
+  return "/dashboard";
 }

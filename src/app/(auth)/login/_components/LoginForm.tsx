@@ -12,7 +12,7 @@ import { GraduationCap, Phone, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { login } from "@/lib/auth";
+import { login, homeHrefForRole } from "@/lib/auth";
 
 const loginSchema = z.object({
   phone: z
@@ -53,7 +53,9 @@ export function LoginForm() {
 
     if (result.user && result.token) {
       authLogin(result.user, result.token);
-      router.push("/dashboard");
+      // Destino según rol (fuente única homeHrefForRole — el prefecto
+      // va a /prefect/dashboard, el resto al panel de administración).
+      router.push(homeHrefForRole(result.user.role));
     }
   };
 

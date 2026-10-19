@@ -292,3 +292,233 @@ export interface ApiError {
   message: string;
   reason?: string;
 }
+
+// =====================================================================
+// Área del prefecto (/prefect/*)
+// Shapes verificados contra prod (2026-10-19) con la cuenta prefect.
+// =====================================================================
+
+// GET /api/prefect/dashboard (shape verificado en prod).
+export interface PrefectDashboardData {
+  prefect: {
+    name: string;
+    fullName?: string;
+    phoneNumber?: string;
+    role: string;
+    sex?: string | null;
+  };
+  school: {
+    name: string;
+    cct?: string;
+    logoUrl?: string | null;
+    cycle?: string;
+    school_year_id?: string;
+  };
+  currentDate: string;
+  stats: {
+    totalStudents: number;
+    maleCount: number;
+    femaleCount: number;
+    totalGroups: number;
+    dayPresent: number;
+    dayRetard: number;
+    dayAbsent: number;
+    dayTotal: number;
+  };
+  recentAnnouncements: DashboardAnnouncementItem[];
+  pendingCitationsCount: number;
+  recentConductLogs: DashboardConductLogItem[];
+}
+
+export interface DashboardAnnouncementItem {
+  _id: string;
+  title: string;
+  message: string;
+  sender?: string;
+  priority: "informative" | "urgent";
+}
+
+export interface DashboardConductLogItem {
+  _id?: string;
+  studentName?: string;
+  eventType: string;
+  description: string;
+  createdAt?: string;
+}
+
+// GET /api/prefect/groups-summary → { groups: GroupSummaryItem[] }
+// (shape verificado en prod: label "1°A", demeritCount/meritCount).
+export interface GroupSummaryItem {
+  _id: string;
+  label: string;
+  grade: number;
+  section: string;
+  shift?: string;
+  studentCount: number;
+  maleCount: number;
+  femaleCount: number;
+  conductReportCount: number;
+  demeritCount: number;
+  meritCount: number;
+  attendedToday: number;
+  attendanceRate: number;
+}
+
+// GET /api/prefect/teachers → { teachers: TeacherListItem[] }
+// (shape verificado en prod).
+export interface TeacherListItem {
+  _id: string;
+  name: string;
+  last_name: string;
+  phoneNumber?: string;
+  totalHours?: number;
+}
+
+// GET /api/prefect/teachers/:id — detalle (teacher + subjects +
+// assignedGroups). Campos con `?` donde el shape puede variar.
+export interface TeacherDetailItem {
+  _id: string;
+  name: string;
+  last_name: string;
+  phoneNumber?: string;
+  email?: string;
+  totalHours?: number;
+  subjects?: Array<{ _id?: string; name?: string; color?: string; icon?: string }>;
+  assignedGroups?: Array<{ _id: string; grade?: number; section?: string; label?: string }>;
+}
+
+// GET /api/prefect/teacher-schedule/:id → horario semanal.
+export interface TeacherScheduleData {
+  schedule?: Record<string, ScheduleSlotItem[]>;
+  weeklyHours?: number;
+  groupsCount?: number;
+}
+
+export interface ScheduleSlotItem {
+  subject?: string;
+  group?: string;
+  startTime?: string;
+  endTime?: string;
+  classroom?: string;
+}
+
+// GET /api/prefect/school-absences (shape verificado en prod).
+export interface SchoolAbsencesData {
+  summary: { totalAbsences: number; affectedStudents: number };
+  topAbsentStudents: Array<{
+    rank?: number;
+    fullName: string;
+    group?: string;
+    controlNumber?: string;
+    absenceCount: number;
+  }>;
+}
+
+// GET /api/students (items) — ficha del alumno para el prefecto.
+// (El student trae guardians/health_inclusion/current_group_id — el
+// current_group_id puede venir poblado o como id crudo según el
+// endpoint; los consumidores toleran ambos.)
+export interface PrefectStudent {
+  _id: string;
+  controlNumber?: string;
+  first_name: string;
+  last_name: string;
+  sex?: string | null;
+  curp?: string;
+  photoUrl?: string | null;
+  status?: string;
+  bloodType?: string;
+  address?: string;
+  birthDate?: string;
+  medical_notes?: string;
+  health_inclusion?: unknown;
+  guardians?: PrefectStudentGuardian[];
+  current_group_id?: string | { _id: string; grade?: number; section?: string } | null;
+  workshop_group_id?: string | null;
+}
+
+export interface PrefectStudentGuardian {
+  _id?: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  phoneNumber?: string;
+  relationship?: string;
+  is_legal_tutor?: boolean;
+}
+
+// GET /api/conduct-config → pesos para el score de conducta.
+export interface ConductConfig {
+  weights?: Record<string, number>;
+  merit_points?: number;
+  baseline: number;
+  floor?: number;
+}
+
+// GET /api/conduct-logs (items) — reportes de conducta.
+export interface ConductLogItem {
+  _id: string;
+  student_id?: PrefectStudent | string;
+  eventType: "demerit" | "merit" | string;
+  severity?: string;
+  description: string;
+  points_impact?: number;
+  status?: "active" | "cancelled" | string;
+  reported_by?: { _id?: string; name?: string; last_name?: string; role?: string } | string;
+  school_year_id?: string;
+  createdAt?: string;
+}
+
+// GET /api/citations (items) — citatorios.
+export interface CitationItem {
+  _id: string;
+  student?: PrefectStudent | string;
+  group?: string | { _id: string; grade?: number; section?: string };
+  subject?: string | null;
+  type: "behavioral" | "administrative" | "academic" | string;
+  status: "pending" | "confirmed" | "no_show" | "completed" | "cancelled" | "expired" | string;
+  reason: string;
+  location?: string;
+  scheduledDate?: string;
+  creator?: { _id?: string; name?: string; last_name?: string; role?: string } | string;
+  createdAt?: string;
+  history?: Array<{
+    status?: string;
+    event?: string;
+    timestamp?: string;
+    actor?: unknown;
+    note?: string;
+    reason?: string;
+  }>;
+}
+
+// GET /api/announcements (items) — avisos.
+export interface AnnouncementItem {
+  _id: string;
+  title: string;
+  message: string;
+  priority: "informative" | "urgent" | string;
+  targetType?: "general" | "group" | "student" | string;
+  targetGroups?: Array<string | { _id: string; grade?: number; section?: string }>;
+  targetStudents?: Array<string | PrefectStudent>;
+  sender?: { _id?: string; name?: string; last_name?: string; role?: string } | string;
+  createdAt?: string;
+  expiresAt?: string | null;
+  readCount?: number;
+  totalRecipients?: number;
+}
+
+// GET /api/exit-passes → { success, data: ExitPassItem[], pagination }.
+export interface ExitPassItem {
+  _id: string;
+  student?: PrefectStudent | string;
+  guardian_name: string;
+  relationship?: string;
+  reason: string;
+  reason_detail?: string;
+  createdAt?: string;
+  exit_time?: string;
+  registered_by?: { _id?: string; name?: string; last_name?: string; role?: string } | string;
+}
+
