@@ -301,8 +301,11 @@ export interface ApiError {
 // GET /api/prefect/dashboard (shape verificado en prod).
 export interface PrefectDashboardData {
   prefect: {
+    // name = `${user.name} ${user.last_name}` compuesto en el backend
+    // (NO es solo el nombre de pila — el perfil usa fullName/name tal cual).
     name: string;
     fullName?: string;
+    email?: string;
     phoneNumber?: string;
     role: string;
     sex?: string | null;
