@@ -529,6 +529,31 @@ export interface AttendanceLogItem {
   createdAt?: string;
 }
 
+// GET /api/attendance/day-detail?date=YYYY-MM-DD — un renglón por alumno
+// activo, mergeando los primeros taps entry/exit del día (shape del
+// controller getDayDetailController; lo consumen el monitoreo admin y
+// el drill-down "Asistencia de hoy" del prefecto en la web).
+export interface AttendanceDayRow {
+  student: {
+    id: string;
+    controlNumber?: string | null;
+    first_name: string;
+    last_name: string;
+    photoUrl?: string | null; // URL pública de Cloudinary
+  };
+  group: { id: string; label: string; type: "regular" | "taller" } | null;
+  entry_time: string | null; // ISO UTC — null si no hubo tap (o si fue falta del cron)
+  exit_time: string | null; // ISO UTC
+  status: "present" | "late" | "absent" | "no_record";
+  justified: boolean;
+}
+
+export interface AttendanceDayDetail {
+  date: string; // YYYY-MM-DD (día calendario usado en la query)
+  summary: { present: number; late: number; absent: number; no_record: number };
+  students: AttendanceDayRow[];
+}
+
 // GET /api/conduct-config → pesos para el score de conducta.
 export interface ConductConfig {
   weights?: Record<string, number>;

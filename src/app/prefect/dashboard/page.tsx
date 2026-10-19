@@ -32,6 +32,7 @@ import {
   ScrollText,
   DoorOpen,
   AlertTriangle,
+  ChevronRight,
   Mars,
   Venus,
   type LucideIcon,
@@ -177,23 +178,30 @@ export default function PrefectDashboardPage() {
             </div>
           </CardBody>
         </Card>
-        <Card>
-          <CardBody>
-            <p className="text-xs text-text-secondary mb-3">Asistencia de hoy</p>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <UserCheck size={20} className="text-emerald-600" />
-                <span className="text-lg font-bold text-text-primary">{stats.dayPresent}</span>
-                <span className="text-sm text-text-secondary">Presentes</span>
+        {/* Card enlazada → drill-down de los registros de hoy (entry/exit
+            por alumno con foto) en /prefect/today-attendance. */}
+        <Link href="/prefect/today-attendance">
+          <Card className="h-full hover:shadow-md transition-shadow">
+            <CardBody className="h-full">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-text-secondary">Asistencia de hoy</p>
+                <ChevronRight size={14} className="text-slate-400" />
               </div>
-              <div className="flex items-center gap-2">
-                <UserX size={20} className="text-rose-500" />
-                <span className="text-lg font-bold text-text-primary">{stats.dayAbsent}</span>
-                <span className="text-sm text-text-secondary">Faltas</span>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <UserCheck size={20} className="text-emerald-600" />
+                  <span className="text-lg font-bold text-text-primary">{stats.dayPresent}</span>
+                  <span className="text-sm text-text-secondary">Presentes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <UserX size={20} className="text-rose-500" />
+                  <span className="text-lg font-bold text-text-primary">{stats.dayAbsent}</span>
+                  <span className="text-sm text-text-secondary">Faltas</span>
+                </div>
               </div>
-            </div>
-          </CardBody>
-        </Card>
+            </CardBody>
+          </Card>
+        </Link>
       </div>
 
       {/* Últimas incidencias */}
