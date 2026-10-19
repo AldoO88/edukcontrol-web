@@ -162,6 +162,16 @@ class ApiClient {
     });
   }
 
+  // PATCH (mismo contrato que put): el backend lo usa para
+  // reprogramar/cancelar citatorios (PATCH /:id/reschedule, /:id/cancel)
+  // y editar reportes de conducta (PATCH /api/conduct-logs/:id).
+  async patch<T>(endpoint: string, body?: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "PATCH",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: "DELETE" });
   }

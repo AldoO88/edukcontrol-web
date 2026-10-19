@@ -374,32 +374,70 @@ export interface TeacherListItem {
   totalHours?: number;
 }
 
-// GET /api/prefect/teachers/:id — detalle (teacher + subjects +
-// assignedGroups). Campos con `?` donde el shape puede variar.
-export interface TeacherDetailItem {
-  _id: string;
-  name: string;
-  last_name: string;
-  phoneNumber?: string;
-  email?: string;
-  totalHours?: number;
-  subjects?: Array<{ _id?: string; name?: string; color?: string; icon?: string }>;
-  assignedGroups?: Array<{ _id: string; grade?: number; section?: string; label?: string }>;
+// GET /api/prefect/teachers/:id — shape VERIFICADO en prod:
+// { teacher, subjects, assignedGroups } (anidado, no plano).
+export interface TeacherDetailData {
+  teacher: {
+    _id: string;
+    name: string;
+    last_name: string;
+    phoneNumber?: string;
+    email?: string;
+  };
+  subjects: Array<{ _id: string; name: string; code?: string; color?: string; icon?: string }>;
+  assignedGroups: Array<{ _id: string; label: string }>;
 }
 
-// GET /api/prefect/teacher-schedule/:id → horario semanal.
-export interface TeacherScheduleData {
-  schedule?: Record<string, ScheduleSlotItem[]>;
-  weeklyHours?: number;
-  groupsCount?: number;
-}
-
-export interface ScheduleSlotItem {
+// Slot del HORARIO DE UN GRUPO (GET /api/groups/:id/schedule →
+// { group, shift_info, schedule }). Shape plano del backend con
+// start/end como "HH:MM" y materia/maestro como strings.
+export interface GroupScheduleSlot {
+  type?: "receso" | string; // receso = slot de descanso
   subject?: string;
-  group?: string;
+  teacher?: string;
+  start?: string;
+  end?: string;
+  color?: string;
+  icon?: string;
+  classroom?: string;
+  block_count?: number;
+  block_names?: string[];
+  classificationType?: "DISCIPLINE" | "TALLER" | string;
+  is_taller?: boolean;
+}
+
+export interface GroupScheduleData {
+  group: {
+    _id: string;
+    grade: number;
+    section: string;
+    label: string;
+    shift?: string;
+    type?: string;
+  };
+  shift_info?: { name?: string; start?: string; end?: string };
+  schedule: Record<string, GroupScheduleSlot[]>; // key = día 1..7
+}
+
+// GET /api/prefect/teacher-schedule/:id — { teacher, schedule,
+// dayNames, stats }. Los slots anidan subject/group poblados.
+export interface TeacherScheduleSlot {
+  subject?: { _id?: string; name?: string; color?: string; icon?: string } | string;
+  subject_name?: string;
+  group?: { _id?: string; grade?: number; section?: string } | null;
+  classroom?: string;
   startTime?: string;
   endTime?: string;
-  classroom?: string;
+  startMinutes?: number;
+  endMinutes?: number;
+  timeBlocks?: Array<{ startTime?: string; endTime?: string }>;
+}
+
+export interface TeacherScheduleData {
+  teacher?: { _id?: string; name?: string; last_name?: string };
+  schedule?: Record<string, TeacherScheduleSlot[]>; // key = día 1..7
+  dayNames?: string[];
+  stats?: { weeklyHours?: number; groupsCount?: number };
 }
 
 // GET /api/prefect/school-absences (shape verificado en prod).
@@ -415,9 +453,8 @@ export interface SchoolAbsencesData {
 }
 
 // GET /api/students (items) — ficha del alumno para el prefecto.
-// (El student trae guardians/health_inclusion/current_group_id — el
-// current_group_id puede venir poblado o como id crudo según el
-// endpoint; los consumidores toleran ambos.)
+// Campos de persona con los nombres REALES del modelo
+// (blood_type / date_of_birth en snake_case, igual que en la app).
 export interface PrefectStudent {
   _id: string;
   controlNumber?: string;
@@ -427,25 +464,64 @@ export interface PrefectStudent {
   curp?: string;
   photoUrl?: string | null;
   status?: string;
-  bloodType?: string;
+  blood_type?: string;
   address?: string;
-  birthDate?: string;
+  date_of_birth?: string;
   medical_notes?: string;
-  health_inclusion?: unknown;
+  health_inclusion?: HealthInclusion | null;
   guardians?: PrefectStudentGuardian[];
   current_group_id?: string | { _id: string; grade?: number; section?: string } | null;
   workshop_group_id?: string | null;
 }
 
+// Tutor/guardián (en el modelo usan `name` + `lastname`, no
+// first_name/last_name — ver ficha de la app).
 export interface PrefectStudentGuardian {
   _id?: string;
   name?: string;
-  first_name?: string;
-  last_name?: string;
+  lastname?: string;
   phone?: string;
   phoneNumber?: string;
   relationship?: string;
   is_legal_tutor?: boolean;
+}
+
+// health_inclusion del alumno (modal Trabajo Social — mismos campos
+// que TrabajoSocialModal.jsx de la app).
+export interface HealthInclusion {
+  learning_style?: string;
+  style_hint?: string;
+  diagnosis?: string;
+  disability_type?: string;
+  disability_severity?: string;
+  medications?: string[];
+  alerts?: Array<{
+    _id?: string;
+    type?: "medica" | "comportamental" | "academica" | "otra" | string;
+    label?: string;
+    description?: string;
+  }>;
+}
+
+// Envoltorio paginado de GET /api/students y /api/citations,
+// /api/conduct-logs, /api/announcements ({ items, total, page, limit, pages }).
+export interface PaginatedItems<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+// Registro de asistencia (GET /api/attendance/logs → { items, ... }).
+// status: presente = on_time | late; falta = absent; sin registro = sin log.
+export interface AttendanceLogItem {
+  _id?: string;
+  student_id?: PrefectStudent | string;
+  event_type?: "entry" | "exit" | string;
+  status: "on_time" | "late" | "absent" | string;
+  timestamp?: string;
+  createdAt?: string;
 }
 
 // GET /api/conduct-config → pesos para el score de conducta.
@@ -475,10 +551,12 @@ export interface CitationItem {
   _id: string;
   student?: PrefectStudent | string;
   group?: string | { _id: string; grade?: number; section?: string };
-  subject?: string | null;
   type: "behavioral" | "administrative" | "academic" | string;
   status: "pending" | "confirmed" | "no_show" | "completed" | "cancelled" | "expired" | string;
   reason: string;
+  // subject puede venir como string crudo o poblado { name } (lo lee
+  // el modal de citatorios con citation.subject?.name).
+  subject?: string | { name?: string } | null;
   location?: string;
   scheduledDate?: string;
   creator?: { _id?: string; name?: string; last_name?: string; role?: string } | string;

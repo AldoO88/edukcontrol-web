@@ -78,11 +78,15 @@ export const ENDPOINTS = {
   ATTENDANCE_DAY_DETAIL: "/api/attendance/day-detail",
   ATTENDANCE_MANUAL_OVERRIDE: "/api/attendance/manual-override",
 
+  // Alumnos (directorio del prefecto) — ficha por id
+  STUDENT_BY_ID: (id: string) => `/api/students/${id}`,
+
   // Área del prefecto (/prefect/*) — endpoints del rol en el backend
   // (todos autorizan al rol prefect por JWT + tenant del usuario).
   PREFECT_DASHBOARD: "/api/prefect/dashboard",
   PREFECT_GROUPS_SUMMARY: "/api/prefect/groups-summary",
   PREFECT_TEACHERS: "/api/prefect/teachers",
+  PREFECT_TEACHER_BY_ID: (id: string) => `/api/prefect/teachers/${id}`,
   PREFECT_TEACHER_SCHEDULE: (id: string) => `/api/prefect/teacher-schedule/${id}`,
   PREFECT_SCHOOL_ABSENCES: "/api/prefect/school-absences",
 
