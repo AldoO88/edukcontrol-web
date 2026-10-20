@@ -296,11 +296,14 @@ export default function PrefectTodayAttendancePage() {
         onChange={(id) => setView(id as "records" | "faltas")}
       />
 
-      {/* Filtros client-side (compartidos por ambas vistas) */}
+      {/* Filtros client-side (compartidos por ambas vistas) — el
+          Select va SIN label para alinear campo a campo con la
+          búsqueda (patrón de reports/students; con label su control
+          quedaba ~26px más abajo que el input en la fila sm:flex-row).
+          "Todos los grupos" ya identifica el filtro. */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="sm:w-56">
           <Select
-            label="Grupo"
             value={groupFilter}
             onChange={(e) => setGroupFilter(e.target.value)}
             options={[{ value: "all", label: "Todos los grupos" }, ...groupOptions]}
