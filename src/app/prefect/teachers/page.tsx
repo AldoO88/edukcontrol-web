@@ -2,7 +2,8 @@
 // src/app/prefect/teachers/page.tsx
 // ---------------------------------------------------------------------
 // Lista de Maestros — puerto web de (tabs)/teachers.jsx de la app:
-// nombre, teléfono y horas/semana + búsqueda client-side por nombre.
+// nombre, teléfono y horas/semana + búsqueda client-side por nombre a
+// todo el ancho. Grid de 3 columnas en desktop (lg:grid-cols-3).
 // Fuente: GET /api/prefect/teachers (hook usePrefectTeachers).
 // =====================================================================
 
@@ -48,15 +49,13 @@ export default function PrefectTeachersPage() {
         subtitle="Consulta horarios y información de contacto"
       />
 
-      {/* Búsqueda */}
-      <div className="max-w-md">
-        <Input
-          placeholder="Buscar maestro..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          icon={<Search size={16} className="text-slate-400" />}
-        />
-      </div>
+      {/* Búsqueda — full width en desktop */}
+      <Input
+        placeholder="Buscar maestro..."
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        icon={<Search size={16} className="text-slate-400" />}
+      />
 
       {filteredTeachers.length === 0 ? (
         <EmptyState
@@ -69,7 +68,8 @@ export default function PrefectTeachersPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        // 3 columnas en desktop (antes 2 — más uso del ancho web)
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTeachers.map((teacher) => {
             // Orden apellido-nombre (mismo display que la app).
             const fullName =

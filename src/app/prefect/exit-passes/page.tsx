@@ -3,9 +3,11 @@
 // ---------------------------------------------------------------------
 // Lista de Pases de Salida — puerto web de exit-passes/index.jsx:
 //   - Paginación server (page/limit 20, hasMore = acumulado < total)
-//   - Búsqueda client por alumno o por quien retira
-//   - Cards: alumno, grupo, hora de salida, quién retira + parentesco,
-//     motivo, fecha y quién registró
+//   - Búsqueda client por alumno o por quien retira (full width)
+//   - Lista en FILAS densas dentro de un solo Card (patrón web del
+//     producto; antes: una card alta por pase, estilo app móvil):
+//     alumno+grupo, quién retira + parentesco, motivo, fecha y quién
+//     registró; la hora de salida va al extremo derecho
 //   - "+ Nuevo Pase" → modal picker grupo→alumno (el backend pone la
 //     hora)
 // Fuente: hook useExitPassesList.
@@ -17,7 +19,7 @@ import { toNotice } from "@/lib/notice";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, CardBody } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -28,7 +30,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useExitPassesList } from "@/lib/hooks/useExitPassesList";
 import { CreateExitPassModal } from "@/app/prefect/_components/CreateExitPassModal";
 import { formatShortDate, formatTime12 } from "@/lib/dates";
-import { ChevronRight, LogOut, Search, UserCheck } from "lucide-react";
+import { ChevronRight, DoorOpen, LogOut, Search } from "lucide-react";
 
 // Catálogos (mismos values/labels que la app).
 const RELATIONSHIP_LABELS: Record<string, string> = {
@@ -113,15 +115,13 @@ export default function PrefectExitPassesPage() {
         </div>
       )}
 
-      {/* Búsqueda */}
-      <div className="max-w-md">
-        <Input
-          placeholder="Buscar alumno o quien retira..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          icon={<Search size={16} className="text-slate-400" />}
-        />
-      </div>
+      {/* Búsqueda — full width en desktop */}
+      <Input
+        placeholder="Buscar alumno o quien retira..."
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        icon={<Search size={16} className="text-slate-400" />}
+      />
 
       {/* Lista */}
       {filteredItems.length === 0 && !isLoading ? (
@@ -131,58 +131,57 @@ export default function PrefectExitPassesPage() {
           description="Ajusta la búsqueda o genera el primer pase."
         />
       ) : (
-        <div className="space-y-3">
-          {filteredItems.map((pass) => {
-            const group = studentGroup(pass.student);
-            const registrar = staffName(pass.created_by) || staffName(pass.registered_by);
-            return (
-              <Link key={pass._id} href={`/prefect/exit-passes/${pass._id}`}>
-                <Card className="hover:shadow-md transition-shadow">
-                  <CardBody>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+        <>
+          {/* Lista en filas densas — UN Card con divide-y (patrón web;
+              antes: una card alta por pase). Fila: ícono DoorOpen sky +
+              alumno + badge parentesco + quién retira + meta en 1 línea
+              + hora de salida destacada a la derecha. */}
+          <Card className="divide-y divide-slate-100 overflow-hidden">
+            {filteredItems.map((pass) => {
+              const group = studentGroup(pass.student);
+              const registrar = staffName(pass.created_by) || staffName(pass.registered_by);
+              return (
+                <Link
+                  key={pass._id}
+                  href={`/prefect/exit-passes/${pass._id}`}
+                  className="block hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-sky-100 text-sky-700 shrink-0">
+                      <DoorOpen size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
                         <p className="text-sm font-bold text-text-primary truncate">
                           {studentName(pass.student)}
                         </p>
-                        <p className="text-xs text-text-secondary mt-0.5">
-                          {group || "—"}
-                        </p>
+                        <Badge variant="sky" className="shrink-0">
+                          {pass.relationship
+                            ? RELATIONSHIP_LABELS[pass.relationship] || pass.relationship
+                            : "—"}
+                        </Badge>
+                        <span className="text-xs font-semibold text-text-primary shrink-0">
+                          {pass.guardian_name}
+                        </span>
                       </div>
-                      <span className="text-sm font-extrabold text-slate-700 shrink-0">
-                        {formatTime12(pass.exit_time) || "—"}
-                      </span>
+                      {/* Meta en 1 línea: grupo · motivo(+detalle) ·
+                          fecha · quién registró (trunca en móvil). */}
+                      <p className="text-xs text-text-secondary truncate mt-0.5">
+                        {group || "—"} · {REASON_LABELS[pass.reason] || pass.reason}
+                        {pass.reason_detail ? ` — ${pass.reason_detail}` : ""} ·{" "}
+                        {formatShortDate(pass.createdAt)}
+                        {registrar ? ` · ${registrar}` : ""}
+                      </p>
                     </div>
-
-                    {/* Quién retira + parentesco */}
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <Badge variant="sky">
-                        {pass.relationship ? RELATIONSHIP_LABELS[pass.relationship] || pass.relationship : "—"}
-                      </Badge>
-                      <span className="text-xs font-semibold text-text-primary">
-                        {pass.guardian_name}
-                      </span>
-                    </div>
-
-                    {/* Motivo */}
-                    <p className="flex items-center gap-1.5 text-xs text-text-primary mt-2">
-                      <UserCheck size={12} className="text-emerald-600" />
-                      {REASON_LABELS[pass.reason] || pass.reason}
-                      {pass.reason_detail ? ` — ${pass.reason_detail}` : ""}
-                    </p>
-
-                    {/* Meta: fecha + quién registró */}
-                    <div className="flex items-center justify-between mt-1.5 text-[11px] text-slate-400">
-                      <span>{formatShortDate(pass.createdAt)}</span>
-                      <span>{registrar}</span>
-                    </div>
-                    <div className="flex justify-end mt-1">
-                      <ChevronRight size={16} className="text-slate-300" />
-                    </div>
-                  </CardBody>
-                </Card>
-              </Link>
-            );
-          })}
+                    <span className="text-sm font-extrabold text-slate-700 shrink-0">
+                      {formatTime12(pass.exit_time) || "—"}
+                    </span>
+                    <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                  </div>
+                </Link>
+              );
+            })}
+          </Card>
 
           {/* Paginación */}
           <div className="flex justify-center py-2">
@@ -200,7 +199,7 @@ export default function PrefectExitPassesPage() {
               </span>
             ) : null}
           </div>
-        </div>
+        </>
       )}
 
       {/* Modal de creación */}

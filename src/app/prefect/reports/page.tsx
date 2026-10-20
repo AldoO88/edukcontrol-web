@@ -7,6 +7,8 @@
 //   - Select de filtro: Activos (default) / Cancelados / Deméritos /
 //     Méritos / Todos — client-side sobre el listado cargado
 //   - Búsqueda client (alumno, grupo, descripción, reportero)
+//   - Lista en FILAS densas dentro de un solo Card (patrón web del
+//     producto; antes: una card alta por reporte, estilo app móvil)
 //   - Paginación server con "Cargar más" (hasMore = página ≥ 20)
 //   - "+ Nuevo Reporte" → modal (SOLO prefect puede crear — el hook
 //     inyecta school_year_id desde el dashboard)
@@ -19,7 +21,7 @@ import { toNotice } from "@/lib/notice";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, CardBody } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -191,75 +193,85 @@ export default function PrefectReportsPage() {
           description="Ajusta la búsqueda o los filtros para ver más resultados."
         />
       ) : (
-        <div className="space-y-3">
-          {filteredItems.map((report) => {
-            const isMerit = report.eventType === "merit";
-            const isCancelled = report.status === "cancelled";
-            return (
-              <Link key={report._id} href={`/prefect/reports/${report._id}`}>
-                <Card
-                  className={`border-l-4 ${
-                    isCancelled
-                      ? "border-l-slate-300"
-                      : isMerit
-                        ? "border-l-emerald-500"
-                        : "border-l-rose-500"
-                  } hover:shadow-md transition-shadow`}
+        <>
+          {/* Lista en filas densas — UN Card con divide-y (patrón web;
+              antes: una card alta por reporte). Fila: ícono tintado
+              por tipo (cancelado → gris) + alumno + badges + impacto
+              de puntos + meta en 1 línea. */}
+          <Card className="divide-y divide-slate-100 overflow-hidden">
+            {filteredItems.map((report) => {
+              const isMerit = report.eventType === "merit";
+              const isCancelled = report.status === "cancelled";
+              // Tinte del ícono: cancelados en gris (ya no aportan
+              // color de evento), mérito esmeralda, demérito rosa.
+              const iconTint = isCancelled
+                ? "bg-slate-100 text-slate-500"
+                : isMerit
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-rose-100 text-rose-700";
+              return (
+                <Link
+                  key={report._id}
+                  href={`/prefect/reports/${report._id}`}
+                  className="block hover:bg-slate-50 transition-colors"
                 >
-                  <CardBody>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div
+                      className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${iconTint}`}
+                    >
+                      {isMerit ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
                         <p className="text-sm font-bold text-text-primary truncate">
                           {studentName(report.student_id)}
                         </p>
-                        <p className="text-xs text-text-secondary mt-0.5">
-                          {studentGroupId(report.student_id) || "—"}
-                        </p>
-                      </div>
-                      <span
-                        className={`flex items-center gap-1 text-sm font-extrabold shrink-0 ${
-                          isMerit ? "text-emerald-600" : "text-rose-600"
-                        }`}
-                      >
-                        {isMerit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                        {isMerit ? "+" : "-"}
-                        {report.points_impact}
-                      </span>
-                    </div>
-
-                    {/* Chips de tipo/gravedad/estado */}
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <Badge variant={isMerit ? "emerald" : "rose"}>
-                        {isMerit ? "Mérito" : "Demérito"}
-                      </Badge>
-                      {!isMerit && report.severity && (
-                        <Badge variant="slate">
-                          {report.severity === "minor"
-                            ? "Leve"
-                            : report.severity === "moderate"
-                              ? "Moderado"
-                              : "Grave"}
+                        <Badge variant={isMerit ? "emerald" : "rose"} className="shrink-0">
+                          {isMerit ? "Mérito" : "Demérito"}
                         </Badge>
-                      )}
-                      {isCancelled && <Badge variant="slate">Cancelado</Badge>}
+                        {!isMerit && report.severity && (
+                          <Badge variant="slate" className="shrink-0">
+                            {report.severity === "minor"
+                              ? "Leve"
+                              : report.severity === "moderate"
+                                ? "Moderado"
+                                : "Grave"}
+                          </Badge>
+                        )}
+                        {isCancelled && (
+                          <Badge variant="slate" className="shrink-0">
+                            Cancelado
+                          </Badge>
+                        )}
+                        {/* Impacto de puntos al extremo derecho de la
+                            línea 1 (dato clave del reporte). */}
+                        <span
+                          className={`ml-auto flex items-center gap-1 text-sm font-extrabold shrink-0 ${
+                            isMerit ? "text-emerald-600" : "text-rose-600"
+                          }`}
+                        >
+                          {isMerit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                          {isMerit ? "+" : "-"}
+                          {report.points_impact}
+                        </span>
+                      </div>
+                      {/* Meta en 1 línea: grupo · descripción · fecha ·
+                          reportero (trunca en móvil). */}
+                      <p className="text-xs text-text-secondary truncate mt-0.5">
+                        {studentGroupId(report.student_id) || "—"} ·{" "}
+                        {report.description || "Sin descripción"} ·{" "}
+                        {formatShortDate(report.createdAt)}
+                        {reporterName(report.reported_by)
+                          ? ` · ${reporterName(report.reported_by)}`
+                          : ""}
+                      </p>
                     </div>
-
-                    {/* Descripción + meta */}
-                    <p className="text-xs text-text-primary mt-2 line-clamp-2">
-                      {report.description || "Sin descripción"}
-                    </p>
-                    <div className="flex items-center justify-between mt-1.5 text-[11px] text-slate-400">
-                      <span>{formatShortDate(report.createdAt)}</span>
-                      <span>{reporterName(report.reported_by)}</span>
-                    </div>
-                    <div className="flex justify-end mt-1">
-                      <ChevronRight size={16} className="text-slate-300" />
-                    </div>
-                  </CardBody>
-                </Card>
-              </Link>
-            );
-          })}
+                    <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                  </div>
+                </Link>
+              );
+            })}
+          </Card>
 
           {/* Paginación */}
           <div className="flex justify-center py-2">
@@ -278,7 +290,7 @@ export default function PrefectReportsPage() {
               </span>
             ) : null}
           </div>
-        </div>
+        </>
       )}
 
       {/* Modal de creación */}

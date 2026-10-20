@@ -3,7 +3,8 @@
 // ---------------------------------------------------------------------
 // Lista de Grupos del prefecto — puerto web de (tabs)/groups.jsx de la
 // app: cards con stats (matrícula, niños/niñas, reportes, barra de
-// asistencia de hoy, deméritos/méritos) + búsqueda client-side.
+// asistencia de hoy, deméritos/méritos) + búsqueda client-side a todo
+// el ancho. Grid de 3 columnas en desktop (lg:grid-cols-3).
 // Fuente: GET /api/prefect/groups-summary (hook usePrefectGroups).
 // =====================================================================
 
@@ -61,15 +62,13 @@ export default function PrefectGroupsPage() {
         subtitle="Selecciona un grupo para ver alumnos, asistencia y horario"
       />
 
-      {/* Búsqueda */}
-      <div className="max-w-md">
-        <Input
-          placeholder="Buscar grupo..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          icon={<Search size={16} className="text-slate-400" />}
-        />
-      </div>
+      {/* Búsqueda — full width en desktop */}
+      <Input
+        placeholder="Buscar grupo..."
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        icon={<Search size={16} className="text-slate-400" />}
+      />
 
       {filteredGroups.length === 0 ? (
         <EmptyState
@@ -82,7 +81,8 @@ export default function PrefectGroupsPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        // 3 columnas en desktop (antes 2 — más uso del ancho web)
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredGroups.map((group) => {
             const tint = attendanceTint(group.attendanceRate || 0);
             return (

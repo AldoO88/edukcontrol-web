@@ -7,7 +7,10 @@
 //   - Pills de estado Pendientes/Atendidos/Cancelados (agrupación
 //     client-side vía CITATION_STATUS_GROUPS)
 //   - Stats derivadas (Pendientes/Confirmados/Atendidos) sobre lo cargado
-//   - Búsqueda client (alumno, grupo, motivo, creador, ubicación)
+//   - Búsqueda client (alumno, grupo, motivo, creador, ubicación) a
+//     todo el ancho (antes: tope max-w-md que dejaba el campo mini)
+//   - Lista en FILAS densas dentro de un solo Card (patrón web del
+//     producto; antes: una card alta por citatorio, estilo app móvil)
 //   - Paginación server con "Cargar más" (dedupe en el hook)
 //   - "+ Nuevo Citatorio" → modal 2 pasos (prefect solo crea
 //     behavioral/administrative)
@@ -20,7 +23,7 @@ import { toNotice } from "@/lib/notice";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, CardBody } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -38,7 +41,7 @@ import {
 import { CreateCitationModal } from "@/app/prefect/_components/CreateCitationModal";
 import { FilterPills, SegmentTabs } from "@/app/prefect/_components/ListControls";
 import { formatShortDate, formatTime12 } from "@/lib/dates";
-import { Calendar, ChevronRight, FileText, MapPin, Search } from "lucide-react";
+import { Calendar, ChevronRight, FileText, Search } from "lucide-react";
 
 // Badge de estado por agrupación (Pendientes/Atendidos/Cancelados).
 const STATUS_BADGE: Record<string, "amber" | "emerald" | "slate"> = {
@@ -187,15 +190,13 @@ export default function PrefectCitationsPage() {
         onChange={setStatusFilter}
       />
 
-      {/* Búsqueda */}
-      <div className="max-w-md">
-        <Input
-          placeholder="Buscar alumno, grupo, motivo..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          icon={<Search size={16} className="text-slate-400" />}
-        />
-      </div>
+      {/* Búsqueda — full width en desktop */}
+      <Input
+        placeholder="Buscar alumno, grupo, motivo..."
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        icon={<Search size={16} className="text-slate-400" />}
+      />
 
       {/* Lista */}
       {filteredItems.length === 0 && !isLoading ? (
@@ -205,68 +206,73 @@ export default function PrefectCitationsPage() {
           description="Ajusta la búsqueda o los filtros para ver más resultados."
         />
       ) : (
-        <div className="space-y-3">
-          {filteredItems.map((citation) => {
-            const typeBadge =
-              citation.type === "behavioral"
-                ? "rose"
-                : citation.type === "administrative"
-                  ? "amber"
-                  : "sky";
-            const statusVariant =
-              STATUS_BADGE[citation.status === "reschedule_requested" ? "pending" : citation.status] ||
-              "slate";
-            const statusLabel =
-              CITATION_STATUS_LABELS[citation.status] || citation.status;
-            return (
-              <Link key={citation.id} href={`/prefect/citations/${citation.id}`}>
-                <Card className="hover:shadow-md transition-shadow">
-                  <CardBody>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+        <>
+          {/* Lista en filas densas — UN Card con divide-y (patrón web;
+              antes: una card alta por citatorio). Fila: ícono tintado
+              por tipo + alumno + badges tipo/estado + meta en 1 línea. */}
+          <Card className="divide-y divide-slate-100 overflow-hidden">
+            {filteredItems.map((citation) => {
+              const typeBadge =
+                citation.type === "behavioral"
+                  ? "rose"
+                  : citation.type === "administrative"
+                    ? "amber"
+                    : "sky";
+              const statusVariant =
+                STATUS_BADGE[citation.status === "reschedule_requested" ? "pending" : citation.status] ||
+                "slate";
+              const statusLabel =
+                CITATION_STATUS_LABELS[citation.status] || citation.status;
+              // Tinte del ícono por tipo — mismo mapeo que el badge.
+              const typeTint =
+                citation.type === "behavioral"
+                  ? "bg-rose-100 text-rose-700"
+                  : citation.type === "administrative"
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-sky-100 text-sky-700";
+              return (
+                <Link
+                  key={citation.id}
+                  href={`/prefect/citations/${citation.id}`}
+                  className="block hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div
+                      className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${typeTint}`}
+                    >
+                      <Calendar size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
                         <p className="text-sm font-bold text-text-primary truncate">
                           {citation.studentName}
                         </p>
-                        <p className="text-xs text-text-secondary mt-0.5">
-                          {citation.groupName || "—"}
-                        </p>
+                        <Badge variant={typeBadge} className="shrink-0">
+                          {CITATION_TYPE_LABELS[citation.type] || citation.type}
+                        </Badge>
+                        <Badge variant={statusVariant} className="shrink-0">
+                          {statusLabel}
+                        </Badge>
                       </div>
-                      <ChevronRight size={16} className="text-slate-300 mt-1 shrink-0" />
+                      {/* Meta en 1 línea: grupo · motivo · fecha/hora ·
+                          lugar · creador (trunca en móvil). */}
+                      <p className="text-xs text-text-secondary truncate mt-0.5">
+                        {citation.groupName || "—"} · {citation.reason || "Sin motivo"}
+                        {citation.date
+                          ? ` · ${formatShortDate(citation.date)}${
+                              citation.time ? ` ${formatTime12(citation.time)}` : ""
+                            }`
+                          : ""}
+                        {citation.location ? ` · ${citation.location}` : ""}
+                        {citation.creatorName ? ` · ${citation.creatorName}` : ""}
+                      </p>
                     </div>
-
-                    {/* Chips de tipo + estado */}
-                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <Badge variant={typeBadge}>
-                        {CITATION_TYPE_LABELS[citation.type] || citation.type}
-                      </Badge>
-                      <Badge variant={statusVariant}>{statusLabel}</Badge>
-                    </div>
-
-                    {/* Motivo + meta (fecha/hora/lugar/creador) */}
-                    <p className="text-xs text-text-primary mt-2 line-clamp-1">
-                      {citation.reason || "Sin motivo"}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-slate-400">
-                      {citation.date && (
-                        <span className="flex items-center gap-1">
-                          <Calendar size={11} />
-                          {formatShortDate(citation.date)}
-                          {citation.time ? ` · ${formatTime12(citation.time)}` : ""}
-                        </span>
-                      )}
-                      {citation.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin size={11} />
-                          {citation.location}
-                        </span>
-                      )}
-                      {citation.creatorName && <span>{citation.creatorName}</span>}
-                    </div>
-                  </CardBody>
-                </Card>
-              </Link>
-            );
-          })}
+                    <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                  </div>
+                </Link>
+              );
+            })}
+          </Card>
 
           {/* Paginación */}
           <div className="flex justify-center py-2">
@@ -285,7 +291,7 @@ export default function PrefectCitationsPage() {
               </span>
             ) : null}
           </div>
-        </div>
+        </>
       )}
 
       {/* Modal de creación (2 pasos) */}
