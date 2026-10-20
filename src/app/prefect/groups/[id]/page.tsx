@@ -452,25 +452,32 @@ export default function PrefectGroupDetailPage() {
                               </Badge>
                             )}
                           </div>
-                          <p className="text-[15px] text-text-secondary">
-                            No. Control {student.controlNumber || "—"}
-                          </p>
+                          {/* Línea 2: No. Control + botón Marcar — el
+                              botón vive AQUÍ (antes era una fila
+                              propia con mt-2 debajo del bloque) para
+                              que la card de los alumnos ausentes
+                              mida lo mismo que la de los presentes
+                              (96px) y no se extienda hacia abajo
+                              (pedido del usuario). Marcar aplica a
+                              todo lo que no sea on_time — falta,
+                              retardo o sin registro, mismo alcance
+                              que la app. */}
+                          <div className="flex items-center gap-3">
+                            <p className="flex-1 min-w-0 text-[15px] text-text-secondary truncate">
+                              No. Control {student.controlNumber || "—"}
+                            </p>
+                            {!isPresent && (
+                              <button
+                                onClick={() => handleOverride(student._id, fullName)}
+                                disabled={isOverriding}
+                                className="shrink-0 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold disabled:opacity-60 transition-colors"
+                              >
+                                {isOverriding ? "Marcando…" : "Marcar"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      {/* Marcar: para todo lo que no sea on_time (falta,
-                          retardo o sin registro — mismo alcance que la
-                          app; el backend normaliza a on_time). */}
-                      {!isPresent && (
-                        <div className="flex justify-end mt-2">
-                          <button
-                            onClick={() => handleOverride(student._id, fullName)}
-                            disabled={isOverriding}
-                            className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold disabled:opacity-60 transition-colors"
-                          >
-                            {isOverriding ? "Marcando…" : "Marcar"}
-                          </button>
-                        </div>
-                      )}
                     </CardBody>
                   </Card>
                 );
