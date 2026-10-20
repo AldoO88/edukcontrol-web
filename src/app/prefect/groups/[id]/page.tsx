@@ -499,7 +499,7 @@ export default function PrefectGroupDetailPage() {
                 <table className="w-full border-separate border-spacing-1.5">
                   <thead>
                     <tr>
-                      <th className="bg-gray-50 px-3 py-2 text-left text-xs font-semibold text-text-secondary border border-gray-200 rounded-lg w-40">
+                      <th className="bg-gray-100 px-3 py-2 text-left text-xs font-semibold text-text-primary border border-gray-200 rounded-lg w-40">
                         Módulo
                       </th>
                       {scheduleGrid.dayKeys.map((d, idx) => (
@@ -563,13 +563,13 @@ export default function PrefectGroupDetailPage() {
                       // rango del renglón, luego una celda por día.
                       return (
                         <tr key={row.i}>
-                          <td className="px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg align-middle">
+                          <td className="px-3 py-2 border border-gray-200 bg-gray-100 rounded-lg align-middle">
                             {row.name && (
-                              <p className="text-xs font-medium text-text-primary">{row.name}</p>
+                              <p className="text-xs font-semibold text-text-primary">{row.name}</p>
                             )}
                             <p
-                              className={`text-[10px] text-text-muted ${
-                                row.name ? "" : "text-xs font-medium text-text-primary"
+                              className={`text-[11px] text-text-secondary ${
+                                row.name ? "" : "text-xs font-semibold text-text-primary"
                               }`}
                             >
                               {rowTime}
