@@ -400,10 +400,16 @@ export interface GroupScheduleSlot {
   teacher?: string;
   start?: string;
   end?: string;
+  // Minutos desde medianoche (07:30 → 450) — los manda el endpoint de
+  // horario del grupo (verificado en prod); evitan parsear "HH:MM".
+  startMinutes?: number;
+  endMinutes?: number;
   color?: string;
   icon?: string;
   classroom?: string;
   block_count?: number;
+  // Nombres de los módulos que abarca el slot ("Modulo 3", "Modulo 4")
+  // — clave para derivar la columna "Módulo" de la tabla horaria.
   block_names?: string[];
   classificationType?: "DISCIPLINE" | "TALLER" | string;
   is_taller?: boolean;

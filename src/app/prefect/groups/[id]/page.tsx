@@ -7,10 +7,13 @@
 //      fecha y botón "Marcar" (override manual → POST
 //      /api/attendance/manual-override, el backend deja on_time +
 //      notifica al tutor).
-//   2. Horario — rejilla SEMANAL COMPLETA (sin selector de días, como
-//      sí exige la app móvil por tamaño de pantalla): filas = hora de
-//      inicio, columnas = Lun–Vie, cada celda con su rango propio,
-//      materia coloreada, maestro y badge de taller.
+//   2. Horario — tabla SEMANAL COMPLETA (sin selector de días, como
+//      sí exige la app móvil por tamaño de pantalla) presentada como
+//      la config de horarios por ciclo del super_admin: columna
+//      "Módulo" (nombre + rango), encabezados de día coloreados,
+//      receso en fila ámbar y — lo clave — una clase de 2 MÓDULOS
+//      OCUPA DOS FILAS vía rowSpan. Materia coloreada, maestro, aula
+//      y badge de taller.
 //   3. Alumnos — lista ordenada por apellido → ficha del alumno.
 // Fuente: hook usePrefectGroupDetail (alumnos + logs + horario).
 // =====================================================================
@@ -19,7 +22,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -56,77 +59,72 @@ const STATUS_BADGE: Record<string, { variant: "emerald" | "amber" | "rose"; labe
 
 const DAY_NAMES_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
+// Encabezados de día con los MISMOS colores que usa la tabla de
+// configuración de horarios del super_admin
+// (schools/[id]/school-years/[yearId]/schedules/page.tsx → DAY_COLORS).
+const DAY_COLORS = [
+  "bg-sky-100 text-sky-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+  "bg-purple-100 text-purple-700",
+];
+
 // Color válido de materia o fallback (el backend puede mandar null).
 function subjectHex(color?: string | null): string {
   return color && /^#[0-9A-Fa-f]{6}$/.test(color) ? color : "#6366F1";
 }
 
-// "HH:MM" → minutos desde medianoche (para ordenar la columna de hora
-// de la rejilla semanal).
+// "HH:MM" → minutos desde medianoche (fallback cuando el backend no
+// manda startMinutes/endMinutes en el slot).
 const toMinutes = (hhmm?: string): number => {
   const [h, m] = (hhmm || "00:00").split(":").map((n) => Number(n) || 0);
   return h * 60 + m;
 };
 
-// Celda de la rejilla horaria: 1..n slots que INICIAN a la misma hora
-// ese día (en prod los periodos no están alineados entre días — p. ej.
-// 07:30-08:20 un día y 07:30-09:10 otro — por eso la fila se agrupa
-// por hora de inicio y cada celda conserva su propio rango start–end).
-function ScheduleCell({ slots }: { slots: GroupScheduleSlot[] }) {
+// Minutos → "HH:MM" (para el rango de la columna "Módulo").
+const fmtMin = (m: number): string =>
+  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+// Contenido de celda de horario (UNA materia dentro de su <td>):
+// borde + ícono con el color propio de la materia, nombre, rango
+// horario del SLOT (con indicador "· N módulos" cuando abarca 2, igual
+// que en la config admin donde la celda cubre los renglones), maestro,
+// aula y badge de taller.
+function ScheduleCellContent({ slot }: { slot: GroupScheduleSlot }) {
+  const hex = subjectHex(slot.color);
+  const SubjectIcon = getSubjectIcon(slot.icon);
+  const isTaller = slot.classificationType === "TALLER" || slot.is_taller;
+
   return (
-    <div className="space-y-1.5">
-      {slots.map((slot, idx) => {
-        // Receso — celda punteada gris (misma estética que la app).
-        if (slot.type === "receso") {
-          return (
-            <div
-              key={idx}
-              className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2 py-1.5 text-center"
-            >
-              <p className="text-slate-400 text-[11px] font-semibold">Receso</p>
-              <p className="text-slate-400 text-[10px]">
-                {slot.start} – {slot.end}
-              </p>
-            </div>
-          );
-        }
-
-        const hex = subjectHex(slot.color);
-        const SubjectIcon = getSubjectIcon(slot.icon);
-        const isTaller = slot.classificationType === "TALLER" || slot.is_taller;
-
-        return (
-          <div
-            key={idx}
-            className="rounded-lg bg-white border border-slate-200 px-2 py-1.5"
-            style={{ borderLeft: `3px solid ${hex}` }}
-          >
-            <div className="flex items-center gap-1.5">
-              <SubjectIcon size={12} color={hex} />
-              <p className="text-[11px] font-bold text-text-primary truncate">
-                {slot.subject || "Sin materia"}
-              </p>
-            </div>
-            <p className="text-[10px] text-text-secondary mt-0.5">
-              {slot.start} – {slot.end}
-            </p>
-            {slot.teacher && (
-              <p className="text-[10px] text-text-secondary truncate">{slot.teacher}</p>
-            )}
-            {slot.classroom && (
-              <p className="text-[10px] text-slate-400 truncate">Aula: {slot.classroom}</p>
-            )}
-            {isTaller && (
-              <span
-                className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
-                style={{ backgroundColor: hexToRgba(hex, 0.15), color: hex }}
-              >
-                Taller
-              </span>
-            )}
-          </div>
-        );
-      })}
+    <div
+      className="rounded-lg bg-white border border-slate-200 px-2 py-1.5 text-left"
+      style={{ borderLeft: `3px solid ${hex}` }}
+    >
+      <div className="flex items-center gap-1.5">
+        <SubjectIcon size={12} color={hex} />
+        <p className="text-[11px] font-bold text-text-primary truncate">
+          {slot.subject || "Sin materia"}
+        </p>
+      </div>
+      <p className="text-[10px] text-text-secondary mt-0.5">
+        {slot.start} – {slot.end}
+        {slot.block_count && slot.block_count > 1 ? ` · ${slot.block_count} módulos` : ""}
+      </p>
+      {slot.teacher && (
+        <p className="text-[10px] text-text-secondary truncate">{slot.teacher}</p>
+      )}
+      {slot.classroom && (
+        <p className="text-[10px] text-slate-400 truncate">Aula: {slot.classroom}</p>
+      )}
+      {isTaller && (
+        <span
+          className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
+          style={{ backgroundColor: hexToRgba(hex, 0.15), color: hex }}
+        >
+          Taller
+        </span>
+      )}
     </div>
   );
 }
@@ -196,13 +194,26 @@ export default function PrefectGroupDetailPage() {
       ? `${firstGroup?.grade ?? ""}°${firstGroup?.section ?? ""}`
       : "");
 
-  // Rejilla del horario COMPLETO (sin selector de días — en web hay
-  // ancho de sobra; la app divide por día por tamaño de pantalla):
-  //   - dayKeys: días con al menos 1 slot, ordenados 1..7.
-  //   - starts: horas de INICIO únicas en toda la semana, ordenadas.
-  //   - byDay: día → Map<inicio, slots[]> (acceso O(1) por celda; un
-  //     mismo inicio puede tener >1 slot solo en datos degenerados —
-  //     se apilan en la celda).
+  // Tabla del horario por MÓDULOS — presentación TOMADA de la config
+  // de horarios por ciclo del super_admin
+  // (schools/[id]/school-years/[yearId]/schedules/page.tsx): fila
+  // "Módulo" a la izquierda, columnas = días y una clase de 2 MÓDULOS
+  // OCUPA DOS FILAS con rowSpan. En web NO se divide por día como en
+  // la app (tamaño de pantalla).
+  //   - rows: módulos-base de la semana = pares consecutivos de todas
+  //     las fronteras start/end (siempre alinean porque las mismas
+  //     fronteras definen los slots; p. ej. 09:10-10:50 de un día y
+  //     10:00-10:50 de otro parten el renglón en 09:10/10:00/10:50).
+  //   - nameByRow: nombre de módulo ("Modulo 3") derivado de
+  //     block_names[] cuando su cantidad coincide con las filas que
+  //     abarca el slot; primera escritura gana.
+  //   - breakRows: filas cubiertas por un slot type=receso (fila
+  //     ámbar "RECESO", como en la tabla admin).
+  //   - cells: día → Map<fila, {slot, span} | "skip">; el slot se
+  //     pinta en su fila INICIAL con rowSpan=span y las filas que
+  //     cubre quedan "skip" (no se pintan) — mismo mecanismo que
+  //     gridData de la config admin. Los slots de receso NO entran
+  //     aquí: su fila se renderiza uniforme por breakRows.
   const scheduleGrid = useMemo(() => {
     const sched = schedule?.schedule;
     if (!sched) return null;
@@ -210,23 +221,76 @@ export default function PrefectGroupDetailPage() {
       .filter((d) => (sched[d]?.length || 0) > 0)
       .sort((a, b) => Number(a) - Number(b));
     if (dayKeys.length === 0) return null;
-    const startSet = new Set<string>();
+
+    // 1. Fronteras (minutos) únicas de toda la semana → índice de fila.
+    const boundarySet = new Set<number>();
     for (const d of dayKeys) {
-      for (const s of sched[d]) startSet.add(s.start ?? "");
-    }
-    const starts = [...startSet].sort((a, b) => toMinutes(a) - toMinutes(b));
-    const byDay = new Map<string, Map<string, GroupScheduleSlot[]>>();
-    for (const d of dayKeys) {
-      const m = new Map<string, GroupScheduleSlot[]>();
       for (const s of sched[d]) {
-        const key = s.start ?? "";
-        const arr = m.get(key) || [];
-        arr.push(s);
-        m.set(key, arr);
+        boundarySet.add(s.startMinutes ?? toMinutes(s.start));
+        boundarySet.add(s.endMinutes ?? toMinutes(s.end));
       }
-      byDay.set(d, m);
     }
-    return { dayKeys, starts, byDay };
+    const boundaries = [...boundarySet].sort((a, b) => a - b);
+    const rowIndex = new Map<number, number>();
+    boundaries.forEach((m, i) => rowIndex.set(m, i));
+
+    // Helper: filas [a, b) que abarca un slot (null si no alinea).
+    const spanOf = (s: GroupScheduleSlot): [number, number] | null => {
+      const a = rowIndex.get(s.startMinutes ?? toMinutes(s.start));
+      const b = rowIndex.get(s.endMinutes ?? toMinutes(s.end));
+      if (a == null || b == null || b <= a) return null;
+      return [a, b];
+    };
+
+    // 2. Nombres de módulo (de block_names) + filas de receso.
+    const nameByRow = new Map<number, string>();
+    const breakRows = new Set<number>();
+    for (const d of dayKeys) {
+      for (const s of sched[d]) {
+        const span = spanOf(s);
+        if (!span) continue;
+        const [a, b] = span;
+        if (s.type === "receso") {
+          for (let r = a; r < b; r++) breakRows.add(r);
+        } else if (s.block_names && s.block_names.length === b - a) {
+          // block_names[j] corresponde a la fila a+j (numeración
+          // uniforme del turno — misma plantilla para todos los días).
+          for (let j = 0; j < s.block_names.length; j++) {
+            if (!nameByRow.has(a + j)) nameByRow.set(a + j, s.block_names[j]);
+          }
+        }
+      }
+    }
+
+    // 3. Celdas por día (primera escritura gana, como en el admin).
+    const cells = new Map<
+      string,
+      Map<number, { slot: GroupScheduleSlot; span: number } | "skip">
+    >();
+    for (const d of dayKeys) {
+      const dayCells = new Map<number, { slot: GroupScheduleSlot; span: number } | "skip">();
+      for (const s of sched[d]) {
+        if (s.type === "receso") continue;
+        const span = spanOf(s);
+        if (!span) continue;
+        const [a, b] = span;
+        if (dayCells.has(a)) continue;
+        dayCells.set(a, { slot: s, span: b - a });
+        for (let r = a + 1; r < b; r++) dayCells.set(r, "skip");
+      }
+      cells.set(d, dayCells);
+    }
+
+    // 4. Filas de la tabla (la última frontera solo cierra el rango).
+    const rows = boundaries.slice(0, -1).map((startMin, i) => ({
+      i,
+      startMin,
+      endMin: boundaries[i + 1],
+      isBreak: breakRows.has(i),
+      name: nameByRow.get(i),
+    }));
+
+    return { dayKeys, rows, cells };
   }, [schedule]);
 
   // Override manual → banner con el mensaje (la app muestra Alert).
@@ -403,58 +467,127 @@ export default function PrefectGroupDetailPage() {
             </div>
           )}
 
-          {/* Rejilla SEMANAL COMPLETA — filas = hora de inicio,
-              columnas = Lun–Vie (en web NO se divide por días como en
-              la app; el ancho extra beneficia, ver AGENTS.md — los
-              grids con scroll horizontal no se limitan de ancho). */}
+          {/* Tabla SEMANAL COMPLETA por módulos — presentación TOMADA
+              de la config de horarios del super_admin (columna
+              "Módulo", encabezados de día coloreados, receso en fila
+              ámbar y rowSpan para clases de 2 módulos). En web NO se
+              divide por días como en la app; scroll horizontal en
+              pantallas estrechas (AGENTS.md: los grids anchos no se
+              limitan de ancho — benefician a tablet landscape). */}
           {scheduleGrid ? (
-            <div className="overflow-x-auto pb-2">
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
               <div className="min-w-[880px]">
-                <div
-                  className="grid"
-                  style={{
-                    gridTemplateColumns: `84px repeat(${scheduleGrid.dayKeys.length}, minmax(150px, 1fr))`,
-                  }}
-                >
-                  {/* Encabezados: columna de hora + días con clases */}
-                  <div className="px-2 pb-2 text-[11px] font-bold uppercase text-slate-400">
-                    Hora
-                  </div>
-                  {scheduleGrid.dayKeys.map((d) => (
-                    <div
-                      key={`head-${d}`}
-                      className="px-2 pb-2 text-center text-xs font-bold text-indigo-700 bg-indigo-50 rounded-t-lg"
-                    >
-                      {DAY_NAMES_FULL[Number(d)] || `Día ${d}`}
-                    </div>
-                  ))}
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="bg-gray-50 px-3 py-2 text-left text-xs font-semibold text-text-secondary border-b border-r border-gray-200 w-40">
+                        Módulo
+                      </th>
+                      {scheduleGrid.dayKeys.map((d, idx) => (
+                        <th
+                          key={`head-${d}`}
+                          className={`px-3 py-2 text-center text-xs font-semibold border-b border-r border-gray-200 last:border-r-0 ${DAY_COLORS[idx % DAY_COLORS.length]}`}
+                        >
+                          {DAY_NAMES_FULL[Number(d)] || `Día ${d}`}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleGrid.rows.map((row) => {
+                      const rowTime = `${fmtMin(row.startMin)} – ${fmtMin(row.endMin)}`;
 
-                  {/* Filas: una por hora de inicio de toda la semana */}
-                  {scheduleGrid.starts.map((start) => (
-                    <Fragment key={start}>
-                      <div className="px-2 py-2 text-[11px] font-bold text-slate-500 border-t border-slate-100">
-                        {start || "—"}
-                      </div>
-                      {scheduleGrid.dayKeys.map((d) => {
-                        const slots = scheduleGrid.byDay.get(d)?.get(start);
+                      // Fila de receso → ámbar en todo el renglón
+                      // (misma estética que la config admin).
+                      if (row.isBreak) {
                         return (
-                          <div
-                            key={`${d}-${start}`}
-                            className="px-1.5 py-1.5 border-t border-slate-100 align-top"
-                          >
-                            {slots && slots.length > 0 ? (
-                              <ScheduleCell slots={slots} />
-                            ) : (
-                              /* Celda vacía: ese día no hay clase a esta
-                                  hora (receso/salida antes). */
-                              <div className="h-10 rounded-lg border border-dashed border-slate-100 bg-slate-50/50" />
-                            )}
-                          </div>
+                          <tr key={row.i}>
+                            <td className="px-3 py-2 border-r border-b border-gray-200 bg-amber-50">
+                              <p className="text-xs font-medium text-amber-700">Receso</p>
+                              <p className="text-[10px] text-amber-600">{rowTime}</p>
+                            </td>
+                            {scheduleGrid.dayKeys.map((d) => {
+                              // Dato degenerado: una clase inicia justo
+                              // en el módulo de receso → se pinta la
+                              // clase en vez del "RECESO".
+                              const cell = scheduleGrid.cells.get(d)?.get(row.i);
+                              if (cell === "skip") return null;
+                              if (cell) {
+                                return (
+                                  <td
+                                    key={`b-${d}`}
+                                    rowSpan={cell.span}
+                                    className="px-2 py-1.5 border-r border-b border-gray-200 last:border-r-0"
+                                  >
+                                    <ScheduleCellContent slot={cell.slot} />
+                                  </td>
+                                );
+                              }
+                              return (
+                                <td
+                                  key={`b-${d}`}
+                                  className="px-2 py-1.5 border-r border-b border-gray-200 bg-amber-50 last:border-r-0 text-center"
+                                >
+                                  <span className="text-[10px] text-amber-400 font-medium">
+                                    RECESO
+                                  </span>
+                                </td>
+                              );
+                            })}
+                          </tr>
                         );
-                      })}
-                    </Fragment>
-                  ))}
-                </div>
+                      }
+
+                      // Fila de módulo normal: columna "Módulo" con
+                      // nombre derivado de block_names (si existe) +
+                      // rango del renglón, luego una celda por día.
+                      return (
+                        <tr key={row.i}>
+                          <td className="px-3 py-2 border-r border-b border-gray-200 bg-gray-50">
+                            {row.name && (
+                              <p className="text-xs font-medium text-text-primary">{row.name}</p>
+                            )}
+                            <p
+                              className={`text-[10px] text-text-muted ${
+                                row.name ? "" : "text-xs font-medium text-text-primary"
+                              }`}
+                            >
+                              {rowTime}
+                            </p>
+                          </td>
+                          {scheduleGrid.dayKeys.map((d) => {
+                            const cell = scheduleGrid.cells.get(d)?.get(row.i);
+                            // Lo cubre el rowSpan de un renglón anterior
+                            // (la clase de 2 módulos ocupa 2 filas).
+                            if (cell === "skip") return null;
+                            if (!cell) {
+                              // Sin clase este día a este módulo.
+                              return (
+                                <td
+                                  key={`${d}-${row.i}`}
+                                  className="px-2 py-1.5 border-r border-b border-gray-200 last:border-r-0 text-center"
+                                >
+                                  <span className="text-xs text-text-muted">—</span>
+                                </td>
+                              );
+                            }
+                            // Celda de la clase: rowSpan = módulos que
+                            // abarca (1 o 2), igual que la tabla admin.
+                            return (
+                              <td
+                                key={`${d}-${row.i}`}
+                                rowSpan={cell.span}
+                                className="px-2 py-1.5 border-r border-b border-gray-200 last:border-r-0"
+                              >
+                                <ScheduleCellContent slot={cell.slot} />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           ) : (
