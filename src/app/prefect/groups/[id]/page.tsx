@@ -92,8 +92,8 @@ const fmtMin = (m: number): string =>
 // Contenido de UNA materia dentro de su celda de horario: ícono con
 // el color propio de la materia, nombre, rango horario del SLOT (con
 // indicador "· N módulos" cuando abarca 2, igual que en la config
-// admin donde la celda cubre los renglones), maestro, aula y badge de
-// taller.
+// admin donde la celda cubre los renglones), maestro (excepto
+// Tecnología — ver más abajo), aula y badge de taller.
 //
 // NOTA IMPORTANTE: este componente es SOLO el contenido — el "card"
 // (fondo blanco, borde redondeado y acento de color de la materia)
@@ -108,6 +108,13 @@ function ScheduleCellContent({ slot }: { slot: GroupScheduleSlot }) {
   const hex = subjectHex(slot.color);
   const SubjectIcon = getSubjectIcon(slot.icon);
   const isTaller = slot.classificationType === "TALLER" || slot.is_taller;
+  // Tecnología son TALLERES con 4 maestros rotativos (el que cubre
+  // cambia por módulo/día), así que el nombre de UN maestro en la
+  // celda confundiría — el usuario pidió mostrar esa materia SIN
+  // nombre de maestro (sería la única materia en esa situación).
+  // /tecnolog/i es tolerante a acento y mayúsculas: matchea
+  // "Tecnología", "Tecnologia", "TECNOLOGÍA", etc.
+  const sinNombreMaestro = /tecnolog/i.test(slot.subject || "");
 
   return (
     <div className="text-left">
@@ -121,7 +128,10 @@ function ScheduleCellContent({ slot }: { slot: GroupScheduleSlot }) {
         {slot.start} – {slot.end}
         {slot.block_count && slot.block_count > 1 ? ` · ${slot.block_count} módulos` : ""}
       </p>
-      {slot.teacher && (
+      {/* Maestro — oculto en Tecnología (talleres con 4 maestros
+          rotativos, pedido del usuario): solo si hay nombre y la
+          materia no es Tecnología. */}
+      {slot.teacher && !sinNombreMaestro && (
         <p className="text-[10px] text-text-secondary truncate">{slot.teacher}</p>
       )}
       {slot.classroom && (
