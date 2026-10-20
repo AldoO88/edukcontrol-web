@@ -418,17 +418,20 @@ export default function PrefectGroupDetailPage() {
                 return (
                   <Card key={student._id}>
                     <CardBody>
-                      <div className="flex items-center gap-3">
+                      {/* Fila del alumno — foto 64px y tipografía
+                          subida (text-base/text-sm), pedido del
+                          usuario para mejor lectura en web. */}
+                      <div className="flex items-center gap-4">
                         <StudentAvatar
                           photoUrl={student.photoUrl}
                           name={fullName}
-                          size={48}
+                          size={64}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-text-primary truncate">
+                          <p className="text-base font-bold text-text-primary truncate">
                             {index + 1}. {student.last_name}, {student.first_name}
                           </p>
-                          <p className="text-xs text-text-secondary">
+                          <p className="text-sm text-text-secondary">
                             No. Control {student.controlNumber || "—"}
                           </p>
                         </div>
@@ -446,7 +449,7 @@ export default function PrefectGroupDetailPage() {
                           <button
                             onClick={() => handleOverride(student._id, fullName)}
                             disabled={isOverriding}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-60 transition-colors"
+                            className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold disabled:opacity-60 transition-colors"
                           >
                             {isOverriding ? "Marcando…" : "Marcar"}
                           </button>
@@ -647,13 +650,15 @@ export default function PrefectGroupDetailPage() {
               return (
                 <Link key={student._id} href={`/prefect/students/${student._id}`}>
                   <Card className="hover:shadow-md transition-shadow">
-                    <CardBody className="flex items-center gap-3">
-                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={48} />
+                    {/* Fila del alumno — misma escala grande que la
+                        pestaña de Asistencia (foto 64px + text-base). */}
+                    <CardBody className="flex items-center gap-4">
+                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={64} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-text-primary truncate">
+                        <p className="text-base font-bold text-text-primary truncate">
                           {index + 1}. {student.last_name}, {student.first_name}
                         </p>
-                        <p className="text-xs text-text-secondary truncate">
+                        <p className="text-sm text-text-secondary truncate">
                           {sub}
                           {sub && student.controlNumber ? " • " : ""}
                           {student.controlNumber || ""}
