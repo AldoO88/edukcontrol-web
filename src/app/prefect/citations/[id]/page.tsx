@@ -46,6 +46,7 @@ import {
   History,
   MapPin,
   Pencil,
+  Wrench,
   XCircle,
 } from "lucide-react";
 
@@ -108,6 +109,10 @@ export default function PrefectCitationDetailPage() {
 
   const studentId = norm.studentId;
 
+  // ¿Hay panel lateral? (acciones del creador y/o historial). Si no
+  // hay, el contenido principal ocupa las 3 columnas.
+  const hasAside = (isCreator && !isTerminal) || norm.history.length > 0;
+
   // Cancelar → feedback + refetch (el card queda en estado terminal).
   const handleCancel = async () => {
     setIsCancelling(true);
@@ -119,7 +124,9 @@ export default function PrefectCitationDetailPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
+    // Sin el tope max-w-3xl mx-auto de la app: en desktop el detalle
+    // usa todo el ancho del área de contenido.
+    <div className="space-y-4">
       <PageHeader
         title="Detalle del Citatorio"
         subtitle={norm.studentName}
@@ -150,143 +157,165 @@ export default function PrefectCitationDetailPage() {
         </div>
       )}
 
-      {/* Héroe: estado + datos clave */}
-      <Card className="border-l-4 border-l-sky-500">
-        <CardBody className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Badge variant={STATUS_VARIANT[citation.status] || "slate"}>
-              {CITATION_STATUS_LABELS[citation.status] || citation.status}
-            </Badge>
-            <Badge
-              variant={
-                citation.type === "behavioral"
-                  ? "rose"
-                  : citation.type === "administrative"
-                    ? "amber"
-                    : "sky"
-              }
-            >
-              {CITATION_TYPE_LABELS[citation.type] || citation.type}
-            </Badge>
-          </div>
+      {/* Layout web de detalle: contenido principal (2/3) + panel
+          lateral (1/3) con acciones e historial. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <div className={hasAside ? "lg:col-span-2 space-y-4" : "space-y-4"}>
+          {/* Héroe: estado + datos clave */}
+          <Card className="border-l-4 border-l-sky-500">
+            <CardBody className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Badge variant={STATUS_VARIANT[citation.status] || "slate"}>
+                  {CITATION_STATUS_LABELS[citation.status] || citation.status}
+                </Badge>
+                <Badge
+                  variant={
+                    citation.type === "behavioral"
+                      ? "rose"
+                      : citation.type === "administrative"
+                        ? "amber"
+                        : "sky"
+                  }
+                >
+                  {CITATION_TYPE_LABELS[citation.type] || citation.type}
+                </Badge>
+              </div>
 
-          <div>
-            {/* Alumno → su ficha */}
-            {studentId ? (
-              <Link
-                href={`/prefect/students/${studentId}`}
-                className="text-lg font-bold text-text-primary hover:text-sky-600"
-              >
-                {norm.studentName}
-              </Link>
-            ) : (
-              <p className="text-lg font-bold text-text-primary">{norm.studentName}</p>
-            )}
-            <p className="text-xs text-text-secondary mt-0.5">
-              {norm.groupName || "—"}
-              {norm.subject ? ` · ${norm.subject}` : ""}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
-            <div className="flex items-start gap-2">
-              <Calendar size={14} className="text-slate-400 mt-0.5" />
               <div>
-                <p className="text-[10px] text-slate-400">Fecha</p>
-                <p className="text-sm font-semibold text-text-primary">
-                  {formatShortDate(norm.date) || "—"}
+                {/* Alumno → su ficha */}
+                {studentId ? (
+                  <Link
+                    href={`/prefect/students/${studentId}`}
+                    className="text-lg font-bold text-text-primary hover:text-sky-600"
+                  >
+                    {norm.studentName}
+                  </Link>
+                ) : (
+                  <p className="text-lg font-bold text-text-primary">{norm.studentName}</p>
+                )}
+                <p className="text-xs text-text-secondary mt-0.5">
+                  {norm.groupName || "—"}
+                  {norm.subject ? ` · ${norm.subject}` : ""}
                 </p>
               </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <Clock size={14} className="text-slate-400 mt-0.5" />
-              <div>
-                <p className="text-[10px] text-slate-400">Hora</p>
-                <p className="text-sm font-semibold text-text-primary">
-                  {formatTime12(norm.time) || "—"}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <MapPin size={14} className="text-slate-400 mt-0.5" />
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400">Lugar</p>
-                <p className="text-sm font-semibold text-text-primary truncate">
-                  {norm.location || "—"}
-                </p>
-              </div>
-            </div>
-          </div>
 
-          {norm.reason && (
-            <div className="pt-2 border-t border-slate-100">
-              <p className="text-[10px] text-slate-400 mb-0.5">Motivo / notas</p>
-              <p className="text-sm text-text-primary whitespace-pre-wrap">
-                {norm.reason}
-              </p>
-            </div>
-          )}
-
-          <p className="text-[11px] text-slate-400">
-            Creado por {norm.creatorName || "—"}
-            {citation.createdAt ? ` · ${formatFullDateTime(citation.createdAt)}` : ""}
-          </p>
-        </CardBody>
-      </Card>
-
-      {/* Acciones (solo creador, según status — matriz de la app) */}
-      {isCreator && !isTerminal && (
-        <div className="flex flex-wrap gap-3">
-          {canEdit && (
-            <Button variant="secondary" onClick={() => setIsEditOpen(true)}>
-              <Pencil size={14} className="mr-1.5" /> Editar
-            </Button>
-          )}
-          {canReschedule && (
-            <Button variant="sky" onClick={() => setIsRescheduleOpen(true)}>
-              <Calendar size={14} className="mr-1.5" /> Reagendar
-            </Button>
-          )}
-          {canCancel && (
-            <Button variant="danger" onClick={() => setIsCancelOpen(true)}>
-              <XCircle size={14} className="mr-1.5" /> Cancelar
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Timeline de historial */}
-      {norm.history.length > 0 && (
-        <Card>
-          <CardBody>
-            <p className="flex items-center gap-1.5 text-sm font-bold text-text-primary mb-3">
-              <History size={15} className="text-slate-400" />
-              Historial
-            </p>
-            <ol className="space-y-3 border-l-2 border-slate-100 pl-4 ml-1">
-              {norm.history.map((entry, idx) => (
-                <li key={idx} className="relative">
-                  <span className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-sky-500" />
-                  <p className="text-sm font-semibold text-text-primary">
-                    {HISTORY_EVENT_LABELS[entry.event || entry.status || ""] ||
-                      entry.event ||
-                      entry.status ||
-                      "Evento"}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    {formatFullDateTime(entry.timestamp)}
-                  </p>
-                  {(entry.reason || entry.note) && (
-                    <p className="text-xs text-text-secondary mt-0.5">
-                      {entry.reason || entry.note}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                <div className="flex items-start gap-2">
+                  <Calendar size={14} className="text-slate-400 mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-slate-400">Fecha</p>
+                    <p className="text-sm font-semibold text-text-primary">
+                      {formatShortDate(norm.date) || "—"}
                     </p>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </CardBody>
-        </Card>
-      )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Clock size={14} className="text-slate-400 mt-0.5" />
+                  <div>
+                    <p className="text-[10px] text-slate-400">Hora</p>
+                    <p className="text-sm font-semibold text-text-primary">
+                      {formatTime12(norm.time) || "—"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin size={14} className="text-slate-400 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-slate-400">Lugar</p>
+                    <p className="text-sm font-semibold text-text-primary truncate">
+                      {norm.location || "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {norm.reason && (
+                <div className="pt-2 border-t border-slate-100">
+                  <p className="text-[10px] text-slate-400 mb-0.5">Motivo / notas</p>
+                  <p className="text-sm text-text-primary whitespace-pre-wrap">
+                    {norm.reason}
+                  </p>
+                </div>
+              )}
+
+              <p className="text-[11px] text-slate-400">
+                Creado por {norm.creatorName || "—"}
+                {citation.createdAt ? ` · ${formatFullDateTime(citation.createdAt)}` : ""}
+              </p>
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Panel lateral: acciones (solo creador, según status — matriz
+            de la app) + timeline de historial. */}
+        {hasAside && (
+          <div className="space-y-4">
+            {isCreator && !isTerminal && (
+              <Card>
+                <CardBody>
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-sky-100 text-sky-700">
+                      <Wrench size={14} />
+                    </span>
+                    <p className="text-sm font-bold text-text-primary">Acciones</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {canEdit && (
+                      <Button variant="secondary" onClick={() => setIsEditOpen(true)}>
+                        <Pencil size={14} className="mr-1.5" /> Editar
+                      </Button>
+                    )}
+                    {canReschedule && (
+                      <Button variant="sky" onClick={() => setIsRescheduleOpen(true)}>
+                        <Calendar size={14} className="mr-1.5" /> Reagendar
+                      </Button>
+                    )}
+                    {canCancel && (
+                      <Button variant="danger" onClick={() => setIsCancelOpen(true)}>
+                        <XCircle size={14} className="mr-1.5" /> Cancelar
+                      </Button>
+                    )}
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+
+            {norm.history.length > 0 && (
+              <Card>
+                <CardBody>
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700">
+                      <History size={14} />
+                    </span>
+                    <p className="text-sm font-bold text-text-primary">Historial</p>
+                  </div>
+                  <ol className="space-y-3 border-l-2 border-slate-100 pl-4 ml-1">
+                    {norm.history.map((entry, idx) => (
+                      <li key={idx} className="relative">
+                        <span className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-sky-500" />
+                        <p className="text-sm font-semibold text-text-primary">
+                          {HISTORY_EVENT_LABELS[entry.event || entry.status || ""] ||
+                            entry.event ||
+                            entry.status ||
+                            "Evento"}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          {formatFullDateTime(entry.timestamp)}
+                        </p>
+                        {(entry.reason || entry.note) && (
+                          <p className="text-xs text-text-secondary mt-0.5">
+                            {entry.reason || entry.note}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </CardBody>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Modal editar (solo pending + creador) */}
       <EditCitationModal

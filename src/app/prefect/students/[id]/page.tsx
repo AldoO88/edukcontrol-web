@@ -183,127 +183,150 @@ export default function PrefectStudentFilePage() {
   const isActive = student.status === "active";
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
+    // Sin el tope max-w-3xl mx-auto de la app: en desktop la ficha
+    // usa todo el ancho del área de contenido.
+    <div className="space-y-4">
       <PageHeader
         title="Ficha del Alumno"
         subtitle={fullName}
         action={{ label: "← Volver", href: "/prefect/students" }}
       />
 
-      {/* Perfil */}
-      <Card className="border-l-4 border-l-indigo-600">
-        <CardBody className="flex flex-col items-center py-6">
-          <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={96} />
-          <p className="text-xl font-bold text-text-primary mt-3">{fullName}</p>
-          <p className="text-base text-slate-600 mt-1">
-            {group}
-            {group && student.controlNumber ? " • " : ""}
-            {student.controlNumber ? `No. ${student.controlNumber}` : ""}
-          </p>
-          <Badge variant={isActive ? "emerald" : "amber"} className="mt-2">
-            {STATUS_LABELS[student.status || ""] || student.status}
-          </Badge>
-        </CardBody>
-      </Card>
-
-      {/* Tutor legal */}
-      <SectionCard title="Tutor Legal" accentClass="border-l-sky-500">
-        {guardians.length > 0 ? (
-          <div className="space-y-3">
-            {guardians.map((guardian, idx) => (
-              <div
-                key={guardian._id || idx}
-                className={idx > 0 ? "pt-3 border-t border-slate-100" : ""}
-              >
-                <InfoRow
-                  icon={Shield}
-                  label="Nombre"
-                  value={
-                    [guardian.name, guardian.lastname].filter(Boolean).join(" ") || "—"
-                  }
-                />
-                <InfoRow icon={Phone} label="Teléfono" value={guardian.phone} />
-                <InfoRow
-                  icon={User}
-                  label="Parentesco"
-                  value={
-                    guardian.relationship
-                      ? RELATIONSHIP_LABELS[guardian.relationship] || guardian.relationship
-                      : undefined
-                  }
-                />
+      {/* Layout web de ficha: contenido principal (2/3: perfil +
+          datos personales + salud) + panel lateral (1/3: tutor legal
+          y accesos modales). */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <div className="lg:col-span-2 space-y-4">
+          {/* Perfil — fila horizontal estilo web (antes: columna
+              centrada de la app). */}
+          <Card className="border-l-4 border-l-indigo-600">
+            <CardBody className="flex items-center gap-4">
+              <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={72} />
+              <div className="min-w-0">
+                <p className="text-lg font-bold text-text-primary">{fullName}</p>
+                <p className="text-sm text-slate-600 mt-0.5">
+                  {group}
+                  {group && student.controlNumber ? " • " : ""}
+                  {student.controlNumber ? `No. ${student.controlNumber}` : ""}
+                </p>
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-base text-slate-400 italic">Sin tutor registrado</p>
-        )}
-      </SectionCard>
+              <Badge variant={isActive ? "emerald" : "amber"} className="ml-auto shrink-0">
+                {STATUS_LABELS[student.status || ""] || student.status}
+              </Badge>
+            </CardBody>
+          </Card>
 
-      {/* Datos personales */}
-      <SectionCard title="Datos Personales" accentClass="border-l-violet-600">
-        <InfoRow icon={FileText} label="CURP" value={student.curp} />
-        <InfoRow
-          icon={User}
-          label="Sexo"
-          value={
-            student.sex
-              ? SEX_LABELS[student.sex] || student.sex
-              : undefined
-          }
-        />
-        <InfoRow icon={Heart} label="Tipo de sangre" value={student.blood_type} />
-        <InfoRow icon={MapPin} label="Dirección" value={student.address} />
-        <InfoRow
-          icon={Calendar}
-          label="Fecha de nacimiento"
-          value={
-            student.date_of_birth
-              ? new Date(student.date_of_birth).toLocaleDateString("es-MX")
-              : undefined
-          }
-        />
-        {!student.curp &&
-          !student.sex &&
-          !student.blood_type &&
-          !student.address &&
-          !student.date_of_birth && (
-            <p className="text-base text-slate-400 italic">Sin datos registrados</p>
+          {/* Datos personales */}
+          <SectionCard title="Datos Personales" accentClass="border-l-violet-600">
+            <InfoRow icon={FileText} label="CURP" value={student.curp} />
+            <InfoRow
+              icon={User}
+              label="Sexo"
+              value={
+                student.sex
+                  ? SEX_LABELS[student.sex] || student.sex
+                  : undefined
+              }
+            />
+            <InfoRow icon={Heart} label="Tipo de sangre" value={student.blood_type} />
+            <InfoRow icon={MapPin} label="Dirección" value={student.address} />
+            <InfoRow
+              icon={Calendar}
+              label="Fecha de nacimiento"
+              value={
+                student.date_of_birth
+                  ? new Date(student.date_of_birth).toLocaleDateString("es-MX")
+                  : undefined
+              }
+            />
+            {!student.curp &&
+              !student.sex &&
+              !student.blood_type &&
+              !student.address &&
+              !student.date_of_birth && (
+                <p className="text-base text-slate-400 italic">Sin datos registrados</p>
+              )}
+          </SectionCard>
+
+          {/* Salud */}
+          {student.medical_notes && (
+            <SectionCard title="Salud" accentClass="border-l-rose-500">
+              <InfoRow icon={AlertTriangle} label="Notas médicas" value={student.medical_notes} />
+            </SectionCard>
           )}
-      </SectionCard>
+        </div>
 
-      {/* Salud */}
-      {student.medical_notes && (
-        <SectionCard title="Salud" accentClass="border-l-rose-500">
-          <InfoRow icon={AlertTriangle} label="Notas médicas" value={student.medical_notes} />
-        </SectionCard>
-      )}
+        {/* Panel lateral: tutor legal + accesos a modales */}
+        <div className="space-y-4">
+          {/* Tutor legal */}
+          <SectionCard title="Tutor Legal" accentClass="border-l-sky-500">
+            {guardians.length > 0 ? (
+              <div className="space-y-3">
+                {guardians.map((guardian, idx) => (
+                  <div
+                    key={guardian._id || idx}
+                    className={idx > 0 ? "pt-3 border-t border-slate-100" : ""}
+                  >
+                    <InfoRow
+                      icon={Shield}
+                      label="Nombre"
+                      value={
+                        [guardian.name, guardian.lastname].filter(Boolean).join(" ") || "—"
+                      }
+                    />
+                    <InfoRow icon={Phone} label="Teléfono" value={guardian.phone} />
+                    <InfoRow
+                      icon={User}
+                      label="Parentesco"
+                      value={
+                        guardian.relationship
+                          ? RELATIONSHIP_LABELS[guardian.relationship] || guardian.relationship
+                          : undefined
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-base text-slate-400 italic">Sin tutor registrado</p>
+            )}
+          </SectionCard>
 
-      {/* Gatillos de modales */}
-      <div className="space-y-3">
-        <ModalTrigger
-          icon={Eye}
-          title="Trabajo Social"
-          accent="#059669"
-          tint="#D1FAE5"
-          onClick={() => setIsSocialOpen(true)}
-        />
-        <ModalTrigger
-          icon={FileText}
-          title="Citatorios"
-          accent="#D97706"
-          tint="#FEF3C7"
-          count={activeCitationsCount}
-          onClick={() => setIsCitationsOpen(true)}
-        />
-        <ModalTrigger
-          icon={TrendingUp}
-          title="Conducta"
-          accent="#E11D48"
-          tint="#FEF2F2"
-          count={conductLogs.length}
-          onClick={() => setIsConductOpen(true)}
-        />
+          {/* Gatillos de modales, agrupados en un card de accesos */}
+          <Card>
+            <CardBody className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700">
+                  <Eye size={14} />
+                </span>
+                <p className="text-sm font-bold text-text-primary">Accesos</p>
+              </div>
+              <ModalTrigger
+                icon={Eye}
+                title="Trabajo Social"
+                accent="#059669"
+                tint="#D1FAE5"
+                onClick={() => setIsSocialOpen(true)}
+              />
+              <ModalTrigger
+                icon={FileText}
+                title="Citatorios"
+                accent="#D97706"
+                tint="#FEF3C7"
+                count={activeCitationsCount}
+                onClick={() => setIsCitationsOpen(true)}
+              />
+              <ModalTrigger
+                icon={TrendingUp}
+                title="Conducta"
+                accent="#E11D48"
+                tint="#FEF2F2"
+                count={conductLogs.length}
+                onClick={() => setIsConductOpen(true)}
+              />
+            </CardBody>
+          </Card>
+        </div>
       </div>
 
       {/* Modales (solo lectura) */}

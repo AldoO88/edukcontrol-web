@@ -98,7 +98,9 @@ export default function PrefectExitPassDetailPage() {
   const studentId = student?._id || "";
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
+    // Sin el tope max-w-3xl mx-auto de la app: en desktop el detalle
+    // usa todo el ancho del área de contenido.
+    <div className="space-y-4">
       <PageHeader
         title="Detalle del Pase"
         subtitle={studentName}
@@ -134,53 +136,57 @@ export default function PrefectExitPassDetailPage() {
         </CardBody>
       </Card>
 
-      {/* Quién retira */}
-      <Card className="border-l-4 border-l-sky-500">
-        <CardBody className="space-y-3">
-          <p className="text-sm font-bold text-text-primary">Quien retira</p>
-          <DetailRow icon={UserRound} label="Nombre" value={exitPass.guardian_name} />
-          <DetailRow
-            icon={Shield}
-            label="Parentesco"
-            value={
-              exitPass.relationship
-                ? RELATIONSHIP_LABELS[exitPass.relationship] || exitPass.relationship
-                : null
-            }
-          />
-        </CardBody>
-      </Card>
+      {/* Panel de datos — en desktop las 3 tarjetas van en UNA fila
+          (lg:grid-cols-3; tablet 2; móvil apiladas). */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+        {/* Quién retira */}
+        <Card className="border-l-4 border-l-sky-500">
+          <CardBody className="space-y-3">
+            <p className="text-sm font-bold text-text-primary">Quien retira</p>
+            <DetailRow icon={UserRound} label="Nombre" value={exitPass.guardian_name} />
+            <DetailRow
+              icon={Shield}
+              label="Parentesco"
+              value={
+                exitPass.relationship
+                  ? RELATIONSHIP_LABELS[exitPass.relationship] || exitPass.relationship
+                  : null
+              }
+            />
+          </CardBody>
+        </Card>
 
-      {/* Motivo */}
-      <Card className="border-l-4 border-l-amber-500">
-        <CardBody className="space-y-3">
-          <p className="text-sm font-bold text-text-primary">Motivo de salida</p>
-          <DetailRow
-            icon={UserCheck}
-            label="Motivo"
-            value={REASON_LABELS[exitPass.reason] || exitPass.reason || null}
-          />
-          <DetailRow icon={LogOut} label="Detalles" value={exitPass.reason_detail} />
-        </CardBody>
-      </Card>
+        {/* Motivo */}
+        <Card className="border-l-4 border-l-amber-500">
+          <CardBody className="space-y-3">
+            <p className="text-sm font-bold text-text-primary">Motivo de salida</p>
+            <DetailRow
+              icon={UserCheck}
+              label="Motivo"
+              value={REASON_LABELS[exitPass.reason] || exitPass.reason || null}
+            />
+            <DetailRow icon={LogOut} label="Detalles" value={exitPass.reason_detail} />
+          </CardBody>
+        </Card>
 
-      {/* Registro */}
-      <Card>
-        <CardBody className="space-y-3">
-          <p className="text-sm font-bold text-text-primary">Registro</p>
-          <DetailRow
-            icon={Calendar}
-            label="Fecha de registro"
-            value={formatFullDateTime(exitPass.createdAt)}
-          />
-          <DetailRow icon={Clock} label="Hora de salida" value={formatTime12(exitPass.exit_time)} />
-          <DetailRow icon={Shield} label="Registrado por" value={registrar || "—"} />
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            <Badge variant="emerald">Salida autorizada</Badge>
-            {exitPass.reason === "medical" && <Badge variant="sky">Cita médica</Badge>}
-          </div>
-        </CardBody>
-      </Card>
+        {/* Registro */}
+        <Card>
+          <CardBody className="space-y-3">
+            <p className="text-sm font-bold text-text-primary">Registro</p>
+            <DetailRow
+              icon={Calendar}
+              label="Fecha de registro"
+              value={formatFullDateTime(exitPass.createdAt)}
+            />
+            <DetailRow icon={Clock} label="Hora de salida" value={formatTime12(exitPass.exit_time)} />
+            <DetailRow icon={Shield} label="Registrado por" value={registrar || "—"} />
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              <Badge variant="emerald">Salida autorizada</Badge>
+              {exitPass.reason === "medical" && <Badge variant="sky">Cita médica</Badge>}
+            </div>
+          </CardBody>
+        </Card>
+      </div>
     </div>
   );
 }

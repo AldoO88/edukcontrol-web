@@ -30,7 +30,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useReportDetail } from "@/lib/hooks/useReportDetail";
 import { formatFullDateTime, formatShortDate } from "@/lib/dates";
-import { Calendar, Pencil, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, Calendar, Pencil, Trash2, XCircle } from "lucide-react";
 
 export default function PrefectReportDetailPage() {
   const router = useRouter();
@@ -92,6 +92,10 @@ export default function PrefectReportDetailPage() {
   const canCancel = (isCreator || isAdminLike) && !isCancelled;
   const canDelete = user?.role === "super_admin";
 
+  // ¿Hay panel lateral? (acciones del creador/admin). Si no hay, el
+  // contenido principal ocupa las 3 columnas.
+  const hasAside = canCancel || canDelete;
+
   // Editar descripción inline → PATCH + refetch.
   const handleSaveDescription = async () => {
     const trimmed = draftDesc.trim();
@@ -128,7 +132,9 @@ export default function PrefectReportDetailPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
+    // Sin el tope max-w-3xl mx-auto de la app: en desktop el detalle
+    // usa todo el ancho del área de contenido.
+    <div className="space-y-4">
       <PageHeader
         title="Detalle del Reporte"
         subtitle={studentName}
@@ -146,144 +152,164 @@ export default function PrefectReportDetailPage() {
         </div>
       )}
 
-      {/* Tarjeta héroe: alumno + tipo + puntos + estado */}
-      <Card
-        className={`border-l-4 ${
-          isCancelled
-            ? "border-l-slate-300"
-            : isMerit
-              ? "border-l-emerald-500"
-              : "border-l-rose-500"
-        }`}
-      >
-        <CardBody className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              {/* Alumno → ficha */}
-              {studentId ? (
-                <Link
-                  href={`/prefect/students/${studentId}`}
-                  className="text-lg font-bold text-text-primary hover:text-sky-600"
+      {/* Layout web de detalle: contenido principal (2/3: héroe +
+          descripción) + panel lateral (1/3: acciones). */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <div className={hasAside ? "lg:col-span-2 space-y-4" : "space-y-4"}>
+          {/* Tarjeta héroe: alumno + tipo + puntos + estado */}
+          <Card
+            className={`border-l-4 ${
+              isCancelled
+                ? "border-l-slate-300"
+                : isMerit
+                  ? "border-l-emerald-500"
+                  : "border-l-rose-500"
+            }`}
+          >
+            <CardBody className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  {/* Alumno → ficha */}
+                  {studentId ? (
+                    <Link
+                      href={`/prefect/students/${studentId}`}
+                      className="text-lg font-bold text-text-primary hover:text-sky-600"
+                    >
+                      {studentName}
+                    </Link>
+                  ) : (
+                    <p className="text-lg font-bold text-text-primary">{studentName}</p>
+                  )}
+                  <p className="text-xs text-text-secondary mt-0.5">{groupLabel || "—"}</p>
+                </div>
+                <span
+                  className={`text-3xl font-extrabold shrink-0 ${
+                    isMerit ? "text-emerald-600" : "text-rose-600"
+                  }`}
                 >
-                  {studentName}
-                </Link>
-              ) : (
-                <p className="text-lg font-bold text-text-primary">{studentName}</p>
-              )}
-              <p className="text-xs text-text-secondary mt-0.5">{groupLabel || "—"}</p>
-            </div>
-            <span
-              className={`text-3xl font-extrabold shrink-0 ${
-                isMerit ? "text-emerald-600" : "text-rose-600"
-              }`}
-            >
-              {isMerit ? "+" : "-"}
-              {report.points_impact}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant={isMerit ? "emerald" : "rose"}>
-              {isMerit ? "Mérito" : "Demérito"}
-            </Badge>
-            {!isMerit && report.severity && (
-              <Badge variant="slate">
-                {report.severity === "minor"
-                  ? "Leve"
-                  : report.severity === "moderate"
-                    ? "Moderado"
-                    : "Grave"}
-              </Badge>
-            )}
-            {isCancelled ? (
-              <Badge variant="slate">Cancelado</Badge>
-            ) : (
-              <Badge variant="emerald">Activo</Badge>
-            )}
-            {report.school_year_id && typeof report.school_year_id === "string" && (
-              <Badge variant="sky">Ciclo escolar</Badge>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-slate-100">
-            <span className="flex items-center gap-1">
-              <Calendar size={11} />
-              {formatShortDate(report.createdAt)}
-            </span>
-            {report.createdAt && <span>{formatFullDateTime(report.createdAt)}</span>}
-            {reporterName && <span className="ml-auto">{reporterName}</span>}
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* Descripción (lectura o edición inline para el creador) */}
-      <Card>
-        <CardBody>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-bold text-text-primary">Descripción</p>
-            {canEdit && !isEditingDesc && (
-              <button
-                onClick={() => {
-                  setDraftDesc(report.description || "");
-                  setIsEditingDesc(true);
-                }}
-                className="flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:text-sky-700"
-              >
-                <Pencil size={13} /> Editar
-              </button>
-            )}
-          </div>
-
-          {isEditingDesc ? (
-            <div className="space-y-3">
-              <TextArea
-                value={draftDesc}
-                onChange={(e) => setDraftDesc(e.target.value)}
-                maxLength={5000}
-                rows={6}
-                placeholder="Describe el hecho observado..."
-              />
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => setIsEditingDesc(false)}
-                  disabled={isActionInFlight}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleSaveDescription}
-                  isLoading={isActionInFlight}
-                  disabled={!draftDesc.trim() || draftDesc.trim() === report.description}
-                >
-                  Guardar cambios
-                </Button>
+                  {isMerit ? "+" : "-"}
+                  {report.points_impact}
+                </span>
               </div>
-            </div>
-          ) : (
-            <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
-              {report.description || "Sin descripción"}
-            </p>
-          )}
-        </CardBody>
-      </Card>
 
-      {/* Acciones según permisos */}
-      {(canCancel || canDelete) && !isEditingDesc && (
-        <div className="flex flex-wrap gap-3">
-          {canCancel && (
-            <Button variant="danger" onClick={() => setIsCancelOpen(true)}>
-              <XCircle size={14} className="mr-1.5" /> Cancelar reporte
-            </Button>
-          )}
-          {canDelete && (
-            <Button variant="danger" onClick={() => setIsDeleteOpen(true)}>
-              <Trash2 size={14} className="mr-1.5" /> Eliminar
-            </Button>
-          )}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant={isMerit ? "emerald" : "rose"}>
+                  {isMerit ? "Mérito" : "Demérito"}
+                </Badge>
+                {!isMerit && report.severity && (
+                  <Badge variant="slate">
+                    {report.severity === "minor"
+                      ? "Leve"
+                      : report.severity === "moderate"
+                        ? "Moderado"
+                        : "Grave"}
+                  </Badge>
+                )}
+                {isCancelled ? (
+                  <Badge variant="slate">Cancelado</Badge>
+                ) : (
+                  <Badge variant="emerald">Activo</Badge>
+                )}
+                {report.school_year_id && typeof report.school_year_id === "string" && (
+                  <Badge variant="sky">Ciclo escolar</Badge>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-slate-100">
+                <span className="flex items-center gap-1">
+                  <Calendar size={11} />
+                  {formatShortDate(report.createdAt)}
+                </span>
+                {report.createdAt && <span>{formatFullDateTime(report.createdAt)}</span>}
+                {reporterName && <span className="ml-auto">{reporterName}</span>}
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Descripción (lectura o edición inline para el creador) */}
+          <Card>
+            <CardBody>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-bold text-text-primary">Descripción</p>
+                {canEdit && !isEditingDesc && (
+                  <button
+                    onClick={() => {
+                      setDraftDesc(report.description || "");
+                      setIsEditingDesc(true);
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:text-sky-700"
+                  >
+                    <Pencil size={13} /> Editar
+                  </button>
+                )}
+              </div>
+
+              {isEditingDesc ? (
+                <div className="space-y-3">
+                  <TextArea
+                    value={draftDesc}
+                    onChange={(e) => setDraftDesc(e.target.value)}
+                    maxLength={5000}
+                    rows={6}
+                    placeholder="Describe el hecho observado..."
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setIsEditingDesc(false)}
+                      disabled={isActionInFlight}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={handleSaveDescription}
+                      isLoading={isActionInFlight}
+                      disabled={!draftDesc.trim() || draftDesc.trim() === report.description}
+                    >
+                      Guardar cambios
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+                  {report.description || "Sin descripción"}
+                </p>
+              )}
+            </CardBody>
+          </Card>
         </div>
-      )}
+
+        {/* Panel lateral: acciones según permisos */}
+        {hasAside && (
+          <div className="space-y-4">
+            {(canCancel || canDelete) && !isEditingDesc && (
+              <Card>
+                <CardBody>
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-rose-100 text-rose-700">
+                      <AlertTriangle size={14} />
+                    </span>
+                    <p className="text-sm font-bold text-text-primary">Acciones</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {canCancel && (
+                      <Button variant="danger" onClick={() => setIsCancelOpen(true)}>
+                        <XCircle size={14} className="mr-1.5" /> Cancelar reporte
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button variant="danger" onClick={() => setIsDeleteOpen(true)}>
+                        <Trash2 size={14} className="mr-1.5" /> Eliminar
+                      </Button>
+                    )}
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Contexto del impacto (deméritos/méritos del alumno) — el modal
           de conducta de la ficha muestra el score completo. */}

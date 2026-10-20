@@ -60,7 +60,9 @@ export default function PrefectTeacherDetailPage() {
   );
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
+    // Sin el tope max-w-3xl mx-auto de la app: en desktop el detalle
+    // usa todo el ancho del área de contenido.
+    <div className="space-y-4">
       <PageHeader
         title="Horario del Maestro"
         subtitle={fullName}
@@ -99,59 +101,64 @@ export default function PrefectTeacherDetailPage() {
         </CardBody>
       </Card>
 
-      {/* Materias */}
-      {subjects.length > 0 && (
-        <Card>
-          <CardBody>
-            <p className="text-sm font-bold text-text-primary mb-2">Materias</p>
-            <div className="flex flex-wrap gap-2">
-              {subjects.map((sub) => {
-                const hex = subjectHex(sub.color);
-                const SubjectIcon = getSubjectIcon(sub.icon);
-                return (
-                  <span
-                    key={sub._id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
-                    style={{ backgroundColor: hexToRgba(hex, 0.1), color: hex }}
-                  >
-                    <SubjectIcon size={13} color={hex} />
-                    {sub.name}
-                  </span>
-                );
-              })}
-            </div>
-          </CardBody>
-        </Card>
-      )}
+      {/* Materias y grupos asignados — 2 columnas en desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        {/* Materias */}
+        {subjects.length > 0 && (
+          <Card>
+            <CardBody>
+              <p className="text-sm font-bold text-text-primary mb-2">Materias</p>
+              <div className="flex flex-wrap gap-2">
+                {subjects.map((sub) => {
+                  const hex = subjectHex(sub.color);
+                  const SubjectIcon = getSubjectIcon(sub.icon);
+                  return (
+                    <span
+                      key={sub._id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{ backgroundColor: hexToRgba(hex, 0.1), color: hex }}
+                    >
+                      <SubjectIcon size={13} color={hex} />
+                      {sub.name}
+                    </span>
+                  );
+                })}
+              </div>
+            </CardBody>
+          </Card>
+        )}
 
-      {/* Grupos asignados */}
-      {assignedGroups.length > 0 && (
-        <Card>
-          <CardBody>
-            <p className="text-sm font-bold text-text-primary mb-2">Grupos Asignados</p>
-            <div className="flex flex-wrap gap-2">
-              {assignedGroups.map((group) => (
-                <span
-                  key={group._id}
-                  className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-xs font-semibold"
-                >
-                  <Users size={12} />
-                  {group.label}
-                </span>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      )}
+        {/* Grupos asignados */}
+        {assignedGroups.length > 0 && (
+          <Card>
+            <CardBody>
+              <p className="text-sm font-bold text-text-primary mb-2">Grupos Asignados</p>
+              <div className="flex flex-wrap gap-2">
+                {assignedGroups.map((group) => (
+                  <span
+                    key={group._id}
+                    className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full text-xs font-semibold"
+                  >
+                    <Users size={12} />
+                    {group.label}
+                  </span>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        )}
+      </div>
 
       {/* Horario semanal */}
       <Card>
         <CardBody>
           <p className="text-sm font-bold text-text-primary mb-3">Horario Semanal</p>
           {scheduleEntries.length > 0 ? (
-            <div className="space-y-4">
+            // Días en columnas en desktop (antes: todos apilados uno
+            // debajo del otro, patrón de la app).
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {scheduleEntries.map(([day, slots]) => (
-                <div key={day}>
+                <div key={day} className="rounded-xl bg-slate-50 border border-slate-100 p-3">
                   <p className="text-xs font-bold text-slate-600 mb-2">
                     {DAY_NAMES_FULL[Number(day)] || `Día ${day}`}
                   </p>

@@ -116,7 +116,9 @@ export default function PrefectAnnouncementDetailPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto">
+    // Sin el tope max-w-3xl mx-auto de la app: en desktop el detalle
+    // usa todo el ancho del área de contenido.
+    <div className="space-y-4">
       <PageHeader
         title="Detalle del Aviso"
         subtitle={announcement.title}
@@ -134,107 +136,125 @@ export default function PrefectAnnouncementDetailPage() {
         </div>
       )}
 
-      {/* Tarjeta héroe: prioridad + audiencia + emisor + fecha */}
-      <Card className={`border-l-4 ${isUrgent ? "border-l-rose-500" : "border-l-sky-500"}`}>
-        <CardBody className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Badge variant={isUrgent ? "rose" : "sky"}>
-                {isUrgent ? "Urgente" : "Informativo"}
-              </Badge>
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-                <Users size={13} />
-                {announcement.targetType === "group"
-                  ? `A ${groupLabels.length} grupo${groupLabels.length === 1 ? "" : "s"}`
-                  : announcement.targetType === "student"
-                    ? "Dirigido"
-                    : "General"}
-              </span>
-            </div>
-          </div>
+      {/* Layout web de detalle: contenido principal (2/3: héroe +
+          cuerpo) + panel lateral (1/3: acciones del emisor). */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <div className={canEdit ? "lg:col-span-2 space-y-4" : "space-y-4"}>
+          {/* Tarjeta héroe: prioridad + audiencia + emisor + fecha */}
+          <Card className={`border-l-4 ${isUrgent ? "border-l-rose-500" : "border-l-sky-500"}`}>
+            <CardBody className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant={isUrgent ? "rose" : "sky"}>
+                    {isUrgent ? "Urgente" : "Informativo"}
+                  </Badge>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                    <Users size={13} />
+                    {announcement.targetType === "group"
+                      ? `A ${groupLabels.length} grupo${groupLabels.length === 1 ? "" : "s"}`
+                      : announcement.targetType === "student"
+                        ? "Dirigido"
+                        : "General"}
+                  </span>
+                </div>
+              </div>
 
-          <div>
-            <p className="text-xl font-bold text-text-primary">{announcement.title}</p>
-            <p className="text-xs text-slate-400 mt-1">
-              {formatFullDateTime(announcement.createdAt)}
-            </p>
-            {senderName && (
-              <p className="text-xs text-text-secondary mt-0.5">
-                {senderName}
-                {sender?.role ? ` · ${ROLE_LABELS[sender.role] || sender.role}` : ""}
-              </p>
-            )}
-          </div>
+              <div>
+                <p className="text-xl font-bold text-text-primary">{announcement.title}</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {formatFullDateTime(announcement.createdAt)}
+                </p>
+                {senderName && (
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    {senderName}
+                    {sender?.role ? ` · ${ROLE_LABELS[sender.role] || sender.role}` : ""}
+                  </p>
+                )}
+              </div>
 
-          {/* Chips de grupos / nombres de alumnos */}
-          {(groupLabels.length > 0 || studentNames.length > 0) && (
-            <div className="flex flex-wrap gap-1.5">
-              {groupLabels.map((label, idx) => (
-                <span
-                  key={`g-${idx}`}
-                  className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold"
-                >
-                  {label}
-                </span>
-              ))}
-              {studentNames.slice(0, 8).map((name, idx) => (
-                <span
-                  key={`s-${idx}`}
-                  className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold"
-                >
-                  {name}
-                </span>
-              ))}
-              {studentNames.length > 8 && (
-                <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">
-                  +{studentNames.length - 8}
-                </span>
+              {/* Chips de grupos / nombres de alumnos */}
+              {(groupLabels.length > 0 || studentNames.length > 0) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {groupLabels.map((label, idx) => (
+                    <span
+                      key={`g-${idx}`}
+                      className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold"
+                    >
+                      {label}
+                    </span>
+                  ))}
+                  {studentNames.slice(0, 8).map((name, idx) => (
+                    <span
+                      key={`s-${idx}`}
+                      className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                  {studentNames.length > 8 && (
+                    <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">
+                      +{studentNames.length - 8}
+                    </span>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          {/* Progreso de lecturas (si el backend lo trae) */}
-          {totalRecipients > 0 && (
-            <div>
-              <div className="flex justify-between text-[10px] font-semibold mb-1">
-                <span className="text-text-secondary">Lecturas</span>
-                <span className="text-emerald-600">
-                  {readCount}/{totalRecipients}
-                </span>
-              </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-emerald-500"
-                  style={{
-                    width: `${Math.min((readCount / totalRecipients) * 100, 100)}%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
-        </CardBody>
-      </Card>
+              {/* Progreso de lecturas (si el backend lo trae) */}
+              {totalRecipients > 0 && (
+                <div>
+                  <div className="flex justify-between text-[10px] font-semibold mb-1">
+                    <span className="text-text-secondary">Lecturas</span>
+                    <span className="text-emerald-600">
+                      {readCount}/{totalRecipients}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500"
+                      style={{
+                        width: `${Math.min((readCount / totalRecipients) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </CardBody>
+          </Card>
 
-      {/* Cuerpo del aviso */}
-      <Card>
-        <CardBody>
-          <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
-            {announcement.message}
-          </p>
-        </CardBody>
-      </Card>
-
-      {/* Acciones — solo el emisor */}
-      {canEdit && (
-        <div className="flex gap-3">
-          <Button variant="secondary" onClick={() => setIsEditOpen(true)}>
-            <Pencil size={14} className="mr-1.5" /> Editar
-          </Button>
-          <Button variant="danger" onClick={() => setIsDeleteOpen(true)}>
-            <Trash2 size={14} className="mr-1.5" /> Eliminar
-          </Button>
+          {/* Cuerpo del aviso */}
+          <Card>
+            <CardBody>
+              <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+                {announcement.message}
+              </p>
+            </CardBody>
+          </Card>
         </div>
-      )}
+
+        {/* Panel lateral: acciones — solo el emisor */}
+        {canEdit && (
+          <div className="space-y-4">
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700">
+                    <Pencil size={14} />
+                  </span>
+                  <p className="text-sm font-bold text-text-primary">Acciones</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button variant="secondary" onClick={() => setIsEditOpen(true)}>
+                    <Pencil size={14} className="mr-1.5" /> Editar
+                  </Button>
+                  <Button variant="danger" onClick={() => setIsDeleteOpen(true)}>
+                    <Trash2 size={14} className="mr-1.5" /> Eliminar
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+          </div>
+        )}
+      </div>
 
       {/* Modal de edición (solo emisor) */}
       <EditAnnouncementModal
