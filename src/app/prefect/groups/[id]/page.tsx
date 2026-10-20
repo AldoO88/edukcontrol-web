@@ -431,18 +431,31 @@ export default function PrefectGroupDetailPage() {
                           size={64}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-lg font-bold text-text-primary truncate">
-                            {index + 1}. {student.last_name}, {student.first_name}
-                          </p>
+                          {/* Línea 1: nombre + badge — el badge se
+                              alinea con el nombre (primera línea) en
+                              vez de flotar al centro del bloque de
+                              texto entre nombre y No. Control
+                              (pedido del usuario). El flex-1 del
+                              nombre empuja el badge al borde derecho
+                              del card. */}
+                          <div className="flex items-center gap-3">
+                            <p className="flex-1 min-w-0 text-lg font-bold text-text-primary truncate">
+                              {index + 1}. {student.last_name}, {student.first_name}
+                            </p>
+                            {badge ? (
+                              <Badge variant={badge.variant} className="shrink-0">
+                                {badge.label}
+                              </Badge>
+                            ) : (
+                              <Badge variant="slate" className="shrink-0">
+                                Sin registro
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-[15px] text-text-secondary">
                             No. Control {student.controlNumber || "—"}
                           </p>
                         </div>
-                        {badge ? (
-                          <Badge variant={badge.variant}>{badge.label}</Badge>
-                        ) : (
-                          <Badge variant="slate">Sin registro</Badge>
-                        )}
                       </div>
                       {/* Marcar: para todo lo que no sea on_time (falta,
                           retardo o sin registro — mismo alcance que la
