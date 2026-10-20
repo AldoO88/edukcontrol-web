@@ -418,21 +418,21 @@ export default function PrefectGroupDetailPage() {
                 return (
                   <Card key={student._id}>
                     <CardBody>
-                      {/* Fila del alumno — solo foto y tipografías
-                          subidas ~30% respecto a la versión anterior
-                          (foto 84px, nombre 21px, meta 18px); el card
-                          mantiene su tamaño actual. */}
+                      {/* Fila del alumno — punto medio entre la versión
+                          grande (84/21/18, "quedó muy grande") y la
+                          original (64/16/14): foto 72px, nombre 18px,
+                          meta 15px. El card mantiene su tamaño. */}
                       <div className="flex items-center gap-4">
                         <StudentAvatar
                           photoUrl={student.photoUrl}
                           name={fullName}
-                          size={84}
+                          size={72}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-[21px] font-bold text-text-primary truncate">
+                          <p className="text-lg font-bold text-text-primary truncate">
                             {index + 1}. {student.last_name}, {student.first_name}
                           </p>
-                          <p className="text-[18px] text-text-secondary">
+                          <p className="text-[15px] text-text-secondary">
                             No. Control {student.controlNumber || "—"}
                           </p>
                         </div>
@@ -651,16 +651,16 @@ export default function PrefectGroupDetailPage() {
               return (
                 <Link key={student._id} href={`/prefect/students/${student._id}`}>
                   <Card className="hover:shadow-md transition-shadow">
-                    {/* Fila del alumno — misma escala grande que la
-                        pestaña de Asistencia (foto 84px, nombre 21px,
-                        meta 18px). El card mantiene su tamaño. */}
+                    {/* Fila del alumno — misma escala que la pestaña
+                        de Asistencia (foto 72px, nombre 18px, meta
+                        15px). El card mantiene su tamaño. */}
                     <CardBody className="flex items-center gap-4">
-                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={84} />
+                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={72} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[21px] font-bold text-text-primary truncate">
+                        <p className="text-lg font-bold text-text-primary truncate">
                           {index + 1}. {student.last_name}, {student.first_name}
                         </p>
-                        <p className="text-[18px] text-text-secondary truncate">
+                        <p className="text-[15px] text-text-secondary truncate">
                           {sub}
                           {sub && student.controlNumber ? " • " : ""}
                           {student.controlNumber || ""}
