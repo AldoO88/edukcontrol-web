@@ -101,17 +101,8 @@ function StatusBadge({ row }: { row: AttendanceDayRow }) {
 }
 
 export default function PrefectTodayAttendancePage() {
-  const {
-    data,
-    date,
-    isLoading,
-    error,
-    isToday,
-    refetch,
-    goPrev,
-    goNext,
-    goToday,
-  } = useTodayAttendance();
+  const { data, date, isLoading, error, isToday, refetch, goPrev, goNext } =
+    useTodayAttendance();
 
   // Selector de vista: registros completos vs solo faltas.
   const [view, setView] = useState<"records" | "faltas">("records");
@@ -248,10 +239,10 @@ export default function PrefectTodayAttendancePage() {
 
       {/* Navegación de fecha — mismo patrón de la pestaña Asistencia
           de groups/[id]. Al entrar desde el dashboard la fecha es HOY
-          (estado del hook, componentes locales); ← retrocede libre,
-          → se deshabilita en hoy (no existe asistencia futura) y el
-          chip "Hoy" regresa de un clic. La etiqueta corta del centro
-          cambia al instante; el subtítulo largo del header también. */}
+          (estado del hook, componentes locales); ← retrocede libre y
+          → se deshabilita en hoy (no existe asistencia futura). La
+          etiqueta corta del centro cambia al instante; el subtítulo
+          largo del header también. */}
       <div className="flex items-center justify-between gap-2">
         <button
           onClick={goPrev}
@@ -259,19 +250,9 @@ export default function PrefectTodayAttendancePage() {
         >
           ← Anterior
         </button>
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-bold text-text-primary capitalize">
-            {formatMedDay(date)}
-          </p>
-          {!isToday && (
-            <button
-              onClick={goToday}
-              className="px-3 py-2 rounded-lg bg-slate-900 text-sm font-bold text-white hover:bg-slate-800 transition-colors"
-            >
-              Hoy
-            </button>
-          )}
-        </div>
+        <p className="text-sm font-bold text-text-primary capitalize">
+          {formatMedDay(date)}
+        </p>
         <button
           onClick={goNext}
           disabled={isToday}

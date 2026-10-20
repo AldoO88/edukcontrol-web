@@ -94,7 +94,5 @@ export function useTodayAttendance() {
     // Avance con tope en HOY: comparar lexicográficamente strings
     // YYYY-MM-DD es orden cronológico.
     goNext: () => setDate((d) => (d >= todayStr ? d : shiftDateStr(d, 1))),
-    // Volver de un clic al día actual.
-    goToday: () => setDate(localDateStr(new Date())),
   };
 }
