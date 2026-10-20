@@ -9,9 +9,10 @@
 // accesos rápidos).
 //
 // Layout WEB (fase A del restilaje 2026-10-19) — fuera del stack
-// vertical de la app: los 6 stats van en UNA tira (xl:grid-cols-6;
-// tablet 3×2; móvil 2×3) y "Últimas Incidencias" / "Avisos
-// Recientes" van en 2 columnas en desktop. Misma data, mismos links.
+// vertical de la app: los 6 stats van en 2 filas de 3 (fila 1:
+// Alumnos · Grupos · Alumnado; fila 2: Presentes · Faltas · % Asist.;
+// móvil 2×3) y "Últimas Incidencias" / "Avisos Recientes" van en 2
+// columnas en desktop. Misma data, mismos links.
 //
 // Fuente: GET /api/prefect/dashboard (hook usePrefectDashboard).
 // =====================================================================
@@ -155,15 +156,16 @@ export default function PrefectDashboardPage() {
         </Link>
       )}
 
-      {/* Resumen del día — tira de 6 tiles: en desktop entran en UNA
-          fila (xl:grid-cols-6), tablet 3×2 y móvil 2×3. Presentes y
+      {/* Resumen del día — 6 tiles en 2 columnas de 3 (desktop y
+          tablet: fila 1 = Alumnos · Grupos · Alumnado; fila 2 =
+          Presentes · Faltas · % Asist.; móvil: 2×3). Presentes y
           Faltas son tiles-links al drill-down /prefect/today-attendance
           (antes: card "Asistencia de hoy"; mismos números). */}
       <div>
         <h3 className="text-sm font-semibold text-text-secondary mb-3">
           Resumen del día
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <StatCard
             icon={Users}
             label="Alumnos"
@@ -175,14 +177,6 @@ export default function PrefectDashboardPage() {
             label="Grupos"
             value={stats.totalGroups}
             tint="bg-indigo-100 text-indigo-700"
-          />
-          {/* % con la MISMA regla de la app: umbral 50% de matrícula
-              → "—" si el día no es representativo. */}
-          <StatCard
-            icon={Percent}
-            label="% Asist."
-            value={formatAsistPct(stats)}
-            tint="bg-emerald-100 text-emerald-700"
           />
           {/* Alumnado: los mismos números niños/niñas del card
               anterior, en línea (los íconos Mars/Venus ya denotan el
@@ -222,6 +216,14 @@ export default function PrefectDashboardPage() {
             value={stats.dayAbsent}
             tint="bg-rose-100 text-rose-700"
             href="/prefect/today-attendance"
+          />
+          {/* % con la MISMA regla de la app: umbral 50% de matrícula
+              → "—" si el día no es representativo. */}
+          <StatCard
+            icon={Percent}
+            label="% Asist."
+            value={formatAsistPct(stats)}
+            tint="bg-emerald-100 text-emerald-700"
           />
         </div>
       </div>
