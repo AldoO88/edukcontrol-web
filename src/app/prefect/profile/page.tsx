@@ -4,9 +4,10 @@
 // Perfil del prefecto — puerto web de (tabs)/profile/index.jsx +
 // profile/change-password.jsx (ambos en una sola página, patrón web):
 //   1. Tarjeta de perfil: avatar de iniciales (ámbar, igual que la
-//      app), nombre completo (dashboard.prefect → user), rol
-//      "Prefectura", teléfono, email y nota de contacto a
-//      administración para cambios oficiales.
+//      app) en fila horizontal estilo web, nombre completo
+//      (dashboard.prefect → user), rol "Prefectura", teléfono, email
+//      y nota de contacto a administración para cambios oficiales.
+//      Layout de ajustes web: perfil (1/3) + seguridad (2/3).
 //   2. Cambiar Contraseña: formulario con validaciones idénticas a la
 //      app (actual obligatoria; nueva ≥8 y distinta; confirmación
 //      idéntica) con toggles de visibilidad y feedback in-place.
@@ -118,117 +119,127 @@ export default function PrefectProfilePage() {
   const email = prefect?.email || user?.email || "—";
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    // Sin el tope max-w-2xl mx-auto: en desktop el perfil usa el
+    // layout web de ajustes (perfil 1/3 + seguridad 2/3).
+    <div className="space-y-4">
       <PageHeader title="Perfil" subtitle="Tu cuenta y seguridad" />
 
-      {/* ---------------------------------------------------------------
-          TARJETA DE PERFIL
-          --------------------------------------------------------------- */}
-      <Card>
-        <CardBody className="flex flex-col items-center py-6">
-          {/* Avatar de iniciales (ámbar, igual que la app) */}
-          <div className="w-24 h-24 rounded-full bg-amber-100 border-4 border-amber-200 flex items-center justify-center">
-            <span className="text-3xl font-extrabold text-amber-700">{initials}</span>
-          </div>
-
-          <p className="text-xl font-extrabold text-text-primary mt-4 text-center">
-            {fullName}
-          </p>
-          <p className="text-sm text-text-secondary mt-0.5">Prefectura</p>
-
-          {/* Contacto */}
-          <div className="w-full mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
-            <p className="flex items-center gap-2.5 text-sm font-semibold text-text-primary">
-              <Phone size={15} className="text-slate-400" />
-              Tel: {phone}
-            </p>
-            <div className="border-t border-slate-200" />
-            <p className="flex items-center gap-2.5 text-sm font-semibold text-text-primary">
-              <Mail size={15} className="text-slate-400" />
-              {email}
-            </p>
-          </div>
-
-          <p className="text-xs text-slate-400 italic text-center mt-4 leading-relaxed">
-            Para modificar tu información oficial, contacta a la administración escolar.
-          </p>
-        </CardBody>
-      </Card>
-
-      {/* ---------------------------------------------------------------
-          SEGURIDAD: CAMBIO DE CONTRASEÑA
-          --------------------------------------------------------------- */}
-      <Card>
-        <CardBody className="space-y-4">
-          <p className="flex items-center gap-2 text-base font-bold text-text-primary">
-            <Key size={16} className="text-sky-600" />
-            Cambiar Contraseña
-          </p>
-
-          {/* Banner informativo (mismo texto que la app) */}
-          <div className="bg-sky-50 rounded-xl px-4 py-3">
-            <p className="text-sky-800 text-sm leading-5">
-              Para cambiar tu contraseña, verifica tu contraseña actual y establece una
-              nueva. La nueva contraseña debe tener al menos 8 caracteres.
-            </p>
-          </div>
-
-          {/* Error general del backend */}
-          {errors.general && (
-            <div className="bg-rose-50 rounded-xl px-4 py-3">
-              <p className="text-rose-700 text-sm">{errors.general}</p>
+      {/* Layout web de ajustes: perfil (1/3) + seguridad (2/3) en
+          desktop; apiladas en móvil/tablet. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        {/* ---------------------------------------------------------------
+            TARJETA DE PERFIL — fila horizontal estilo web (antes:
+            columna centrada de la app).
+            --------------------------------------------------------------- */}
+        <Card>
+          <CardBody className="py-6">
+            <div className="flex items-center gap-4">
+              {/* Avatar de iniciales (ámbar, igual que la app) */}
+              <div className="w-16 h-16 rounded-full bg-amber-100 border-4 border-amber-200 flex items-center justify-center shrink-0">
+                <span className="text-xl font-extrabold text-amber-700">{initials}</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-extrabold text-text-primary">{fullName}</p>
+                <p className="text-sm text-text-secondary">Prefectura</p>
+              </div>
             </div>
-          )}
 
-          {/* Éxito */}
-          {successMessage && (
-            <div className="bg-emerald-50 rounded-xl px-4 py-3 flex items-center gap-2">
-              <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-              <p className="text-emerald-700 text-sm">{successMessage}</p>
+            {/* Contacto */}
+            <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
+              <p className="flex items-center gap-2.5 text-sm font-semibold text-text-primary">
+                <Phone size={15} className="text-slate-400" />
+                Tel: {phone}
+              </p>
+              <div className="border-t border-slate-200" />
+              <p className="flex items-center gap-2.5 text-sm font-semibold text-text-primary">
+                <Mail size={15} className="text-slate-400" />
+                {email}
+              </p>
             </div>
-          )}
 
-          {/* Campos */}
-          <PasswordField
-            label="Contraseña actual"
-            value={values.currentPassword}
-            placeholder="Tu contraseña actual"
-            error={errors.currentPassword}
-            show={showCurrent}
-            onToggle={() => setShowCurrent((v) => !v)}
-            onChange={(v) => handleChange("currentPassword", v)}
-          />
-          <PasswordField
-            label="Nueva contraseña"
-            value={values.newPassword}
-            placeholder="Mínimo 8 caracteres"
-            error={errors.newPassword}
-            show={showNew}
-            onToggle={() => setShowNew((v) => !v)}
-            onChange={(v) => handleChange("newPassword", v)}
-          />
-          <PasswordField
-            label="Confirmar nueva contraseña"
-            value={values.confirmPassword}
-            placeholder="Repite tu nueva contraseña"
-            error={errors.confirmPassword}
-            show={showConfirm}
-            onToggle={() => setShowConfirm((v) => !v)}
-            onChange={(v) => handleChange("confirmPassword", v)}
-          />
+            <p className="text-xs text-slate-400 italic mt-4 leading-relaxed">
+              Para modificar tu información oficial, contacta a la administración escolar.
+            </p>
+          </CardBody>
+        </Card>
 
-          {/* Submit */}
-          <Button
-            variant="primary"
-            onClick={() => void handleSubmit()}
-            isLoading={isSubmitting}
-            className="w-full"
-          >
-            <Lock size={15} className="mr-1.5" />
-            {isSubmitting ? "Actualizando..." : "Actualizar Contraseña"}
-          </Button>
-        </CardBody>
-      </Card>
+        {/* ---------------------------------------------------------------
+            SEGURIDAD: CAMBIO DE CONTRASEÑA (2/3)
+            --------------------------------------------------------------- */}
+        <Card className="lg:col-span-2">
+          <CardBody className="space-y-4">
+            <div className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-sky-100 text-sky-700">
+                <Key size={14} />
+              </span>
+              <p className="text-sm font-bold text-text-primary">Cambiar Contraseña</p>
+            </div>
+
+            {/* Banner informativo (mismo texto que la app) */}
+            <div className="bg-sky-50 rounded-xl px-4 py-3">
+              <p className="text-sky-800 text-sm leading-5">
+                Para cambiar tu contraseña, verifica tu contraseña actual y establece una
+                nueva. La nueva contraseña debe tener al menos 8 caracteres.
+              </p>
+            </div>
+
+            {/* Error general del backend */}
+            {errors.general && (
+              <div className="bg-rose-50 rounded-xl px-4 py-3">
+                <p className="text-rose-700 text-sm">{errors.general}</p>
+              </div>
+            )}
+
+            {/* Éxito */}
+            {successMessage && (
+              <div className="bg-emerald-50 rounded-xl px-4 py-3 flex items-center gap-2">
+                <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+                <p className="text-emerald-700 text-sm">{successMessage}</p>
+              </div>
+            )}
+
+            {/* Campos */}
+            <PasswordField
+              label="Contraseña actual"
+              value={values.currentPassword}
+              placeholder="Tu contraseña actual"
+              error={errors.currentPassword}
+              show={showCurrent}
+              onToggle={() => setShowCurrent((v) => !v)}
+              onChange={(v) => handleChange("currentPassword", v)}
+            />
+            <PasswordField
+              label="Nueva contraseña"
+              value={values.newPassword}
+              placeholder="Mínimo 8 caracteres"
+              error={errors.newPassword}
+              show={showNew}
+              onToggle={() => setShowNew((v) => !v)}
+              onChange={(v) => handleChange("newPassword", v)}
+            />
+            <PasswordField
+              label="Confirmar nueva contraseña"
+              value={values.confirmPassword}
+              placeholder="Repite tu nueva contraseña"
+              error={errors.confirmPassword}
+              show={showConfirm}
+              onToggle={() => setShowConfirm((v) => !v)}
+              onChange={(v) => handleChange("confirmPassword", v)}
+            />
+
+            {/* Submit */}
+            <Button
+              variant="primary"
+              onClick={() => void handleSubmit()}
+              isLoading={isSubmitting}
+              className="w-full"
+            >
+              <Lock size={15} className="mr-1.5" />
+              {isSubmitting ? "Actualizando..." : "Actualizar Contraseña"}
+            </Button>
+          </CardBody>
+        </Card>
+      </div>
     </div>
   );
 }
