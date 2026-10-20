@@ -418,20 +418,21 @@ export default function PrefectGroupDetailPage() {
                 return (
                   <Card key={student._id}>
                     <CardBody>
-                      {/* Fila del alumno — foto 64px y tipografía
-                          subida (text-base/text-sm), pedido del
-                          usuario para mejor lectura en web. */}
+                      {/* Fila del alumno — solo foto y tipografías
+                          subidas ~30% respecto a la versión anterior
+                          (foto 84px, nombre 21px, meta 18px); el card
+                          mantiene su tamaño actual. */}
                       <div className="flex items-center gap-4">
                         <StudentAvatar
                           photoUrl={student.photoUrl}
                           name={fullName}
-                          size={64}
+                          size={84}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-base font-bold text-text-primary truncate">
+                          <p className="text-[21px] font-bold text-text-primary truncate">
                             {index + 1}. {student.last_name}, {student.first_name}
                           </p>
-                          <p className="text-sm text-text-secondary">
+                          <p className="text-[18px] text-text-secondary">
                             No. Control {student.controlNumber || "—"}
                           </p>
                         </div>
@@ -651,14 +652,15 @@ export default function PrefectGroupDetailPage() {
                 <Link key={student._id} href={`/prefect/students/${student._id}`}>
                   <Card className="hover:shadow-md transition-shadow">
                     {/* Fila del alumno — misma escala grande que la
-                        pestaña de Asistencia (foto 64px + text-base). */}
+                        pestaña de Asistencia (foto 84px, nombre 21px,
+                        meta 18px). El card mantiene su tamaño. */}
                     <CardBody className="flex items-center gap-4">
-                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={64} />
+                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={84} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-base font-bold text-text-primary truncate">
+                        <p className="text-[21px] font-bold text-text-primary truncate">
                           {index + 1}. {student.last_name}, {student.first_name}
                         </p>
-                        <p className="text-sm text-text-secondary truncate">
+                        <p className="text-[18px] text-text-secondary truncate">
                           {sub}
                           {sub && student.controlNumber ? " • " : ""}
                           {student.controlNumber || ""}
