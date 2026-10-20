@@ -12,8 +12,11 @@
 //      la config de horarios por ciclo del super_admin: columna
 //      "Módulo" (nombre + rango), encabezados de día coloreados,
 //      receso en fila ámbar y — lo clave — una clase de 2 MÓDULOS
-//      OCUPA DOS FILAS vía rowSpan. Materia coloreada, maestro, aula
-//      y badge de taller.
+//      OCUPA DOS FILAS vía rowSpan. El card de materia es la PROPIA
+//      <td> (border-separate): así su fondo/borde abarca realmente
+//      las dos filas (height:100% no se resuelve contra una td de
+//      altura auto — ver ScheduleCellContent). Materia coloreada,
+//      maestro, aula y badge de taller.
 //   3. Alumnos — lista ordenada por apellido → ficha del alumno.
 // Fuente: hook usePrefectGroupDetail (alumnos + logs + horario).
 // =====================================================================
@@ -86,26 +89,28 @@ const toMinutes = (hhmm?: string): number => {
 const fmtMin = (m: number): string =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-// Contenido de celda de horario (UNA materia dentro de su <td>):
-// borde + ícono con el color propio de la materia, nombre, rango
-// horario del SLOT (con indicador "· N módulos" cuando abarca 2, igual
-// que en la config admin donde la celda cubre los renglones), maestro,
-// aula y badge de taller.
-// `h-full flex flex-col justify-center` = MISMO truco que la tabla
-// admin para que la tarjeta llene TODA la altura de su <td>: cuando
-// la clase abarca 2 módulos (rowSpan=2) el card se estira y cubre las
-// dos filas de borde a borde (contenido centrado verticalmente), y en
-// celdas de 1 módulo no cambia nada.
+// Contenido de UNA materia dentro de su celda de horario: ícono con
+// el color propio de la materia, nombre, rango horario del SLOT (con
+// indicador "· N módulos" cuando abarca 2, igual que en la config
+// admin donde la celda cubre los renglones), maestro, aula y badge de
+// taller.
+//
+// NOTA IMPORTANTE: este componente es SOLO el contenido — el "card"
+// (fondo blanco, borde redondeado y acento de color de la materia)
+// vive en la propia <td>. Razón: `height: 100%` NO se resuelve contra
+// una <td> de altura `auto` (verificado en Chrome headless: el div
+// medía 0.78× la altura de la celda → FILL=NO; la CSS dice que un %
+// sobre altura auto se trata como auto). En cambio la <td> con
+// rowSpan=2 pinta su fondo/borde sobre LAS DOS filas completas por
+// geometría de table-layout — así el card abarca realmente sus dos
+// filas. La <td> usa `align-middle` para centrar este contenido.
 function ScheduleCellContent({ slot }: { slot: GroupScheduleSlot }) {
   const hex = subjectHex(slot.color);
   const SubjectIcon = getSubjectIcon(slot.icon);
   const isTaller = slot.classificationType === "TALLER" || slot.is_taller;
 
   return (
-    <div
-      className="rounded-lg bg-white border border-slate-200 px-2 py-1.5 text-left h-full flex flex-col justify-center"
-      style={{ borderLeft: `3px solid ${hex}` }}
-    >
+    <div className="text-left">
       <div className="flex items-center gap-1.5">
         <SubjectIcon size={12} color={hex} />
         <p className="text-[11px] font-bold text-text-primary truncate">
@@ -124,7 +129,7 @@ function ScheduleCellContent({ slot }: { slot: GroupScheduleSlot }) {
       )}
       {isTaller && (
         <span
-          className="inline-block self-start mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
+          className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
           style={{ backgroundColor: hexToRgba(hex, 0.15), color: hex }}
         >
           Taller
@@ -478,20 +483,29 @@ export default function PrefectGroupDetailPage() {
               ámbar y rowSpan para clases de 2 módulos). En web NO se
               divide por días como en la app; scroll horizontal en
               pantallas estrechas (AGENTS.md: los grids anchos no se
-              limitan de ancho — benefician a tablet landscape). */}
+              limitan de ancho — benefician a tablet landscape).
+
+              IMPORTANTE: border-separate + border-spacing (NO
+              border-collapse) y el "card" vive en la PROPIA <td> —
+              ver ScheduleCellContent. Razón: height:100% NO se resuelve
+              contra una <td> de altura auto (verificado en Chrome
+              headless: ratio 0.78), pero la celda con rowSpan=2 por
+              geometría de table-layout pinta su fondo/borde sobre las
+              DOS filas completas: así el card de 2 módulos abarca sus
+              dos filas sin alturas porcentuales. */}
           {scheduleGrid ? (
             <div className="overflow-x-auto rounded-xl border border-gray-200">
               <div className="min-w-[880px]">
-                <table className="w-full border-collapse">
+                <table className="w-full border-separate border-spacing-1.5">
                   <thead>
                     <tr>
-                      <th className="bg-gray-50 px-3 py-2 text-left text-xs font-semibold text-text-secondary border-b border-r border-gray-200 w-40">
+                      <th className="bg-gray-50 px-3 py-2 text-left text-xs font-semibold text-text-secondary border border-gray-200 rounded-lg w-40">
                         Módulo
                       </th>
                       {scheduleGrid.dayKeys.map((d, idx) => (
                         <th
                           key={`head-${d}`}
-                          className={`px-3 py-2 text-center text-xs font-semibold border-b border-r border-gray-200 last:border-r-0 ${DAY_COLORS[idx % DAY_COLORS.length]}`}
+                          className={`px-3 py-2 text-center text-xs font-semibold border border-gray-200 rounded-lg ${DAY_COLORS[idx % DAY_COLORS.length]}`}
                         >
                           {DAY_NAMES_FULL[Number(d)] || `Día ${d}`}
                         </th>
@@ -507,7 +521,7 @@ export default function PrefectGroupDetailPage() {
                       if (row.isBreak) {
                         return (
                           <tr key={row.i}>
-                            <td className="px-3 py-2 border-r border-b border-gray-200 bg-amber-50">
+                            <td className="px-3 py-2 border border-amber-200 bg-amber-50 rounded-lg align-middle">
                               <p className="text-xs font-medium text-amber-700">Receso</p>
                               <p className="text-[10px] text-amber-600">{rowTime}</p>
                             </td>
@@ -522,7 +536,8 @@ export default function PrefectGroupDetailPage() {
                                   <td
                                     key={`b-${d}`}
                                     rowSpan={cell.span}
-                                    className="px-2 py-1.5 border-r border-b border-gray-200 last:border-r-0"
+                                    className="px-2 py-1.5 border border-gray-200 bg-white rounded-lg align-middle"
+                                    style={{ borderLeft: `3px solid ${subjectHex(cell.slot.color)}` }}
                                   >
                                     <ScheduleCellContent slot={cell.slot} />
                                   </td>
@@ -531,7 +546,7 @@ export default function PrefectGroupDetailPage() {
                               return (
                                 <td
                                   key={`b-${d}`}
-                                  className="px-2 py-1.5 border-r border-b border-gray-200 bg-amber-50 last:border-r-0 text-center"
+                                  className="px-2 py-1.5 border border-amber-200 bg-amber-50 rounded-lg text-center align-middle"
                                 >
                                   <span className="text-[10px] text-amber-400 font-medium">
                                     RECESO
@@ -548,7 +563,7 @@ export default function PrefectGroupDetailPage() {
                       // rango del renglón, luego una celda por día.
                       return (
                         <tr key={row.i}>
-                          <td className="px-3 py-2 border-r border-b border-gray-200 bg-gray-50">
+                          <td className="px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg align-middle">
                             {row.name && (
                               <p className="text-xs font-medium text-text-primary">{row.name}</p>
                             )}
@@ -570,19 +585,26 @@ export default function PrefectGroupDetailPage() {
                               return (
                                 <td
                                   key={`${d}-${row.i}`}
-                                  className="px-2 py-1.5 border-r border-b border-gray-200 last:border-r-0 text-center"
+                                  className="px-2 py-1.5 border border-gray-200 rounded-lg text-center align-middle"
                                 >
                                   <span className="text-xs text-text-muted">—</span>
                                 </td>
                               );
                             }
-                            // Celda de la clase: rowSpan = módulos que
-                            // abarca (1 o 2), igual que la tabla admin.
+                            // EL CARD = la propia <td>: su fondo/borde
+                            // (y el acento de color de la materia) se
+                            // pintan sobre TODA el área de la celda, que
+                            // con rowSpan=N abarca N filas completas
+                            // (height:100% no se resuelve contra una td
+                            // de altura auto — ver comentario arriba).
+                            // align-middle centra el contenido cuando la
+                            // celda mide 2 filas.
                             return (
                               <td
                                 key={`${d}-${row.i}`}
                                 rowSpan={cell.span}
-                                className="px-2 py-1.5 border-r border-b border-gray-200 last:border-r-0"
+                                className="px-2 py-1.5 border border-gray-200 bg-white rounded-lg align-middle"
+                                style={{ borderLeft: `3px solid ${subjectHex(cell.slot.color)}` }}
                               >
                                 <ScheduleCellContent slot={cell.slot} />
                               </td>
