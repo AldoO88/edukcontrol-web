@@ -4,7 +4,8 @@
 // Lista de Grupos del prefecto — puerto web de (tabs)/groups.jsx de la
 // app: cards con stats (matrícula, niños/niñas, reportes, barra de
 // asistencia de hoy, deméritos/méritos) + búsqueda client-side a todo
-// el ancho. Grid de 3 columnas en desktop (lg:grid-cols-3).
+// el ancho. Grid de 2 columnas en desktop; 3 solo ≥1536px (2xl) para
+// que las cards con stats agrandados no se aprieten.
 // Fuente: GET /api/prefect/groups-summary (hook usePrefectGroups).
 // =====================================================================
 
@@ -81,8 +82,9 @@ export default function PrefectGroupsPage() {
           }
         />
       ) : (
-        // 3 columnas en desktop (antes 2 — más uso del ancho web)
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        // 2 columnas en desktop normal; 3 solo en pantallas muy anchas
+        // (2xl) — así las cards con stats agrandados no se aprietan.
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
           {filteredGroups.map((group) => {
             const tint = attendanceTint(group.attendanceRate || 0);
             return (
@@ -114,33 +116,37 @@ export default function PrefectGroupsPage() {
                       </div>
                     </div>
 
-                    {/* Chips: Niños / Niñas / Reportes */}
+                    {/* Chips: Niños / Niñas / Reportes — tamaños subidos
+                        (pedido del usuario: stats "un poco más
+                        grandes"): número text-sm, label text-[11px] y
+                        padding py-2.5. */}
                     <div className="flex gap-2 mb-3">
-                      <span className="flex-1 flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 rounded-xl px-3 py-2 text-xs font-bold">
-                        {group.maleCount} <span className="text-[10px] font-medium text-blue-500">Niños</span>
+                      <span className="flex-1 flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 rounded-xl px-3 py-2.5 text-sm font-bold">
+                        {group.maleCount} <span className="text-[11px] font-medium text-blue-500">Niños</span>
                       </span>
-                      <span className="flex-1 flex items-center justify-center gap-1.5 bg-pink-50 text-pink-700 rounded-xl px-3 py-2 text-xs font-bold">
-                        {group.femaleCount} <span className="text-[10px] font-medium text-pink-500">Niñas</span>
+                      <span className="flex-1 flex items-center justify-center gap-1.5 bg-pink-50 text-pink-700 rounded-xl px-3 py-2.5 text-sm font-bold">
+                        {group.femaleCount} <span className="text-[11px] font-medium text-pink-500">Niñas</span>
                       </span>
-                      <span className="flex-1 flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 rounded-xl px-3 py-2 text-xs font-bold">
-                        <AlertTriangle size={12} />
+                      <span className="flex-1 flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 rounded-xl px-3 py-2.5 text-sm font-bold">
+                        <AlertTriangle size={14} />
                         {group.conductReportCount}{" "}
-                        <span className="text-[10px] font-medium text-amber-500">Reportes</span>
+                        <span className="text-[11px] font-medium text-amber-500">Reportes</span>
                       </span>
                     </div>
 
-                    {/* Barra de asistencia de hoy */}
+                    {/* Barra de asistencia de hoy — % y barra
+                        agrandados (text-xs / h-2.5). */}
                     <div className="mt-auto">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-[10px] font-semibold text-text-secondary">
+                        <p className="text-xs font-semibold text-text-secondary">
                           Asistencia hoy
                         </p>
-                        <p className={`text-[10px] font-bold ${tint.text}`}>
+                        <p className={`text-xs font-bold ${tint.text}`}>
                           {group.attendedToday}/{group.studentCount} •{" "}
                           {group.attendanceRate}%
                         </p>
                       </div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${tint.bar}`}
                           style={{ width: `${Math.min(group.attendanceRate || 0, 100)}%` }}
@@ -152,13 +158,13 @@ export default function PrefectGroupsPage() {
                     {(group.demeritCount > 0 || group.meritCount > 0) && (
                       <div className="flex gap-4 mt-2 pt-2 border-t border-slate-100">
                         {group.demeritCount > 0 && (
-                          <span className="flex items-center gap-1 text-[10px] font-semibold text-rose-600">
+                          <span className="flex items-center gap-1 text-[11px] font-semibold text-rose-600">
                             <TrendingDown size={11} />
                             {group.demeritCount} demérito{group.demeritCount !== 1 ? "s" : ""}
                           </span>
                         )}
                         {group.meritCount > 0 && (
-                          <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
+                          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
                             <TrendingUp size={11} />
                             {group.meritCount} mérito{group.meritCount !== 1 ? "s" : ""}
                           </span>
