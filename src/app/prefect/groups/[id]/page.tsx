@@ -91,6 +91,11 @@ const fmtMin = (m: number): string =>
 // horario del SLOT (con indicador "· N módulos" cuando abarca 2, igual
 // que en la config admin donde la celda cubre los renglones), maestro,
 // aula y badge de taller.
+// `h-full flex flex-col justify-center` = MISMO truco que la tabla
+// admin para que la tarjeta llene TODA la altura de su <td>: cuando
+// la clase abarca 2 módulos (rowSpan=2) el card se estira y cubre las
+// dos filas de borde a borde (contenido centrado verticalmente), y en
+// celdas de 1 módulo no cambia nada.
 function ScheduleCellContent({ slot }: { slot: GroupScheduleSlot }) {
   const hex = subjectHex(slot.color);
   const SubjectIcon = getSubjectIcon(slot.icon);
@@ -98,7 +103,7 @@ function ScheduleCellContent({ slot }: { slot: GroupScheduleSlot }) {
 
   return (
     <div
-      className="rounded-lg bg-white border border-slate-200 px-2 py-1.5 text-left"
+      className="rounded-lg bg-white border border-slate-200 px-2 py-1.5 text-left h-full flex flex-col justify-center"
       style={{ borderLeft: `3px solid ${hex}` }}
     >
       <div className="flex items-center gap-1.5">
@@ -119,7 +124,7 @@ function ScheduleCellContent({ slot }: { slot: GroupScheduleSlot }) {
       )}
       {isTaller && (
         <span
-          className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
+          className="inline-block self-start mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
           style={{ backgroundColor: hexToRgba(hex, 0.15), color: hex }}
         >
           Taller
