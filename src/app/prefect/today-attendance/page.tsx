@@ -1,9 +1,12 @@
 // =====================================================================
 // src/app/prefect/today-attendance/page.tsx
 // ---------------------------------------------------------------------
-// ASISTENCIA DE HOY — drill-down del card "Asistencia de hoy" del
-// dashboard del prefecto. Muestra los registros de ENTRADA y SALIDA de
-// hoy por alumno con su foto, con un selector de dos vistas:
+// ASISTENCIA DEL DÍA — drill-down del card "Asistencia de hoy" del
+// dashboard del prefecto. Abre en HOY y permite RETROCEDER/AVANZAR a
+// fechas anteriores (← Anterior / Siguiente →, esta última deshabilitada
+// en hoy) para revisar el comportamiento de otros días. Muestra los
+// registros de ENTRADA y SALIDA del día seleccionado por alumno con su
+// foto, con un selector de dos vistas:
 //
 //   1. "Asistencias" — los registros de ENTRADA y SALIDA: solo los
 //      alumnos con registro (presentes y retardos), un renglón con
@@ -17,9 +20,11 @@
 //      resumen.
 //
 // Fuente: GET /api/attendance/day-detail?date=YYYY-MM-DD vía hook
-// useTodayAttendance (fecha LOCAL, tenant del JWT — el rol prefect se
-// habilitó en routes/attendance.routes.js el 2026-10-19). Una sola
-// llamada; grupo y búsqueda se filtran client-side.
+// useTodayAttendance (fecha LOCAL navegable desde 2026-10-19, tenant
+// del JWT — el rol prefect se habilitó en routes/attendance.routes.js
+// el 2026-10-19; el endpoint acepta cualquier fecha pasada, SIN
+// cambios de backend). Una llamada por fecha; grupo y búsqueda se
+// filtran client-side.
 //
 // Notas de tiempo: event_time son instantes UTC reales; se muestran en
 // hora de la escuela (CDMX) con timeZone "America/Mexico_City" (misma
@@ -56,6 +61,15 @@ const formatLongDay = (dateStr: string) =>
     timeZone: "UTC",
   });
 
+// "YYYY-MM-DD" → "viernes 16 oct" — etiqueta COMPACTA de la barra de
+// navegación (T12:00 local, componentes locales: sin desfase UTC).
+const formatMedDay = (dateStr: string) =>
+  new Date(`${dateStr}T12:00:00`).toLocaleDateString("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  });
+
 // Instante UTC ISO → "09:36" en hora de la escuela (CDMX). Vacío → "—".
 const formatHour = (iso: string | null) =>
   iso
@@ -87,7 +101,17 @@ function StatusBadge({ row }: { row: AttendanceDayRow }) {
 }
 
 export default function PrefectTodayAttendancePage() {
-  const { data, isLoading, error, refetch } = useTodayAttendance();
+  const {
+    data,
+    date,
+    isLoading,
+    error,
+    isToday,
+    refetch,
+    goPrev,
+    goNext,
+    goToday,
+  } = useTodayAttendance();
 
   // Selector de vista: registros completos vs solo faltas.
   const [view, setView] = useState<"records" | "faltas">("records");
@@ -209,7 +233,7 @@ export default function PrefectTodayAttendancePage() {
     </li>
   );
 
-  if (isLoading && !data) return <LoadingState message="Cargando asistencia de hoy…" />;
+  if (isLoading && !data) return <LoadingState message="Cargando asistencia del día…" />;
   if (error && !data) {
     return <ErrorState message={error} action={{ label: "Reintentar", onClick: refetch }} />;
   }
@@ -217,10 +241,60 @@ export default function PrefectTodayAttendancePage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Asistencia de hoy"
-        subtitle={data?.date ? formatLongDay(data.date) : ""}
+        title="Asistencia del día"
+        subtitle={date ? formatLongDay(date) : ""}
         action={{ label: "← Volver", href: "/prefect/dashboard" }}
       />
+
+      {/* Navegación de fecha — mismo patrón de la pestaña Asistencia
+          de groups/[id]. Al entrar desde el dashboard la fecha es HOY
+          (estado del hook, componentes locales); ← retrocede libre,
+          → se deshabilita en hoy (no existe asistencia futura) y el
+          chip "Hoy" regresa de un clic. La etiqueta corta del centro
+          cambia al instante; el subtítulo largo del header también. */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={goPrev}
+          className="px-3 py-2 rounded-lg bg-slate-100 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+        >
+          ← Anterior
+        </button>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-bold text-text-primary capitalize">
+            {formatMedDay(date)}
+          </p>
+          {!isToday && (
+            <button
+              onClick={goToday}
+              className="px-3 py-2 rounded-lg bg-slate-900 text-sm font-bold text-white hover:bg-slate-800 transition-colors"
+            >
+              Hoy
+            </button>
+          )}
+        </div>
+        <button
+          onClick={goNext}
+          disabled={isToday}
+          className="px-3 py-2 rounded-lg bg-slate-100 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-100"
+        >
+          Siguiente →
+        </button>
+      </div>
+
+      {/* Error de la fecha seleccionada con data previa visible —
+          banner inline (el ErrorState de pantalla completa solo
+          aplica cuando no hay nada que mostrar). */}
+      {error && data && (
+        <div className="flex items-center justify-between gap-3 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+          <p className="text-sm text-rose-700">{error}</p>
+          <button
+            onClick={refetch}
+            className="px-3 py-1.5 rounded-lg bg-rose-600 text-sm font-semibold text-white hover:bg-rose-700 transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
 
       {/* Resumen del día (mismo contract que el monitoreo admin) */}
       <div className="flex flex-wrap items-center gap-2">
@@ -265,7 +339,7 @@ export default function PrefectTodayAttendancePage() {
         <EmptyState
           icon={<CalendarX2 size={48} className="text-slate-300" />}
           title="Sin matrícula activa"
-          description="No hay alumnos activos para mostrar hoy."
+          description="No hay alumnos activos para este día."
         />
       ) : rows.length === 0 ? (
         <EmptyState
