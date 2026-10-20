@@ -136,14 +136,18 @@ export default function PrefectTodayAttendancePage() {
   // Columnas de la vista "Asistencias" (registros entry/exit).
   const columns: Column<AttendanceDayRow>[] = [
     {
+      // Foto del alumno — DOBLE de grande (36 → 72px) a petición:
+      // a 36px se veía "muy cortada" (recorte circular de la foto de
+      // Cloudinary sobre un thumbnail diminuto). w-28 para que la
+      // celda (px-4 × 2 = 32px) quepa el avatar sin estrangularlo.
       key: "photo",
       label: "",
-      className: "w-12",
+      className: "w-28",
       render: (r) => (
         <StudentAvatar
           photoUrl={r.student.photoUrl}
           name={`${r.student.first_name} ${r.student.last_name}`}
-          size={36}
+          size={72}
         />
       ),
     },
@@ -176,13 +180,15 @@ export default function PrefectTodayAttendancePage() {
     { key: "status", label: "Estatus", render: (r) => <StatusBadge row={r} /> },
   ];
 
-  // Fila compacta para la lista de la vista "Faltas".
+  // Fila compacta para la lista de la vista "Faltas" — foto al doble
+  // (40 → 80px, misma razón que la vista Asistencias: a tamaño chico
+  // el recorte circular se veía cortado).
   const AbsentRow = ({ row }: { row: AttendanceDayRow }) => (
     <li className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-b-0">
       <StudentAvatar
         photoUrl={row.student.photoUrl}
         name={`${row.student.first_name} ${row.student.last_name}`}
-        size={40}
+        size={80}
       />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-text-primary truncate">
