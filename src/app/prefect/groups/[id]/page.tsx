@@ -337,7 +337,9 @@ export default function PrefectGroupDetailPage() {
         </div>
       )}
 
-      {/* Segmentos (tabs) */}
+      {/* Segmentos (tabs) — tamaño subido (pedido del usuario):
+          py-2.5→py-3, texto text-xs→text-sm, ícono 14→16px y
+          gap-1.5→gap-2 para mejor legibilidad/touch en web. */}
       <div className="flex bg-slate-100 rounded-xl p-1">
         {SEGMENTS.map((seg) => {
           const isActive = activeSegment === seg.id;
@@ -346,13 +348,13 @@ export default function PrefectGroupDetailPage() {
             <button
               key={seg.id}
               onClick={() => setActiveSegment(seg.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-colors ${
                 isActive
                   ? "bg-white text-indigo-600 font-bold shadow-sm"
                   : "text-slate-500 font-medium hover:text-slate-700"
               }`}
             >
-              <Icon size={14} />
+              <Icon size={16} />
               {seg.label}
             </button>
           );
@@ -387,15 +389,17 @@ export default function PrefectGroupDetailPage() {
             </button>
           </div>
 
-          {/* Stats del día */}
+          {/* Stats del día (Presentes / Faltas) — tamaño subido
+              (pedido del usuario): número text-lg→text-2xl, label
+              text-[10px]→text-xs y padding p-3→p-4. */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-emerald-50 rounded-xl p-3 text-center">
-              <p className="text-lg font-bold text-emerald-700">{presentCount}</p>
-              <p className="text-[10px] text-emerald-600">Presentes</p>
+            <div className="bg-emerald-50 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-emerald-700">{presentCount}</p>
+              <p className="text-xs text-emerald-600">Presentes</p>
             </div>
-            <div className="bg-rose-50 rounded-xl p-3 text-center">
-              <p className="text-lg font-bold text-rose-700">{absentCount}</p>
-              <p className="text-[10px] text-rose-600">Faltas</p>
+            <div className="bg-rose-50 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-rose-700">{absentCount}</p>
+              <p className="text-xs text-rose-600">Faltas</p>
             </div>
           </div>
 
