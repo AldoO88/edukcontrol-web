@@ -418,15 +418,17 @@ export default function PrefectGroupDetailPage() {
                 return (
                   <Card key={student._id}>
                     <CardBody>
-                      {/* Fila del alumno — punto medio entre la versión
-                          grande (84/21/18, "quedó muy grande") y la
-                          original (64/16/14): foto 72px, nombre 18px,
-                          meta 15px. El card mantiene su tamaño. */}
+                      {/* Fila del alumno — foto en 64px: con 72px la
+                          foto jalaba la altura del card (104px) y
+                          quedaba mucho blanco bajo los datos. En 64 el
+                          card mide 96px (tamaño aprobado por el
+                          usuario) y las fuentes se quedan grandes
+                          (nombre 18px, meta 15px). */}
                       <div className="flex items-center gap-4">
                         <StudentAvatar
                           photoUrl={student.photoUrl}
                           name={fullName}
-                          size={72}
+                          size={64}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-lg font-bold text-text-primary truncate">
@@ -652,10 +654,11 @@ export default function PrefectGroupDetailPage() {
                 <Link key={student._id} href={`/prefect/students/${student._id}`}>
                   <Card className="hover:shadow-md transition-shadow">
                     {/* Fila del alumno — misma escala que la pestaña
-                        de Asistencia (foto 72px, nombre 18px, meta
-                        15px). El card mantiene su tamaño. */}
+                        de Asistencia (foto 64px, nombre 18px, meta
+                        15px): proporción equilibrada sin blanco
+                        excesivo bajo los datos. */}
                     <CardBody className="flex items-center gap-4">
-                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={72} />
+                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={64} />
                       <div className="flex-1 min-w-0">
                         <p className="text-lg font-bold text-text-primary truncate">
                           {index + 1}. {student.last_name}, {student.first_name}
