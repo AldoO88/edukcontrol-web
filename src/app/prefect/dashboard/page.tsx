@@ -5,8 +5,13 @@
 // app móvil. Mismas capacidades: stats del día (con la regla del "% —"
 // de asistenciaPct), banner de citatorios pendientes, últimas
 // incidencias, avisos recientes y las 5 áreas operativas (en la app
-// son quick actions ocultos; en web viv en el sidebar Y aquí como
+// son quick actions ocultos; en web viven en el sidebar Y aquí como
 // accesos rápidos).
+//
+// Layout WEB (fase A del restilaje 2026-10-19) — fuera del stack
+// vertical de la app: los 6 stats van en UNA tira (xl:grid-cols-6;
+// tablet 3×2; móvil 2×3) y "Últimas Incidencias" / "Avisos
+// Recientes" van en 2 columnas en desktop. Misma data, mismos links.
 //
 // Fuente: GET /api/prefect/dashboard (hook usePrefectDashboard).
 // =====================================================================
@@ -14,6 +19,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -23,6 +29,7 @@ import { usePrefectDashboard } from "@/lib/hooks/usePrefectDashboard";
 import { formatAsistPct } from "@/lib/asistenciaPct";
 import {
   Users,
+  UsersRound,
   ClipboardList,
   Percent,
   UserCheck,
@@ -32,7 +39,6 @@ import {
   ScrollText,
   DoorOpen,
   AlertTriangle,
-  ChevronRight,
   Mars,
   Venus,
   type LucideIcon,
@@ -48,31 +54,50 @@ const QUICK_ACTIONS: Array<{ label: string; href: string; icon: LucideIcon }> = 
   { label: "Inasistencias", href: "/prefect/attendance-summary", icon: UserX },
 ];
 
-// Card pequeña de stat (misma estética de tarjetas de la app).
+// Tile de stat compacto (ícono + label + valor) que LLENA su celda
+// de grid (h-full) para que la tira de stats se vea alineada en
+// escritorio. `value` admite ReactNode (el tile "Alumnado" pinta
+// niños/niñas inline) y `href` lo convierte en card clicable (los de
+// Presentes/Faltas abren el drill-down de Asistencia del día).
 function StatCard({
   icon: Icon,
   label,
   value,
   tint,
+  href,
 }: {
   icon: LucideIcon;
   label: string;
-  value: string | number;
+  value: ReactNode;
   tint: string;
+  href?: string;
 }) {
+  const inner = (
+    <div className="flex items-center gap-3">
+      <div
+        className={`flex items-center justify-center w-10 h-10 rounded-xl ${tint} shrink-0`}
+      >
+        <Icon size={20} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-text-secondary">{label}</p>
+        <p className="text-xl font-bold text-text-primary">{value}</p>
+      </div>
+    </div>
+  );
+  // Variante link → el tile entero navega al drill-down del día.
+  if (href) {
+    return (
+      <Link href={href} className="block h-full">
+        <Card className="h-full hover:shadow-md transition-shadow">
+          <CardBody className="h-full">{inner}</CardBody>
+        </Card>
+      </Link>
+    );
+  }
   return (
-    <Card>
-      <CardBody>
-        <div className="flex items-center gap-3">
-          <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${tint}`}>
-            <Icon size={20} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-text-secondary">{label}</p>
-            <p className="text-xl font-bold text-text-primary">{value}</p>
-          </div>
-        </div>
-      </CardBody>
+    <Card className="h-full">
+      <CardBody className="h-full">{inner}</CardBody>
     </Card>
   );
 }
@@ -130,12 +155,15 @@ export default function PrefectDashboardPage() {
         </Link>
       )}
 
-      {/* Resumen del día */}
+      {/* Resumen del día — tira de 6 tiles: en desktop entran en UNA
+          fila (xl:grid-cols-6), tablet 3×2 y móvil 2×3. Presentes y
+          Faltas son tiles-links al drill-down /prefect/today-attendance
+          (antes: card "Asistencia de hoy"; mismos números). */}
       <div>
         <h3 className="text-sm font-semibold text-text-secondary mb-3">
           Resumen del día
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           <StatCard
             icon={Users}
             label="Alumnos"
@@ -156,110 +184,106 @@ export default function PrefectDashboardPage() {
             value={formatAsistPct(stats)}
             tint="bg-emerald-100 text-emerald-700"
           />
+          {/* Alumnado: los mismos números niños/niñas del card
+              anterior, en línea (los íconos Mars/Venus ya denotan el
+              género; sr-only conserva la lectura para lectores de
+              pantalla). */}
+          <StatCard
+            icon={UsersRound}
+            label="Alumnado"
+            tint="bg-purple-100 text-purple-700"
+            value={
+              <span className="flex items-center gap-3 text-base">
+                <span className="flex items-center gap-1 font-bold text-text-primary">
+                  <Mars size={15} className="text-sky-600" aria-hidden />
+                  <span className="sr-only">Niños: </span>
+                  {stats.maleCount}
+                </span>
+                <span className="flex items-center gap-1 font-bold text-text-primary">
+                  <Venus size={15} className="text-pink-500" aria-hidden />
+                  <span className="sr-only">Niñas: </span>
+                  {stats.femaleCount}
+                </span>
+              </span>
+            }
+          />
+          {/* Links → drill-down de los registros de hoy (entry/exit
+              por alumno con foto) en /prefect/today-attendance. */}
+          <StatCard
+            icon={UserCheck}
+            label="Presentes hoy"
+            value={stats.dayPresent}
+            tint="bg-emerald-100 text-emerald-700"
+            href="/prefect/today-attendance"
+          />
+          <StatCard
+            icon={UserX}
+            label="Faltas hoy"
+            value={stats.dayAbsent}
+            tint="bg-rose-100 text-rose-700"
+            href="/prefect/today-attendance"
+          />
         </div>
       </div>
 
-      {/* Niños/Niñas + Presentes/Faltas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Incidencias y avisos — 2 columnas en desktop (en la app van
+          apilados uno debajo del otro por el ancho de pantalla). */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardBody>
-            <p className="text-xs text-text-secondary mb-3">Alumnado</p>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Mars size={20} className="text-sky-600" />
-                <span className="text-lg font-bold text-text-primary">{stats.maleCount}</span>
-                <span className="text-sm text-text-secondary">Niños</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Venus size={20} className="text-pink-500" />
-                <span className="text-lg font-bold text-text-primary">{stats.femaleCount}</span>
-                <span className="text-sm text-text-secondary">Niñas</span>
-              </div>
-            </div>
+            <h3 className="text-sm font-semibold text-text-secondary mb-3">
+              Últimas Incidencias
+            </h3>
+            {data.recentConductLogs.length === 0 ? (
+              <p className="text-sm text-text-secondary">Sin incidencias recientes.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {data.recentConductLogs.map((log, i) => (
+                  <li key={log._id || i} className="py-2.5 flex items-start gap-3">
+                    <Badge variant={log.eventType === "merit" ? "emerald" : "rose"}>
+                      {log.eventType === "merit" ? "Mérito" : "Demérito"}
+                    </Badge>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-text-primary">
+                        {log.studentName || "Alumno"}
+                      </p>
+                      <p className="text-xs text-text-secondary truncate">{log.description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardBody>
         </Card>
-        {/* Card enlazada → drill-down de los registros de hoy (entry/exit
-            por alumno con foto) en /prefect/today-attendance. */}
-        <Link href="/prefect/today-attendance">
-          <Card className="h-full hover:shadow-md transition-shadow">
-            <CardBody className="h-full">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-text-secondary">Asistencia de hoy</p>
-                <ChevronRight size={14} className="text-slate-400" />
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <UserCheck size={20} className="text-emerald-600" />
-                  <span className="text-lg font-bold text-text-primary">{stats.dayPresent}</span>
-                  <span className="text-sm text-text-secondary">Presentes</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <UserX size={20} className="text-rose-500" />
-                  <span className="text-lg font-bold text-text-primary">{stats.dayAbsent}</span>
-                  <span className="text-sm text-text-secondary">Faltas</span>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-        </Link>
+
+        <Card>
+          <CardBody>
+            <h3 className="text-sm font-semibold text-text-secondary mb-3">
+              Avisos Recientes
+            </h3>
+            {data.recentAnnouncements.length === 0 ? (
+              <p className="text-sm text-text-secondary">Sin avisos recientes.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {data.recentAnnouncements.map((a) => (
+                  <li
+                    key={a._id}
+                    className={`py-2.5 pl-3 border-l-4 ${
+                      a.priority === "urgent" ? "border-rose-500" : "border-slate-200"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-text-primary">{a.title}</p>
+                    <p className="text-xs text-text-secondary truncate">{a.message}</p>
+                    {a.sender && (
+                      <p className="text-[11px] text-text-muted mt-1">De: {a.sender}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardBody>
+        </Card>
       </div>
-
-      {/* Últimas incidencias */}
-      <Card>
-        <CardBody>
-          <h3 className="text-sm font-semibold text-text-secondary mb-3">
-            Últimas Incidencias
-          </h3>
-          {data.recentConductLogs.length === 0 ? (
-            <p className="text-sm text-text-secondary">Sin incidencias recientes.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {data.recentConductLogs.map((log, i) => (
-                <li key={log._id || i} className="py-2.5 flex items-start gap-3">
-                  <Badge variant={log.eventType === "merit" ? "emerald" : "rose"}>
-                    {log.eventType === "merit" ? "Mérito" : "Demérito"}
-                  </Badge>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-text-primary">
-                      {log.studentName || "Alumno"}
-                    </p>
-                    <p className="text-xs text-text-secondary truncate">{log.description}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardBody>
-      </Card>
-
-      {/* Avisos recientes */}
-      <Card>
-        <CardBody>
-          <h3 className="text-sm font-semibold text-text-secondary mb-3">
-            Avisos Recientes
-          </h3>
-          {data.recentAnnouncements.length === 0 ? (
-            <p className="text-sm text-text-secondary">Sin avisos recientes.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {data.recentAnnouncements.map((a) => (
-                <li
-                  key={a._id}
-                  className={`py-2.5 pl-3 border-l-4 ${
-                    a.priority === "urgent" ? "border-rose-500" : "border-slate-200"
-                  }`}
-                >
-                  <p className="text-sm font-semibold text-text-primary">{a.title}</p>
-                  <p className="text-xs text-text-secondary truncate">{a.message}</p>
-                  {a.sender && (
-                    <p className="text-[11px] text-text-muted mt-1">De: {a.sender}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardBody>
-      </Card>
     </div>
   );
 }
