@@ -40,6 +40,7 @@ import {
   ScrollText,
   DoorOpen,
   AlertTriangle,
+  Activity,
   Mars,
   Venus,
   type LucideIcon,
@@ -229,19 +230,34 @@ export default function PrefectDashboardPage() {
       </div>
 
       {/* Incidencias y avisos — 2 columnas en desktop (en la app van
-          apilados uno debajo del otro por el ancho de pantalla). */}
+          apilados uno debajo del otro por el ancho de pantalla). Para
+          romper el look monocromático: header con ícono en caja
+          tintada (ámbar = incidencias, azul = avisos) + chip contador
+          a la derecha; los avisos usan borde lateral sky en vez de
+          gris y las filas responden al hover. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
+        <Card className="h-full">
           <CardBody>
-            <h3 className="text-sm font-semibold text-text-secondary mb-3">
-              Últimas Incidencias
-            </h3>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 text-amber-700 shrink-0">
+                <Activity size={16} />
+              </div>
+              <h3 className="text-sm font-bold text-text-primary">
+                Últimas Incidencias
+              </h3>
+              <Badge variant="amber" className="ml-auto">
+                {data.recentConductLogs.length}
+              </Badge>
+            </div>
             {data.recentConductLogs.length === 0 ? (
               <p className="text-sm text-text-secondary">Sin incidencias recientes.</p>
             ) : (
               <ul className="divide-y divide-slate-100">
                 {data.recentConductLogs.map((log, i) => (
-                  <li key={log._id || i} className="py-2.5 flex items-start gap-3">
+                  <li
+                    key={log._id || i}
+                    className="py-2.5 -mx-2 px-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-3"
+                  >
                     <Badge variant={log.eventType === "merit" ? "emerald" : "rose"}>
                       {log.eventType === "merit" ? "Mérito" : "Demérito"}
                     </Badge>
@@ -258,11 +274,19 @@ export default function PrefectDashboardPage() {
           </CardBody>
         </Card>
 
-        <Card>
+        <Card className="h-full">
           <CardBody>
-            <h3 className="text-sm font-semibold text-text-secondary mb-3">
-              Avisos Recientes
-            </h3>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-sky-100 text-sky-700 shrink-0">
+                <Megaphone size={16} />
+              </div>
+              <h3 className="text-sm font-bold text-text-primary">
+                Avisos Recientes
+              </h3>
+              <Badge variant="sky" className="ml-auto">
+                {data.recentAnnouncements.length}
+              </Badge>
+            </div>
             {data.recentAnnouncements.length === 0 ? (
               <p className="text-sm text-text-secondary">Sin avisos recientes.</p>
             ) : (
@@ -270,8 +294,8 @@ export default function PrefectDashboardPage() {
                 {data.recentAnnouncements.map((a) => (
                   <li
                     key={a._id}
-                    className={`py-2.5 pl-3 border-l-4 ${
-                      a.priority === "urgent" ? "border-rose-500" : "border-slate-200"
+                    className={`py-2.5 pl-3 border-l-4 rounded-r-lg hover:bg-slate-50 transition-colors ${
+                      a.priority === "urgent" ? "border-rose-500" : "border-sky-400"
                     }`}
                   >
                     <p className="text-sm font-semibold text-text-primary">{a.title}</p>
