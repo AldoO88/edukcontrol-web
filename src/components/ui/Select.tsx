@@ -29,9 +29,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           className={`
             w-full px-3 py-2 text-sm rounded-xl border
             bg-white text-text-primary
-            focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+            {/* Foco reforzado (Fase F a11y): accent-dark en vez de
+                accent/30 — indicador de foco con contraste ≥3:1. */}
+            focus:outline-none focus:ring-2 focus:ring-accent-dark/40 focus:border-accent-dark
             disabled:bg-slate-50 disabled:text-text-muted disabled:cursor-not-allowed
-            ${error ? "border-error focus:ring-error/30 focus:border-error" : "border-border"}
+            ${error ? "border-error focus:ring-error/50 focus:border-error" : "border-border"}
             ${className}
           `}
           {...props}

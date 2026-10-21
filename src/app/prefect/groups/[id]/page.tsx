@@ -408,7 +408,9 @@ export default function PrefectGroupDetailPage() {
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-colors ${
                 isActive
                   ? "bg-white text-indigo-600 font-bold shadow-sm"
-                  : "text-slate-500 font-medium hover:text-slate-700"
+                  // Inactivo con hover de fondo (Fase F): señal visual
+                  // de que la pestaña es clicable, además del color.
+                  : "text-slate-500 font-medium hover:text-slate-700 hover:bg-white/60"
               }`}
             >
               <Icon size={16} />
@@ -477,7 +479,10 @@ export default function PrefectGroupDetailPage() {
                 const isOverriding = overrideId === student._id;
                 const fullName = `${student.first_name || ""} ${student.last_name || ""}`.trim();
                 return (
-                  <Card key={student._id}>
+                  // Hover de fila (Fase F): la card contiene la acción
+                  // "Marcar" — el hover señala que es interactiva,
+                  // igual que en las demás listas.
+                  <Card key={student._id} className="transition-shadow hover:shadow-md">
                     <CardBody>
                       {/* Fila del alumno — foto en 64px: con 72px la
                           foto jalaba la altura del card (104px) y

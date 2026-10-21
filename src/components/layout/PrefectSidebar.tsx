@@ -95,7 +95,7 @@ export function PrefectSidebar({ isCollapsed = false }: PrefectSidebarProps = {}
               EdukControl
             </span>
             {user?.role && (
-              <span className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">
+              <span className="text-xs uppercase tracking-wider text-text-muted font-semibold">
                 {user.role.replace("_", " ")}
               </span>
             )}
@@ -103,8 +103,10 @@ export function PrefectSidebar({ isCollapsed = false }: PrefectSidebarProps = {}
         )}
       </div>
 
-      {/* Navegación */}
-      <nav className="flex-1 overflow-y-auto py-4">
+      {/* Navegación — aria-label distingue este landmark <nav> de
+          otros (breadcrumb, etc.) para lectores de pantalla (Fase F
+          a11y). */}
+      <nav aria-label="Menú principal" className="flex-1 overflow-y-auto py-4">
         {prefectSections.map((section) => (
           <div key={section.title} className="mb-4">
             {!isCollapsed && (
@@ -122,6 +124,11 @@ export function PrefectSidebar({ isCollapsed = false }: PrefectSidebarProps = {}
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      // Marca la ruta ACTIVA para lectores de pantalla
+                      // (WCAG 4.1.2 / skill accessibility): el estilo
+                      // visual ya lo indicaba, ahora también el árbol de
+                      // accesibilidad.
+                      aria-current={isActive ? "page" : undefined}
                       className={`
                         flex items-center gap-3 px-4 py-2.5 text-sm font-medium
                         transition-colors rounded-r-lg

@@ -65,7 +65,7 @@ export function LocationChips({ value, onChange }: LocationChipsProps) {
           }}
           placeholder="Ej. Salón de Inglés, Sala de Dirección..."
           maxLength={120}
-          className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+          className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-transparent"
         />
       )}
     </div>

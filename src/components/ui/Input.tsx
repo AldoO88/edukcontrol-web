@@ -29,10 +29,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               w-full px-3 py-2 text-sm rounded-xl border
               bg-white text-text-primary
               placeholder:text-text-muted
-              focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+              {/* Foco reforzado (Fase F a11y): ring y borde en
+                  accent-dark (3.9:1 sobre blanco — AA para UI); el
+                  accent sky al 30% era casi invisible. */}
+              focus:outline-none focus:ring-2 focus:ring-accent-dark/40 focus:border-accent-dark
               disabled:bg-slate-50 disabled:text-text-muted disabled:cursor-not-allowed
               ${icon ? "pl-10" : ""}
-              ${error ? "border-error focus:ring-error/30 focus:border-error" : "border-border"}
+              ${error ? "border-error focus:ring-error/50 focus:border-error" : "border-border"}
               ${className}
             `}
             {...props}

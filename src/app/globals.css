@@ -51,3 +51,38 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* ============================================================
+   FASE F — interacción y accesibilidad (skill accessibility/WCAG 2.2)
+
+   1) Foco visible GLOBAL (:focus-visible, WCAG 2.4.7): cualquier
+      elemento interactivo (botones, links, cards navegables) muestra
+      un contorno de 2px en color de marca con offset de 2px. Se usa
+      :focus-visible (no :focus) para que el foco NO aparezca al
+      hacer click con el ratón, solo al navegar con teclado. Contraste
+      del contorno: --accent-dark #0284c7 da ~3.9:1 sobre fondo claro
+      y ~4.3:1 sobre el primario oscuro (mínimo AA para UI: 3:1).
+      Los inputs conservan su propio focus:ring (clase con mayor
+      especificidad que esta regla) — ver Input/Select/TextArea.
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   2) prefers-reduced-motion (WCAG 2.3.3 / skill accessibility):
+      quien tenga reducción de movimiento en el SO recibe transiciones
+      y animaciones instantáneas (0.01ms) — el contenido y las
+      respuestas a interacción siguen funcionando, solo sin movimiento.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
