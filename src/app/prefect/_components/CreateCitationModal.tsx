@@ -169,7 +169,7 @@ export function CreateCitationModal({
             rows={3}
             placeholder="Describe el motivo del citatorio..."
           />
-          <p className="text-[11px] text-slate-400 mt-1 text-right">
+          <p className="text-xs text-slate-400 mt-1 text-right">
             {reason.length} / 1000
           </p>
         </div>

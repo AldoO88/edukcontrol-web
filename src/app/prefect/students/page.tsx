@@ -101,7 +101,7 @@ export default function PrefectStudentsPage() {
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {students.map((student) => {
             const fullName =
               `${student.first_name || ""} ${student.last_name || ""}`.trim();

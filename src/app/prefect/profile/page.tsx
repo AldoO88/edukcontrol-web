@@ -147,12 +147,12 @@ export default function PrefectProfilePage() {
             {/* Contacto */}
             <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
               <p className="flex items-center gap-2.5 text-sm font-semibold text-text-primary">
-                <Phone size={15} className="text-slate-400" />
+                <Phone size={16} className="text-slate-400" />
                 Tel: {phone}
               </p>
               <div className="border-t border-slate-200" />
               <p className="flex items-center gap-2.5 text-sm font-semibold text-text-primary">
-                <Mail size={15} className="text-slate-400" />
+                <Mail size={16} className="text-slate-400" />
                 {email}
               </p>
             </div>
@@ -234,7 +234,7 @@ export default function PrefectProfilePage() {
               isLoading={isSubmitting}
               className="w-full"
             >
-              <Lock size={15} className="mr-1.5" />
+              <Lock size={16} className="mr-1.5" />
               {isSubmitting ? "Actualizando..." : "Actualizar Contraseña"}
             </Button>
           </CardBody>

@@ -41,7 +41,7 @@ const LEARNING_STYLE_LABELS: Record<string, string> = {
 // Título de sección (versión uppercase/lupado del SectionTitle de RN).
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-4 mb-2">
+    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-4 mb-2">
       {children}
     </p>
   );
@@ -85,7 +85,7 @@ export function TrabajoSocialModal({
         {/* Estilo de aprendizaje */}
         <SectionTitle>Estilo de Aprendizaje</SectionTitle>
         <InfoCard isEmpty={!hi.learning_style}>
-          <span className="inline-block px-3 py-1 rounded-full bg-sky-600 text-white text-[11px] font-extrabold tracking-wider">
+          <span className="inline-block px-3 py-1 rounded-full bg-sky-600 text-white text-xs font-extrabold tracking-wider">
             {LEARNING_STYLE_LABELS[hi.learning_style || ""] || hi.learning_style}
           </span>
           {hi.style_hint && (
@@ -105,11 +105,11 @@ export function TrabajoSocialModal({
           isEmpty={!hi.disability_type || hi.disability_type === "ninguna"}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-[11px] font-extrabold tracking-wide">
+            <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-xs font-extrabold tracking-wide">
               {DISABILITY_LABELS[hi.disability_type || ""] || hi.disability_type}
             </span>
             {hi.disability_severity && (
-              <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-[11px] font-extrabold tracking-wide">
+              <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-extrabold tracking-wide">
                 {SEVERITY_LABELS[hi.disability_severity] || hi.disability_severity}
               </span>
             )}
@@ -122,7 +122,7 @@ export function TrabajoSocialModal({
           <ul className="flex flex-wrap gap-x-5 gap-y-1">
             {(hi.medications || []).map((med, idx) => (
               <li key={idx} className="flex items-center gap-1.5 text-slate-700 text-sm">
-                <Pill size={13} className="text-emerald-600" />
+                <Pill size={14} className="text-emerald-600" />
                 {med}
               </li>
             ))}
@@ -157,7 +157,7 @@ export function TrabajoSocialModal({
                         {alert.label || config.label}
                       </p>
                       <span
-                        className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+                        className="px-1.5 py-0.5 rounded text-xs font-bold uppercase"
                         style={{ backgroundColor: `${config.color}15`, color: config.color }}
                       >
                         {config.label}

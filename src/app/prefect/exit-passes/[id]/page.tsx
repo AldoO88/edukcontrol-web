@@ -110,7 +110,7 @@ export default function PrefectExitPassDetailPage() {
       {/* Héroe: alumno + hora de salida */}
       <Card className="border-l-4 border-l-emerald-500">
         <CardBody className="flex items-center gap-4">
-          <StudentAvatar photoUrl={student?.photoUrl} name={fullName} size={72} />
+          <StudentAvatar photoUrl={student?.photoUrl} name={fullName} size={64} />
           <div className="min-w-0 flex-1">
             {studentId ? (
               <Link
@@ -131,7 +131,7 @@ export default function PrefectExitPassDetailPage() {
             <p className="text-2xl font-extrabold text-emerald-600">
               {formatTime12(exitPass.exit_time) || "—"}
             </p>
-            <p className="text-[10px] text-slate-400">hora de salida</p>
+            <p className="text-xs text-slate-400">hora de salida</p>
           </div>
         </CardBody>
       </Card>
@@ -141,7 +141,7 @@ export default function PrefectExitPassDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
         {/* Quién retira */}
         <Card className="border-l-4 border-l-sky-500">
-          <CardBody className="space-y-3">
+          <CardBody className="space-y-4">
             <p className="text-sm font-bold text-text-primary">Quien retira</p>
             <DetailRow icon={UserRound} label="Nombre" value={exitPass.guardian_name} />
             <DetailRow
@@ -158,7 +158,7 @@ export default function PrefectExitPassDetailPage() {
 
         {/* Motivo */}
         <Card className="border-l-4 border-l-amber-500">
-          <CardBody className="space-y-3">
+          <CardBody className="space-y-4">
             <p className="text-sm font-bold text-text-primary">Motivo de salida</p>
             <DetailRow
               icon={UserCheck}
@@ -171,7 +171,7 @@ export default function PrefectExitPassDetailPage() {
 
         {/* Registro */}
         <Card>
-          <CardBody className="space-y-3">
+          <CardBody className="space-y-4">
             <p className="text-sm font-bold text-text-primary">Registro</p>
             <DetailRow
               icon={Calendar}

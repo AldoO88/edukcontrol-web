@@ -59,7 +59,7 @@ export function ConductModal({
       <div className="max-h-[70vh] overflow-y-auto pr-1">
         {/* Score card */}
         <div className="bg-white rounded-2xl p-4 mb-4 border border-slate-100 text-center">
-          <p className="text-slate-500 text-[11px] font-bold uppercase tracking-wider">
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
             Score de Conducta
           </p>
           <p className="text-5xl font-extrabold mt-1" style={{ color }}>
@@ -74,25 +74,25 @@ export function ConductModal({
             />
           </div>
           <div className="flex justify-between w-full mt-1.5">
-            <span className="text-slate-400 text-[10px]">0</span>
-            <span className="text-slate-400 text-[10px]">{baseline}</span>
+            <span className="text-slate-400 text-xs">0</span>
+            <span className="text-slate-400 text-xs">{baseline}</span>
           </div>
         </div>
 
         {/* Resumen deméritos/méritos */}
         {hasSummary && (
           <div className="mb-4">
-            <p className="text-slate-500 text-[11px] font-bold uppercase tracking-wider mb-2">
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">
               Resumen
             </p>
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-white rounded-2xl p-3 border border-slate-100 text-center">
-                <p className="text-[10px] font-bold uppercase text-rose-600">Deméritos</p>
+                <p className="text-xs font-bold uppercase text-rose-600">Deméritos</p>
                 <p className="text-3xl font-extrabold text-rose-600">{demerits.length}</p>
                 <p className="text-slate-400 text-xs">−{demeritsPoints} pts</p>
               </div>
               <div className="bg-white rounded-2xl p-3 border border-slate-100 text-center">
-                <p className="text-[10px] font-bold uppercase text-emerald-600">Méritos</p>
+                <p className="text-xs font-bold uppercase text-emerald-600">Méritos</p>
                 <p className="text-3xl font-extrabold text-emerald-600">{merits.length}</p>
                 <p className="text-slate-400 text-xs">+{meritsPoints} pts</p>
               </div>
@@ -108,7 +108,7 @@ export function ConductModal({
         )}
 
         {/* Historial */}
-        <p className="text-slate-500 text-[11px] font-bold uppercase tracking-wider mb-2">
+        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">
           Historial de Reportes
         </p>
         {conductLogs.length > 0 ? (
@@ -134,7 +134,7 @@ export function ConductModal({
                     )}
                   </div>
                   <div className="ml-3 flex-1 min-w-0">
-                    <p className="text-slate-900 text-[13px] font-semibold">
+                    <p className="text-slate-900 text-sm font-semibold">
                       {log.description || "Sin descripción"}
                     </p>
                     <p className="text-slate-400 text-xs mt-0.5">

@@ -19,7 +19,10 @@ export function PageHeader({ title, subtitle, action, children }: PageHeaderProp
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-text-primary">{title}</h1>
+        {/* Título con escala por breakpoint (Fase E web): 2xl en
+            pantallas normales y 3xl en desktop ancho (xl ≥1280px)
+            para que la jerarquía de la página no quede plana. */}
+        <h1 className="text-2xl xl:text-3xl font-bold text-text-primary">{title}</h1>
         {subtitle && (
           <p className="text-sm text-text-secondary mt-1">{subtitle}</p>
         )}

@@ -148,7 +148,7 @@ export default function PrefectCitationDetailPage() {
       {norm.rescheduleRequested && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
           <p className="flex items-center gap-2 text-sm font-bold text-amber-700">
-            <AlertTriangle size={15} />
+            <AlertTriangle size={16} />
             El tutor solicitó reagendar
           </p>
           {norm.rescheduleReason && (
@@ -163,7 +163,7 @@ export default function PrefectCitationDetailPage() {
         <div className={hasAside ? "lg:col-span-2 space-y-4" : "space-y-4"}>
           {/* Héroe: estado + datos clave */}
           <Card className="border-l-4 border-l-sky-500">
-            <CardBody className="space-y-3">
+            <CardBody className="space-y-4">
               <div className="flex items-center gap-2">
                 <Badge variant={STATUS_VARIANT[citation.status] || "slate"}>
                   {CITATION_STATUS_LABELS[citation.status] || citation.status}
@@ -203,7 +203,7 @@ export default function PrefectCitationDetailPage() {
                 <div className="flex items-start gap-2">
                   <Calendar size={14} className="text-slate-400 mt-0.5" />
                   <div>
-                    <p className="text-[10px] text-slate-400">Fecha</p>
+                    <p className="text-xs text-slate-400">Fecha</p>
                     <p className="text-sm font-semibold text-text-primary">
                       {formatShortDate(norm.date) || "—"}
                     </p>
@@ -212,7 +212,7 @@ export default function PrefectCitationDetailPage() {
                 <div className="flex items-start gap-2">
                   <Clock size={14} className="text-slate-400 mt-0.5" />
                   <div>
-                    <p className="text-[10px] text-slate-400">Hora</p>
+                    <p className="text-xs text-slate-400">Hora</p>
                     <p className="text-sm font-semibold text-text-primary">
                       {formatTime12(norm.time) || "—"}
                     </p>
@@ -221,7 +221,7 @@ export default function PrefectCitationDetailPage() {
                 <div className="flex items-start gap-2">
                   <MapPin size={14} className="text-slate-400 mt-0.5" />
                   <div className="min-w-0">
-                    <p className="text-[10px] text-slate-400">Lugar</p>
+                    <p className="text-xs text-slate-400">Lugar</p>
                     <p className="text-sm font-semibold text-text-primary truncate">
                       {norm.location || "—"}
                     </p>
@@ -231,14 +231,14 @@ export default function PrefectCitationDetailPage() {
 
               {norm.reason && (
                 <div className="pt-2 border-t border-slate-100">
-                  <p className="text-[10px] text-slate-400 mb-0.5">Motivo / notas</p>
+                  <p className="text-xs text-slate-400 mb-0.5">Motivo / notas</p>
                   <p className="text-sm text-text-primary whitespace-pre-wrap">
                     {norm.reason}
                   </p>
                 </div>
               )}
 
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-slate-400">
                 Creado por {norm.creatorName || "—"}
                 {citation.createdAt ? ` · ${formatFullDateTime(citation.createdAt)}` : ""}
               </p>
@@ -289,7 +289,7 @@ export default function PrefectCitationDetailPage() {
                     </span>
                     <p className="text-sm font-bold text-text-primary">Historial</p>
                   </div>
-                  <ol className="space-y-3 border-l-2 border-slate-100 pl-4 ml-1">
+                  <ol className="space-y-4 border-l-2 border-slate-100 pl-4 ml-1">
                     {norm.history.map((entry, idx) => (
                       <li key={idx} className="relative">
                         <span className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-sky-500" />
@@ -299,7 +299,7 @@ export default function PrefectCitationDetailPage() {
                             entry.status ||
                             "Evento"}
                         </p>
-                        <p className="text-[11px] text-slate-400">
+                        <p className="text-xs text-slate-400">
                           {formatFullDateTime(entry.timestamp)}
                         </p>
                         {(entry.reason || entry.note) && (

@@ -206,7 +206,7 @@ export function CreateReportModal({
                 {eventType === "merit" ? "+" : "-"}
                 {points}
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-slate-400">
                 rango {range.min}–{range.max} pts
               </p>
             </div>
@@ -231,7 +231,7 @@ export function CreateReportModal({
             rows={4}
             placeholder="Describe el hecho observado..."
           />
-          <p className="text-[11px] text-slate-400 mt-1 text-right">
+          <p className="text-xs text-slate-400 mt-1 text-right">
             {description.length} / 5000
           </p>
         </div>

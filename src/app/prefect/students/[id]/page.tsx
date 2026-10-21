@@ -135,13 +135,13 @@ function ModalTrigger({
       <span className="flex-1 text-sm font-bold text-text-primary">{title}</span>
       {count ? (
         <span
-          className="px-2.5 py-1 rounded-full text-[10px] font-extrabold text-white"
+          className="px-2.5 py-1 rounded-full text-xs font-extrabold text-white"
           style={{ backgroundColor: accent }}
         >
           {count}
         </span>
       ) : null}
-      <ChevronRight size={18} className="text-slate-400" />
+      <ChevronRight size={20} className="text-slate-400" />
     </button>
   );
 }

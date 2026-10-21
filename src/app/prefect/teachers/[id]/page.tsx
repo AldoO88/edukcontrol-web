@@ -118,7 +118,7 @@ export default function PrefectTeacherDetailPage() {
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
                       style={{ backgroundColor: hexToRgba(hex, 0.1), color: hex }}
                     >
-                      <SubjectIcon size={13} color={hex} />
+                      <SubjectIcon size={14} color={hex} />
                       {sub.name}
                     </span>
                   );
@@ -214,8 +214,8 @@ export default function PrefectTeacherDetailPage() {
                               </div>
                             </div>
                             {timeRange && (
-                              <span className="flex items-center gap-1 text-[10px] text-slate-400 shrink-0">
-                                <Clock size={10} />
+                              <span className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
+                                <Clock size={12} />
                                 {timeRange}
                               </span>
                             )}

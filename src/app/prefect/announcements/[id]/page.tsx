@@ -142,14 +142,14 @@ export default function PrefectAnnouncementDetailPage() {
         <div className={canEdit ? "lg:col-span-2 space-y-4" : "space-y-4"}>
           {/* Tarjeta héroe: prioridad + audiencia + emisor + fecha */}
           <Card className={`border-l-4 ${isUrgent ? "border-l-rose-500" : "border-l-sky-500"}`}>
-            <CardBody className="space-y-3">
+            <CardBody className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Badge variant={isUrgent ? "rose" : "sky"}>
                     {isUrgent ? "Urgente" : "Informativo"}
                   </Badge>
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-                    <Users size={13} />
+                    <Users size={14} />
                     {announcement.targetType === "group"
                       ? `A ${groupLabels.length} grupo${groupLabels.length === 1 ? "" : "s"}`
                       : announcement.targetType === "student"
@@ -202,7 +202,7 @@ export default function PrefectAnnouncementDetailPage() {
               {/* Progreso de lecturas (si el backend lo trae) */}
               {totalRecipients > 0 && (
                 <div>
-                  <div className="flex justify-between text-[10px] font-semibold mb-1">
+                  <div className="flex justify-between text-xs font-semibold mb-1">
                     <span className="text-text-secondary">Lecturas</span>
                     <span className="text-emerald-600">
                       {readCount}/{totalRecipients}

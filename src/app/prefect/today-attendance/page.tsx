@@ -350,7 +350,7 @@ export default function PrefectTodayAttendancePage() {
             <CardBody>
               <div className="flex items-center justify-between mb-1">
                 <p className="flex items-center gap-1.5 text-sm font-bold text-rose-700">
-                  <UserX size={15} />
+                  <UserX size={16} />
                   Faltas
                 </p>
                 <span className="text-sm font-extrabold text-rose-600">{absentRows.length}</span>

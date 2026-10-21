@@ -102,7 +102,7 @@ export function EditAnnouncementModal({
             maxLength={200}
             placeholder="Título del aviso"
           />
-          <p className="text-[11px] text-slate-400 mt-1 text-right">{title.length} / 200</p>
+          <p className="text-xs text-slate-400 mt-1 text-right">{title.length} / 200</p>
         </div>
 
         {/* Mensaje */}
@@ -115,7 +115,7 @@ export function EditAnnouncementModal({
             rows={6}
             placeholder="Contenido del aviso..."
           />
-          <p className="text-[11px] text-slate-400 mt-1 text-right">
+          <p className="text-xs text-slate-400 mt-1 text-right">
             {message.length} / 5000
           </p>
         </div>

@@ -166,7 +166,7 @@ export default function PrefectReportDetailPage() {
                   : "border-l-rose-500"
             }`}
           >
-            <CardBody className="space-y-3">
+            <CardBody className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   {/* Alumno → ficha */}
@@ -215,9 +215,9 @@ export default function PrefectReportDetailPage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-slate-100">
+              <div className="flex items-center gap-4 text-xs text-slate-400 pt-2 border-t border-slate-100">
                 <span className="flex items-center gap-1">
-                  <Calendar size={11} />
+                  <Calendar size={12} />
                   {formatShortDate(report.createdAt)}
                 </span>
                 {report.createdAt && <span>{formatFullDateTime(report.createdAt)}</span>}
@@ -239,13 +239,13 @@ export default function PrefectReportDetailPage() {
                     }}
                     className="flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:text-sky-700"
                   >
-                    <Pencil size={13} /> Editar
+                    <Pencil size={14} /> Editar
                   </button>
                 )}
               </div>
 
               {isEditingDesc ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <TextArea
                     value={draftDesc}
                     onChange={(e) => setDraftDesc(e.target.value)}

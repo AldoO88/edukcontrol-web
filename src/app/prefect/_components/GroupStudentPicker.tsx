@@ -23,7 +23,7 @@ interface GroupStudentPickerProps {
 // Label del paso ("1. Selecciona un grupo").
 function StepLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
       {children}
     </p>
   );
@@ -96,7 +96,7 @@ export function GroupStudentPicker({
                         isActive ? "bg-sky-50" : "hover:bg-slate-50"
                       }`}
                     >
-                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={36} />
+                      <StudentAvatar photoUrl={student.photoUrl} name={fullName} size={40} />
                       <span className="flex-1 min-w-0">
                         <span className="block text-sm font-semibold text-text-primary truncate">
                           {student.last_name}, {student.first_name}

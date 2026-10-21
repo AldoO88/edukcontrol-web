@@ -18,7 +18,11 @@ export default function PrefectLayout({ children }: { children: React.ReactNode 
         <PrefectSidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-y-auto p-6 bg-background">
+          {/* Padding responsive del shell (Fase E web): en móvil
+              compacto px-4, en desktop crece a px-6/px-8 — el
+              contenido respira según el ancho disponible en vez del
+              p-6 fijo de todas las pantallas. */}
+          <main className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5 lg:px-8 lg:py-6 bg-background">
             <div className="mb-4">
               <Breadcrumb />
             </div>

@@ -79,7 +79,7 @@ export default function PrefectAttendanceSummaryPage() {
       <div className="grid grid-cols-2 gap-3">
         <Card className="border-l-4 border-l-rose-500">
           <CardBody>
-            <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-rose-600">
+            <p className="flex items-center gap-1.5 text-xs font-bold uppercase text-rose-600">
               <CalendarX2 size={12} />
               Total de Faltas
             </p>
@@ -90,7 +90,7 @@ export default function PrefectAttendanceSummaryPage() {
         </Card>
         <Card className="border-l-4 border-l-amber-500">
           <CardBody>
-            <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-amber-600">
+            <p className="flex items-center gap-1.5 text-xs font-bold uppercase text-amber-600">
               <Users size={12} />
               Alumnos Afectados
             </p>
@@ -105,7 +105,7 @@ export default function PrefectAttendanceSummaryPage() {
       <Card>
         <CardBody>
           <p className="flex items-center gap-1.5 text-sm font-bold text-text-primary mb-3">
-            <TrendingUp size={15} className="text-rose-500" />
+            <TrendingUp size={16} className="text-rose-500" />
             Alumnos más ausentes
           </p>
 
@@ -116,7 +116,7 @@ export default function PrefectAttendanceSummaryPage() {
               description="No hay inasistencias en el periodo consultado."
             />
           ) : (
-            <ol className="space-y-3">
+            <ol className="space-y-4">
               {ranked.map((student, index) => {
                 const absences = student.absenceCount || 0;
                 const pct = Math.max(Math.round((absences / maxAbsences) * 100), 8);
@@ -154,7 +154,7 @@ export default function PrefectAttendanceSummaryPage() {
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
+                          <p className="text-xs text-slate-400 mt-0.5">
                             {student.group || "—"}
                             {student.controlNumber ? ` • ${student.controlNumber}` : ""}
                           </p>

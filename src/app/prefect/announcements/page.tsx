@@ -255,7 +255,7 @@ export default function PrefectAnnouncementsPage() {
                           {isUrgent ? "Urgente" : "Informativo"}
                         </Badge>
                         {totalRecipients > 0 && (
-                          <span className="text-[10px] font-semibold text-emerald-600 shrink-0">
+                          <span className="text-xs font-semibold text-emerald-600 shrink-0">
                             {readCount}/{totalRecipients} leídos
                           </span>
                         )}

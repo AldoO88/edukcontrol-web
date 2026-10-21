@@ -190,12 +190,12 @@ export default function PrefectDashboardPage() {
             value={
               <span className="flex items-center gap-3 text-base">
                 <span className="flex items-center gap-1 font-bold text-text-primary">
-                  <Mars size={15} className="text-sky-600" aria-hidden />
+                  <Mars size={16} className="text-sky-600" aria-hidden />
                   <span className="sr-only">Niños: </span>
                   {stats.maleCount}
                 </span>
                 <span className="flex items-center gap-1 font-bold text-text-primary">
-                  <Venus size={15} className="text-pink-500" aria-hidden />
+                  <Venus size={16} className="text-pink-500" aria-hidden />
                   <span className="sr-only">Niñas: </span>
                   {stats.femaleCount}
                 </span>
@@ -301,7 +301,7 @@ export default function PrefectDashboardPage() {
                     <p className="text-sm font-semibold text-text-primary">{a.title}</p>
                     <p className="text-xs text-text-secondary truncate">{a.message}</p>
                     {a.sender && (
-                      <p className="text-[11px] text-text-muted mt-1">De: {a.sender}</p>
+                      <p className="text-xs text-text-muted mt-1">De: {a.sender}</p>
                     )}
                   </li>
                 ))}
