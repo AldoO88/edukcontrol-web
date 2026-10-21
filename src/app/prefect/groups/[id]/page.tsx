@@ -224,6 +224,10 @@ export default function PrefectGroupDetailPage() {
   //     las fronteras start/end (siempre alinean porque las mismas
   //     fronteras definen los slots; p. ej. 09:10-10:50 de un día y
   //     10:00-10:50 de otro parten el renglón en 09:10/10:00/10:50).
+  //     Excepción (paso 1.5): si un rango de N módulos NO lo parte
+  //     ningún día (todos los días tienen 11:10-12:50 de 2 módulos y
+  //     nadie corta en 12:00), se inyecta el corte interno para que
+  //     la fila se divida y aparezcan "Módulo 5"/"Módulo 6".
   //   - nameByRow: nombre de módulo ("Modulo 3") derivado de
   //     block_names[] cuando su cantidad coincide con las filas que
   //     abarca el slot; primera escritura gana.
@@ -243,6 +247,8 @@ export default function PrefectGroupDetailPage() {
     if (dayKeys.length === 0) return null;
 
     // 1. Fronteras (minutos) únicas de toda la semana → índice de fila.
+    // `let` + rebuildRowIndex: el paso 1.5 puede inyectar fronteras
+    // internas y hay que recalcular el índice de fila.
     const boundarySet = new Set<number>();
     for (const d of dayKeys) {
       for (const s of sched[d]) {
@@ -250,17 +256,58 @@ export default function PrefectGroupDetailPage() {
         boundarySet.add(s.endMinutes ?? toMinutes(s.end));
       }
     }
-    const boundaries = [...boundarySet].sort((a, b) => a - b);
-    const rowIndex = new Map<number, number>();
-    boundaries.forEach((m, i) => rowIndex.set(m, i));
+    let boundaries = [...boundarySet].sort((a, b) => a - b);
+    let rowIndex = new Map<number, number>();
+    const rebuildRowIndex = () => {
+      rowIndex = new Map();
+      boundaries.forEach((m, i) => rowIndex.set(m, i));
+    };
+    rebuildRowIndex();
 
     // Helper: filas [a, b) que abarca un slot (null si no alinea).
+    // Cierra sobre el rowIndex VIGENTE (reconstruido tras inyectar
+    // fronteras en el paso 1.5).
     const spanOf = (s: GroupScheduleSlot): [number, number] | null => {
       const a = rowIndex.get(s.startMinutes ?? toMinutes(s.start));
       const b = rowIndex.get(s.endMinutes ?? toMinutes(s.end));
       if (a == null || b == null || b <= a) return null;
       return [a, b];
     };
+
+    // 1.5. Fronteras internas sintéticas — FIX "no veo el Módulo 5
+    // y 6": si NINGÚN día parte un rango (p. ej. los 5 días tienen
+    // 11:10–12:50 de 2 módulos y nadie corta en 12:00), ese rango
+    // queda como UNA sola fila → el span del slot vale 1 y la
+    // condición `block_names.length === span` (2 ≠ 1) de renglón de
+    // abajo NO asigna los nombres → la columna "Módulo" se quedaba
+    // solo con el rango de horario. Se inyectan los cortes internos
+    // (división equitativa: los módulos del turno duran lo mismo,
+    // 50 min → 11:10/12:00/12:50) para partir la fila en dos; así
+    // nameByRow escribe "Módulo 5" y "Módulo 6" como en las filas
+    // 1–4. La celda del día NO cambia: ya se pinta con rowSpan, solo
+    // se parte la columna izquierda del renglón.
+    const extraBoundaries = new Set<number>();
+    for (const d of dayKeys) {
+      for (const s of sched[d]) {
+        if (s.type === "receso" || !s.block_names?.length) continue;
+        const span = spanOf(s);
+        if (!span) continue;
+        const [a, b] = span;
+        if (s.block_names.length <= b - a) continue;
+        const startMin = s.startMinutes ?? toMinutes(s.start);
+        const endMin = s.endMinutes ?? toMinutes(s.end);
+        const step = (endMin - startMin) / s.block_names.length;
+        for (let k = 1; k < s.block_names.length; k++) {
+          extraBoundaries.add(Math.round(startMin + step * k));
+        }
+      }
+    }
+    if (extraBoundaries.size > 0) {
+      boundaries = [...new Set([...boundaries, ...extraBoundaries])].sort(
+        (a, b) => a - b
+      );
+      rebuildRowIndex();
+    }
 
     // 2. Nombres de módulo (de block_names) + filas de receso.
     const nameByRow = new Map<number, string>();
