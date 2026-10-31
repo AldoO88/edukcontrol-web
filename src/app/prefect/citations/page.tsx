@@ -175,7 +175,7 @@ export default function PrefectCitationsPage() {
         </div>
         <div className="bg-emerald-50 rounded-xl p-3 text-center">
           <p className="text-lg font-bold text-emerald-700">{stats.completed}</p>
-          <p className="text-xs text-emerald-600">Atendidos</p>
+          <p className="text-xs text-emerald-700">Atendidos</p>
         </div>
       </div>
 
