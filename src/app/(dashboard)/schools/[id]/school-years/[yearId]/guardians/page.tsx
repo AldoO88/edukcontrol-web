@@ -67,10 +67,27 @@ const formatChildren = (g: Guardian) => {
   return list.map((s) => `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s._id).join(", ");
 };
 
-const isUserActive = (g: Guardian): boolean => {
-  if (!g.user_id) return false;
-  if (typeof g.user_id === "string") return true;
-  return g.user_id.isActive === true;
+// Estado REAL de la cuenta del tutor (fix 2026-11-01):
+//   - "Sin cuenta"  → no hay User vinculado (user_id ausente)
+//   - "Pendiente"   → User existe pero SIN password: nace con
+//                     isActive=true, así que isActive NO sirve como
+//                     señal de activación — el criterio es password.
+//   - "Activa"      → password_set=true (el tutor hizo OTP y fijó
+//                     su contraseña desde la app)
+//   - "Baja"        → User con isActive=false (baja explícita del
+//                     admin; puede tener password o no)
+const accountBadge = (g: Guardian) => {
+  if (!g.user_id) {
+    return { label: "Sin cuenta", cls: "bg-slate-100 text-slate-700" };
+  }
+  const u = typeof g.user_id === "object" ? g.user_id : null;
+  if (u && u.isActive === false) {
+    return { label: "Baja", cls: "bg-slate-100 text-slate-700" };
+  }
+  if (g.password_set) {
+    return { label: "Activa", cls: "bg-emerald-100 text-emerald-700" };
+  }
+  return { label: "Pendiente", cls: "bg-amber-100 text-amber-700" };
 };
 
 export default function GuardiansPage() {
@@ -351,7 +368,7 @@ export default function GuardiansPage() {
             bg="bg-emerald-100"
           />
           <StatTile
-            label="Con cuenta activa"
+            label="Activaron su cuenta"
             value={stats.con_cuenta_activa ?? 0}
             icon={<CheckCircle2 size={18} />}
             color="text-sky-700"
@@ -547,21 +564,16 @@ export default function GuardiansPage() {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          {g.user_id ? (
-                            isUserActive(g) ? (
-                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                                Activa
+                          {(() => {
+                            const badge = accountBadge(g);
+                            return (
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badge.cls}`}
+                              >
+                                {badge.label}
                               </span>
-                            ) : (
-                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                                Pendiente
-                              </span>
-                            )
-                          ) : (
-                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                              Sin cuenta
-                            </span>
-                          )}
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           {isActive ? (

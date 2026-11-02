@@ -109,8 +109,9 @@ export interface Guardian {
     last_name?: string;
   }>;
   // User tutor asociado (populado por GET /api/guardians y detail).
-  // Si está presente, se considera "Cuenta activa" solo si
-  // user_id.isActive === true.
+  // OJO (fix 2026-11-01): `user_id.isActive` NACE `true` en toda
+  // cuenta nueva — NO indica que el tutor haya activado. Para eso
+  // está `password_set` (abajo).
   user_id?: string | {
     _id: string;
     name?: string;
@@ -118,6 +119,10 @@ export interface Guardian {
     role?: string;
     isActive?: boolean;
   };
+  // Derivado por GET /api/guardians: true = el tutor YA fijó su
+  // contraseña (activó vía OTP). false = User existe pero sin
+  // password (nunca activó) o sin cuenta. Nunca viene el hash.
+  password_set?: boolean;
 }
 
 export interface Group {
