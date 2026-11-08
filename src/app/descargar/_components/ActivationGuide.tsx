@@ -67,7 +67,11 @@ export function ActivationGuide({ platform }: { platform: Platform }) {
           <strong>«¿Es tu primera vez? Activa tu cuenta aquí»</strong>.
           <ManualShot
             src={shots.bienvenido}
-            alt="Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña, el botón Continuar con Apple y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
+            alt={
+              platform === "ios"
+                ? "Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña, el botón Continuar con Apple y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
+                : "Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
+            }
             width={shots.width}
             height={shots.height}
           />
