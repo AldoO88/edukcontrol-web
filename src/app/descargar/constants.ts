@@ -1,9 +1,16 @@
 // Constantes compartidas de la página /descargar (server y client).
-export const APK_URL =
-  "https://github.com/AldoO88/edukcontrol-app/releases/download/v1.0.1/EdukControl-1.0.1.apk";
-export const APK_VERSION = "1.0.1";
-export const APK_SIZE = "103 MB";
+//
+// La app está publicada en AMBAS tiendas desde noviembre de 2026:
+// ya no se distribuye por APK de GitHub ni por TestFlight. Estos son
+// los enlaces oficiales de las tiendas (id de paquete Android
+// `net.edukcontrol.app`; Apple ID 6822113635 de App Store Connect).
 
-// App oficial de TestFlight en el App Store (Apple).
-export const TESTFLIGHT_URL =
-  "https://apps.apple.com/app/testflight/id899247664";
+// Google Play — Android.
+export const PLAY_URL =
+  "https://play.google.com/store/apps/details?id=net.edukcontrol.app";
+
+// App Store — iPhone y iPad.
+export const APP_STORE_URL = "https://apps.apple.com/app/id6822113635";
+
+// Versión publicada actualmente en las tiendas.
+export const APP_VERSION = "1.0.1";

@@ -1,17 +1,57 @@
-// Guía de activación de cuenta (primer ingreso) — compartida por el
-// panel Android y el panel iOS del selector de /descargar: el flujo es
-// idéntico en ambas plataformas (celular → código OTP por WhatsApp →
-// contraseña).
+// Guía de activación de cuenta (primer ingreso) — la recibe cada
+// panel del selector /descargar con su plataforma ("android" | "ios")
+// para mostrar las capturas de cada tienda. El flujo es idéntico en
+// ambas plataformas (celular → código OTP → contraseña); lo que
+// cambia son las capturas y la nota de "Continuar con Apple" (solo
+// iOS, ver DownloadPlatforms).
 //
-// El código OTP lo envía el backend vía Twilio WhatsApp, aunque el
-// botón en la app 1.0.1 aún dice "Enviar código por SMS" en las
-// capturas (la corrección a "WhatsApp" entra en 1.0.2) — por eso el
-// manual no cita ese label y habla directo del mensaje de WhatsApp.
+// Canal del código: SMS es el canal PRINCIPAL y garantizado (llega
+// como mensaje de texto, sin instalar nada — Guideline 4.2.3(i)) y
+// WhatsApp es una alternativa opcional que el usuario elige con el
+// selector de la pantalla de activación. Por eso el manual habla de
+// SMS primero y de WhatsApp como opción.
+//
+// Capturas de la app 1.0.1 publicada en tiendas: Android (emulador
+// Pixel_9) e iOS (simulador iPhone 17 Pro).
 
 import Image from "next/image";
 import { LegalSection } from "@/components/legal/LegalShell";
 
-export function ActivationGuide() {
+type Platform = "android" | "ios";
+
+// Rutas y dimensiones (px reales de la captura) por plataforma.
+const SHOTS: Record<
+  Platform,
+  {
+    bienvenido: string;
+    activacion: string;
+    codigo: string;
+    contrasena: string;
+    width: number;
+    height: number;
+  }
+> = {
+  android: {
+    bienvenido: "/manual-android-bienvenido.png",
+    activacion: "/manual-android-activacion.png",
+    codigo: "/manual-android-codigo.png",
+    contrasena: "/manual-android-contrasena.png",
+    width: 1080,
+    height: 2424,
+  },
+  ios: {
+    bienvenido: "/manual-ios-bienvenido.png",
+    activacion: "/manual-ios-activacion.png",
+    codigo: "/manual-ios-codigo.png",
+    contrasena: "/manual-ios-contrasena.png",
+    width: 1206,
+    height: 2622,
+  },
+};
+
+export function ActivationGuide({ platform }: { platform: Platform }) {
+  const shots = SHOTS[platform];
+
   return (
     <LegalSection heading="Activar tu cuenta (primer ingreso)">
       <p>
@@ -19,36 +59,45 @@ export function ActivationGuide() {
         pasos:
       </p>
 
-      {/* Tutorial paso a paso con capturas del APK 1.0.1 (tomadas en
-          emulador Android con teléfono ficticio 5512345678). */}
+      {/* Tutorial paso a paso con capturas de la app publicada (1.0.1)
+          en cada tienda. */}
       <ol className="list-decimal ml-5 space-y-4">
         <li>
           Abre EdukControl y en la pantalla <strong>Bienvenido</strong> toca{" "}
           <strong>«¿Es tu primera vez? Activa tu cuenta aquí»</strong>.
           <ManualShot
-            src="/manual-activar-cuenta.png"
-            alt="Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña, y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
+            src={shots.bienvenido}
+            alt="Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña, el botón Continuar con Apple y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
+            width={shots.width}
+            height={shots.height}
           />
         </li>
         <li>
           Escribe el <strong>celular de 10 dígitos</strong> con el que estás
-          registrado en la institución y toca el botón para enviar el código.
+          registrado en la institución. Elige dónde recibir tu código:{" "}
+          <strong>SMS</strong> (por defecto — llega como mensaje de texto, no
+          necesitas instalar nada) o <strong>WhatsApp</strong> (opcional), y
+          toca <strong>«Enviar código»</strong>.
           <ManualShot
-            src="/manual-activacion-celular.png"
-            alt="Pantalla Activa tu cuenta con el campo de teléfono y el botón para enviar el código"
+            src={shots.activacion}
+            alt="Pantalla Activa tu cuenta con el campo de teléfono, el selector ¿Dónde recibes tu código? con las opciones SMS y WhatsApp, y el botón Enviar código"
+            width={shots.width}
+            height={shots.height}
           />
         </li>
         <li>
-          Revisa tu <strong>WhatsApp</strong>: te llegará un mensaje con un{" "}
-          <strong>código de 6 dígitos</strong>. Caduca en{" "}
-          <strong>10 minutos</strong>. ¿No llegó? Puedes reenviarlo (máximo
-          5 veces por hora).
+          Revisa tu <strong>SMS</strong> (o WhatsApp, si lo elegiste): te
+          llegará un mensaje con un <strong>código de 6 dígitos</strong>.
+          Caduca en <strong>10 minutos</strong>. ¿No llegó? Puedes reenviarlo
+          (máximo 5 veces por hora).
         </li>
         <li>
           Escribe el código y toca <strong>«Verificar código»</strong>.
           <ManualShot
-            src="/manual-activacion-codigo.png"
+            src={shots.codigo}
             alt="Pantalla Código de verificación con el campo para escribir el código de 6 dígitos"
+            width={shots.width}
+            height={shots.height}
           />
         </li>
         <li>
@@ -56,13 +105,23 @@ export function ActivationGuide() {
           <strong>«Guardar y entrar»</strong>. Entrarás automáticamente a tu
           portal.
           <ManualShot
-            src="/manual-activacion-contrasena.png"
+            src={shots.contrasena}
             alt="Pantalla Crea tu contraseña con el campo de contraseña y el botón Guardar y entrar"
+            width={shots.width}
+            height={shots.height}
           />
         </li>
         <li>
           En los siguientes ingresos solo escribe tu{" "}
-          <strong>celular y contraseña</strong> en la pantalla Bienvenido.
+          <strong>celular y contraseña</strong> en la pantalla Bienvenido
+          {platform === "ios" ? (
+            <>
+              , o toca <strong>«Continuar con Apple»</strong> si tu correo ya
+              está vinculado (ver la nota de Apple de arriba).
+            </>
+          ) : (
+            "."
+          )}
         </li>
       </ol>
 
@@ -75,8 +134,9 @@ export function ActivationGuide() {
           que verifique que tu celular esté dado de alta en la institución.
         </li>
         <li>
-          La app te pide autorizar los mensajes de WhatsApp → pídele a tu
-          escuela habilitar las notificaciones de WhatsApp en tu cuenta.
+          ¿No te llegó el código? → verifica que el número tenga 10 dígitos y
+          vuelve a solicitarlo (máximo 5 reenvíos por hora). Revisa también
+          tu bandeja de mensajes no deseados.
         </li>
         <li>
           Aparece «Tu cuenta está desactivada…» → contacta a tu escuela para
@@ -86,8 +146,23 @@ export function ActivationGuide() {
           ¿Ya activaste tu cuenta pero olvidaste tu contraseña? → en la
           pantalla Bienvenido toca{" "}
           <strong>«¿Olvidaste tu contraseña?»</strong> y sigue el mismo
-          proceso por WhatsApp.
+          proceso de verificación.
         </li>
+        {platform === "ios" && (
+          <li>
+            ¿Quieres usar <strong>«Continuar con Apple»</strong> y no te
+            aparece o no entra? → tu correo aún no está vinculado a tu cuenta:
+            envía a{" "}
+            <a
+              href="mailto:soporte@edukcontrol.net"
+              className="text-accent underline underline-offset-2"
+            >
+              soporte@edukcontrol.net
+            </a>{" "}
+            tu <strong>correo de Apple</strong> indicando el{" "}
+            <strong>nombre, grado y grupo del alumno</strong>.
+          </li>
+        )}
         <li>
           ¿Dudas o problemas? Escríbenos a{" "}
           <a
@@ -103,15 +178,29 @@ export function ActivationGuide() {
   );
 }
 
-/** Captura del manual (1080×2424), centrada bajo el texto de su paso. */
-function ManualShot({ src, alt }: { src: string; alt: string }) {
+/** Captura del manual, centrada bajo el texto de su paso. */
+function ManualShot({
+  src,
+  alt,
+  width,
+  height,
+}: {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+}) {
+  // Ancho fijo de 270 px en pantalla; la altura conserva la
+  // proporción real de cada captura (Android e iOS difieren).
+  const displayHeight = Math.round((270 * height) / width);
+
   return (
     <div className="flex justify-center pt-3">
       <Image
         src={src}
         alt={alt}
         width={270}
-        height={606}
+        height={displayHeight}
         className="rounded-xl border border-border shadow-sm"
       />
     </div>

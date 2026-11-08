@@ -19,7 +19,7 @@ export default function SupportPage() {
     <LegalShell
       title="Soporte y Ayuda"
       subtitle="Soluciones a problemas frecuentes y forma de contactar al equipo de EdukControl."
-      updatedLabel="Última actualización: 13 de octubre de 2026."
+      updatedLabel="Última actualización: 5 de noviembre de 2026."
     >
       <LegalSection id="contacto" heading="Contacto">
         <p>
@@ -38,9 +38,10 @@ export default function SupportPage() {
       <LegalSection id="activacion" heading="Problemas con la activación">
         <ul className="list-disc pl-5 space-y-2">
           <li>
-            No llegó el código por WhatsApp → verifica que el número sea el
-            que te dio tu escuela. Puedes solicitar el código de nuevo desde
-            la pantalla de activación.
+            No llegó el código (por SMS o WhatsApp, según lo que hayas
+            elegido) → verifica que el número sea el que te dio tu escuela.
+            Puedes solicitar el código de nuevo desde la pantalla de
+            activación (máximo 5 reenvíos por hora).
           </li>
           <li>
             «Tu cuenta está desactivada…» → contacta a tu escuela para que
@@ -58,7 +59,7 @@ export default function SupportPage() {
           <li>
             ¿Olvidaste tu contraseña? → en la pantalla Bienvenido toca{" "}
             <strong>«¿Olvidaste tu contraseña?»</strong> y sigue el mismo
-            proceso de verificación por WhatsApp.
+            proceso de verificación.
           </li>
           <li>
             «El usuario ya está activo, no puedes recuperar la contraseña por
@@ -74,15 +75,17 @@ export default function SupportPage() {
 
       <LegalSection id="instalacion" heading="Instalación">
         <p>
-          Las instrucciones de instalación para Android (APK y Google Play)
-          y para iPhone/iPad (TestFlight) están en la página de{" "}
+          La app es gratuita y está disponible en{" "}
+          <strong>Google Play</strong> (Android) y en el{" "}
+          <strong>App Store</strong> (iPhone y iPad). Las instrucciones y el
+          paso a paso de activación con capturas están en la página de{" "}
           <Link
             href="/descargar"
             className="text-accent hover:text-accent-dark underline"
           >
             Descarga
           </Link>
-          , con capturas del paso a paso de activación.
+          .
         </p>
       </LegalSection>
 
