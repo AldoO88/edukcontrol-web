@@ -55,81 +55,117 @@ export function ActivationGuide({ platform }: { platform: Platform }) {
   return (
     <LegalSection heading="Activar tu cuenta (primer ingreso)">
       <p>
-        Si es tu primera vez en EdukControl, crea tu contraseña con estos
-        pasos:
+        Si es tu primera vez en EdukControl, sigue estos pasos:
       </p>
 
       {/* Tutorial paso a paso con capturas de la app publicada (1.0.1)
-          en cada tienda. */}
+          en cada tienda.
+
+          En pantalla el texto va arriba y la captura centrada debajo;
+          para el PDF (media print) cada paso con captura se envuelve
+          en un <div> que imprime como fila: texto a la izquierda,
+          captura a la derecha. Si no, cada paso con su captura ocupa
+          casi una hoja entera y el documento queda con mucho espacio
+          en blanco entre páginas. */}
       <ol className="list-decimal ml-5 space-y-4">
         <li>
-          Abre EdukControl y en la pantalla <strong>Bienvenido</strong> toca{" "}
-          <strong>«¿Es tu primera vez? Activa tu cuenta aquí»</strong>.
-          <ManualShot
-            src={shots.bienvenido}
-            alt={
-              platform === "ios"
-                ? "Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña, el botón Continuar con Apple y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
-                : "Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
-            }
-            width={shots.width}
-            height={shots.height}
-          />
+          <p>
+            <strong>Descarga EdukControl</strong>: búscala en{" "}
+            {platform === "ios" ? "el App Store" : "Google Play"} por su
+            nombre «<strong>EdukControl</strong>» o toca el enlace de arriba
+            para ir directo a la tienda.
+          </p>
         </li>
         <li>
-          Escribe el <strong>celular de 10 dígitos</strong> con el que estás
-          registrado en la institución. Elige dónde recibir tu código:{" "}
-          <strong>SMS</strong> (por defecto — llega como mensaje de texto, no
-          necesitas instalar nada) o <strong>WhatsApp</strong> (opcional), y
-          toca <strong>«Enviar código»</strong>.
-          <ManualShot
-            src={shots.activacion}
-            alt="Pantalla Activa tu cuenta con el campo de teléfono, el selector ¿Dónde recibes tu código? con las opciones SMS y WhatsApp, y el botón Enviar código"
-            width={shots.width}
-            height={shots.height}
-          />
+          <div className="print:flex print:items-start print:gap-3">
+            <p className="print:flex-1 print:min-w-0">
+              Abre EdukControl y en la pantalla <strong>Bienvenido</strong>{" "}
+              toca{" "}
+              <strong>«¿Es tu primera vez? Activa tu cuenta aquí»</strong>.
+            </p>
+            <ManualShot
+              src={shots.bienvenido}
+              alt={
+                platform === "ios"
+                  ? "Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña, el botón Continuar con Apple y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
+                  : "Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
+              }
+              width={shots.width}
+              height={shots.height}
+            />
+          </div>
         </li>
         <li>
-          Revisa tu <strong>SMS</strong> (o WhatsApp, si lo elegiste): te
-          llegará un mensaje con un <strong>código de 6 dígitos</strong>.
-          Caduca en <strong>10 minutos</strong>. ¿No llegó? Puedes reenviarlo
-          (máximo 5 veces por hora).
+          <div className="print:flex print:items-start print:gap-3">
+            <p className="print:flex-1 print:min-w-0">
+              Escribe el <strong>celular de 10 dígitos</strong> con el que
+              estás registrado en la institución. Elige dónde recibir tu
+              código: <strong>SMS</strong> (por defecto — llega como mensaje
+              de texto, no necesitas instalar nada) o{" "}
+              <strong>WhatsApp</strong> (opcional), y toca{" "}
+              <strong>«Enviar código»</strong>.
+            </p>
+            <ManualShot
+              src={shots.activacion}
+              alt="Pantalla Activa tu cuenta con el campo de teléfono, el selector ¿Dónde recibes tu código? con las opciones SMS y WhatsApp, y el botón Enviar código"
+              width={shots.width}
+              height={shots.height}
+            />
+          </div>
         </li>
         <li>
-          Escribe el código y toca <strong>«Verificar código»</strong>.
-          <ManualShot
-            src={shots.codigo}
-            alt="Pantalla Código de verificación con el campo para escribir el código de 6 dígitos"
-            width={shots.width}
-            height={shots.height}
-          />
+          <p>
+            Revisa tu <strong>SMS</strong> (o WhatsApp, si lo elegiste): te
+            llegará un mensaje con un <strong>código de 6 dígitos</strong>.
+            Caduca en <strong>10 minutos</strong>. ¿No llegó? Puedes
+            reenviarlo (máximo 5 veces por hora).
+          </p>
         </li>
         <li>
-          Crea tu contraseña (<strong>mínimo 8 caracteres</strong>) y toca{" "}
-          <strong>«Guardar y entrar»</strong>. Entrarás automáticamente a tu
-          portal.
-          <ManualShot
-            src={shots.contrasena}
-            alt="Pantalla Crea tu contraseña con el campo de contraseña y el botón Guardar y entrar"
-            width={shots.width}
-            height={shots.height}
-          />
+          <div className="print:flex print:items-start print:gap-3">
+            <p className="print:flex-1 print:min-w-0">
+              Escribe el código y toca <strong>«Verificar código»</strong>.
+            </p>
+            <ManualShot
+              src={shots.codigo}
+              alt="Pantalla Código de verificación con el campo para escribir el código de 6 dígitos"
+              width={shots.width}
+              height={shots.height}
+            />
+          </div>
         </li>
         <li>
-          En los siguientes ingresos solo escribe tu{" "}
-          <strong>celular y contraseña</strong> en la pantalla Bienvenido
-          {platform === "ios" ? (
-            <>
-              , o toca <strong>«Continuar con Apple»</strong> si tu correo ya
-              está vinculado (ver la nota de Apple de arriba).
-            </>
-          ) : (
-            "."
-          )}
+          <div className="print:flex print:items-start print:gap-3">
+            <p className="print:flex-1 print:min-w-0">
+              Crea tu contraseña (<strong>mínimo 8 caracteres</strong>) y
+              toca <strong>«Guardar y entrar»</strong>. Entrarás
+              automáticamente a tu portal.
+            </p>
+            <ManualShot
+              src={shots.contrasena}
+              alt="Pantalla Crea tu contraseña con el campo de contraseña y el botón Guardar y entrar"
+              width={shots.width}
+              height={shots.height}
+            />
+          </div>
+        </li>
+        <li>
+          <p>
+            En los siguientes ingresos solo escribe tu{" "}
+            <strong>celular y contraseña</strong> en la pantalla Bienvenido
+            {platform === "ios" ? (
+              <>
+                , o toca <strong>«Continuar con Apple»</strong> si tu correo
+                ya está vinculado (ver la nota de Apple de arriba).
+              </>
+            ) : (
+              "."
+            )}
+          </p>
         </li>
       </ol>
 
-      <p className="font-semibold text-text-primary pt-2">
+      <p className="font-semibold text-text-primary pt-2 print:break-after-avoid">
         Si tienes algún problema
       </p>
       <ul className="list-disc ml-5 space-y-3">
@@ -195,17 +231,20 @@ function ManualShot({
   height: number;
 }) {
   // Ancho fijo de 270 px en pantalla; la altura conserva la
-  // proporción real de cada captura (Android e iOS difieren).
+  // proporción real de cada captura (Android e iOS difieren). En
+  // impresión (PDF) baja a 190 px y queda como segundo ítem de la
+  // fila print:flex del paso: a la derecha del texto y sin el
+  // padding superior, para que quepan ~2 pasos por hoja.
   const displayHeight = Math.round((270 * height) / width);
 
   return (
-    <div className="flex justify-center pt-3">
+    <div className="flex justify-center pt-3 print:flex-none print:pt-0">
       <Image
         src={src}
         alt={alt}
         width={270}
         height={displayHeight}
-        className="rounded-xl border border-border shadow-sm"
+        className="rounded-xl border border-border shadow-sm print:w-[190px] print:h-auto"
       />
     </div>
   );
