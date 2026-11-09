@@ -86,3 +86,30 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   3) Impresión / PDF: se usa al imprimir cualquier página legal
+      (Ctrl+P) y sobre todo al generar los PDFs de los tutoriales
+      con Chrome headless (scripts/generar-tutoriales-pdf.sh).
+      - print-color-adjust: exact conserva los fondos de colores
+        (botones, badge SMS, capturas) — sin esto, el texto blanco
+        sobre fondo oscuro saldría invisible en el PDF.
+      - break-inside: avoid en los <li> evita cortar un paso del
+        tutorial (texto + captura) entre dos páginas.
+      - break-after: avoid en los <h2> deja cada título pegado a su
+        contenido.
+   ============================================================ */
+@media print {
+  html {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  li {
+    break-inside: avoid;
+  }
+
+  h2 {
+    break-after: avoid;
+  }
+}

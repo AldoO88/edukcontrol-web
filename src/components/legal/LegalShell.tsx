@@ -29,7 +29,7 @@ export function LegalShell({ title, subtitle, updatedLabel, children }: LegalShe
           </div>
           <Link
             href="/login"
-            className="flex items-center gap-2 text-sm text-text-secondary hover:text-accent transition-colors"
+            className="flex items-center gap-2 text-sm text-text-secondary hover:text-accent transition-colors print:hidden"
           >
             <ArrowLeft size={16} />
             Volver al inicio

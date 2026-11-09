@@ -8,9 +8,9 @@
 // Componente cliente por el estado del tab activo.
 
 import { useState } from "react";
-import { Apple, Download, Smartphone } from "lucide-react";
-import { LegalSection } from "@/components/legal/LegalShell";
+import { Apple, Download, FileDown, Smartphone } from "lucide-react";
 import { ActivationGuide } from "./ActivationGuide";
+import { AppleNote } from "./AppleNote";
 import { APP_STORE_URL, APP_VERSION, PLAY_URL } from "../constants";
 
 type Platform = "android" | "ios";
@@ -79,6 +79,8 @@ export function DownloadPlatforms() {
           </p>
         </div>
 
+        <PdfTutorialLink platform="android" />
+
         <ActivationGuide platform="android" />
       </div>
 
@@ -101,46 +103,37 @@ export function DownloadPlatforms() {
           </p>
         </div>
 
-        {/* Nota de "Continuar con Apple" (solo iOS): para vincular el
-            correo del tutor con su cuenta, la escuela necesita el dato
-            (nombre, grado y grupo del alumno) — Guideline 4.8. */}
-        <LegalSection heading="¿Quieres iniciar sesión con tu cuenta de Apple?">
-          <p>
-            La app para iPhone incluye el botón{" "}
-            <strong>«Continuar con Apple»</strong>. Para que esté disponible
-            en tu cuenta, primero debes <strong>compartir tu correo de
-            Apple</strong> con tu escuela: envía un correo a{" "}
-            <a
-              href="mailto:soporte@edukcontrol.net"
-              className="text-accent underline underline-offset-2"
-            >
-              soporte@edukcontrol.net
-            </a>{" "}
-            indicando:
-          </p>
-          <ul className="list-disc ml-5 space-y-1 pt-2">
-            <li>
-              <strong>Nombre completo del alumno</strong>
-            </li>
-            <li>
-              <strong>Grado</strong>
-            </li>
-            <li>
-              <strong>Grupo</strong>
-            </li>
-            <li>
-              <strong>Tu correo de Apple</strong> (el mismo con el que
-              entrarás)
-            </li>
-          </ul>
-          <p className="pt-2">
-            Una vez vinculado tu correo, podrás entrar con un toque usando tu
-            cuenta de Apple, sin escribir contraseña.
-          </p>
-        </LegalSection>
+        <PdfTutorialLink platform="ios" />
+
+        {/* Nota de "Continuar con Apple" (solo iOS) — compartida con la
+            página imprimible /descargar/guia/ios. */}
+        <AppleNote />
 
         <ActivationGuide platform="ios" />
       </div>
     </>
+  );
+}
+
+/**
+ * Botón de descarga del tutorial de activación de esta plataforma en
+ * PDF. Apunta a un archivo estático en public/guias/ generado con
+ * Chrome headless desde la página imprimible /descargar/guia/[platform]
+ * (ver scripts/generar-tutoriales-pdf.sh): un toque y el PDF se
+ * descarga — en celular/WhatsApp no hace falta pasar por el diálogo de
+ * impresión del navegador.
+ */
+function PdfTutorialLink({ platform }: { platform: Platform }) {
+  return (
+    <div className="flex justify-center pt-1">
+      <a
+        href={`/guias/guia-activacion-${platform}.pdf`}
+        download
+        className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-text-secondary transition hover:bg-background hover:text-text-primary"
+      >
+        <FileDown size={16} />
+        Descargar tutorial en PDF
+      </a>
+    </div>
   );
 }
