@@ -27,19 +27,22 @@ export function AppleNote() {
         </a>{" "}
         indicando:
       </p>
-      <ul className="list-disc ml-5 space-y-1 pt-2">
+      <ul className="list-disc ml-5 space-y-1 pt-2 print:pt-1">
         <li>
-          <strong>Nombre completo del alumno</strong>
+          <strong>Nombre de la escuela</strong>
         </li>
         <li>
-          <strong>Grado</strong>
+          <strong>Nombre completo del alumno</strong>, grado y grupo
         </li>
         <li>
-          <strong>Grupo</strong>
+          <strong>Nombre del familiar o tutor legal</strong>
         </li>
         <li>
-          <strong>Tu correo de Apple</strong> (el mismo con el que
+          <strong>Correo de Apple</strong> (el mismo con el que
           entrarás)
+        </li>
+        <li>
+          <strong>Parentesco</strong>
         </li>
       </ul>
       <p className="pt-2">
@@ -47,10 +50,7 @@ export function AppleNote() {
         cuenta de Apple, sin escribir contraseña.
       </p>
       <p className="pt-2">
-        <strong>Opción 2 — celular y contraseña.</strong> En la pantalla{" "}
-        <strong>Bienvenido</strong> escribe tu{" "}
-        <strong>celular y contraseña</strong> y toca{" "}
-        <strong>«Iniciar Sesión»</strong>.
+        <strong>Opción 2 — celular y contraseña.</strong>
       </p>
     </LegalSection>
   );
