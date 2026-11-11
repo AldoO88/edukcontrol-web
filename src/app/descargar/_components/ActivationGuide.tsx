@@ -2,7 +2,7 @@
 // panel del selector /descargar con su plataforma ("android" | "ios")
 // para mostrar las capturas de cada tienda. El flujo es idéntico en
 // ambas plataformas (celular → código OTP → contraseña); lo que
-// cambia son las capturas y la nota de "Continuar con Apple" (solo
+// cambia son las capturas y la nota de "Iniciar sesión con Apple" (solo
 // iOS, ver DownloadPlatforms).
 //
 // Canal del código: SMS es el canal PRINCIPAL y garantizado (llega
@@ -87,7 +87,7 @@ export function ActivationGuide({ platform }: { platform: Platform }) {
               src={shots.bienvenido}
               alt={
                 platform === "ios"
-                  ? "Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña, el botón Continuar con Apple y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
+                  ? "Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña, el botón Iniciar sesión con Apple y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
                   : "Pantalla Bienvenido de EdukControl con los campos teléfono y contraseña y el enlace ¿Es tu primera vez? Activa tu cuenta aquí"
               }
               width={shots.width}
@@ -155,7 +155,7 @@ export function ActivationGuide({ platform }: { platform: Platform }) {
             <strong>celular y contraseña</strong> en la pantalla Bienvenido
             {platform === "ios" ? (
               <>
-                , o toca <strong>«Continuar con Apple»</strong> si tu correo
+                , o toca <strong>«Iniciar sesión con Apple»</strong> si tu correo
                 ya está vinculado (ver la nota de Apple de arriba).
               </>
             ) : (
@@ -190,7 +190,7 @@ export function ActivationGuide({ platform }: { platform: Platform }) {
         </li>
         {platform === "ios" && (
           <li>
-            ¿Quieres usar <strong>«Continuar con Apple»</strong> y no te
+            ¿Quieres usar <strong>«Iniciar sesión con Apple»</strong> y no te
             aparece o no entra? → tu correo aún no está vinculado a tu cuenta:
             envía a{" "}
             <a

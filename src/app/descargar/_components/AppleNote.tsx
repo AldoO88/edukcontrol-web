@@ -1,6 +1,6 @@
-// Nota de "Continuar con Apple" (solo iOS): al inicio de la guía
+// Nota de "Iniciar sesión con Apple" (solo iOS): al inicio de la guía
 // presenta las dos formas de iniciar sesión — opción 1, el botón
-// «Continuar con Apple» (y qué debe hacer la escuela para habilitarlo,
+// «Iniciar sesión con Apple» (y qué debe hacer la escuela para habilitarlo,
 // Guideline 4.8), y opción 2, el ingreso tradicional con celular y
 // contraseña.
 //
@@ -14,9 +14,9 @@ export function AppleNote() {
   return (
     <LegalSection heading="Iniciar sesión: dos opciones">
       <p>
-        <strong>Opción 1 — «Continuar con Apple».</strong> La app para
+        <strong>Opción 1 — «Iniciar sesión con Apple».</strong> La app para
         iPhone incluye el botón{" "}
-        <strong>«Continuar con Apple»</strong>. Para que esté disponible
+        <strong>«Iniciar sesión con Apple»</strong>. Para que esté disponible
         en tu cuenta, primero debes <strong>compartir tu correo de
         Apple</strong> con tu escuela: envía un correo a{" "}
         <a

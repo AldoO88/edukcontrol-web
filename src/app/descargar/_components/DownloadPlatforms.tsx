@@ -105,7 +105,7 @@ export function DownloadPlatforms() {
 
         <PdfTutorialLink platform="ios" />
 
-        {/* Nota de "Continuar con Apple" (solo iOS) — compartida con la
+        {/* Nota de "Iniciar sesión con Apple" (solo iOS) — compartida con la
             página imprimible /descargar/guia/ios. */}
         <AppleNote />
 
