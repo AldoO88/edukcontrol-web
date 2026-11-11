@@ -67,7 +67,7 @@ export function ActivationGuide({ platform }: { platform: Platform }) {
           captura a la derecha. Si no, cada paso con su captura ocupa
           casi una hoja entera y el documento queda con mucho espacio
           en blanco entre páginas. */}
-      <ol className="list-decimal ml-5 space-y-4">
+      <ol className="list-decimal ml-5 space-y-4 print:space-y-3">
         <li>
           <p>
             <strong>Descarga EdukControl</strong>: búscala en{" "}
@@ -152,26 +152,42 @@ export function ActivationGuide({ platform }: { platform: Platform }) {
         <li>
           <p>
             En los siguientes ingresos solo escribe tu{" "}
-            <strong>celular y contraseña</strong> en la pantalla Bienvenido
-            {platform === "ios" ? (
-              <>
-                , o toca <strong>«Iniciar sesión con Apple»</strong> si tu correo
-                ya está vinculado (ver la nota de Apple de arriba).
-              </>
-            ) : (
-              "."
-            )}
+            <strong>celular y contraseña</strong> en la pantalla Bienvenido.
           </p>
         </li>
       </ol>
 
-      <p className="font-semibold text-text-primary pt-2 print:break-after-avoid">
+      <p className="font-semibold text-text-primary pt-2 print:pt-0 print:break-after-avoid">
         Si tienes algún problema
       </p>
-      <ul className="list-disc ml-5 space-y-3">
+      <ul className="list-disc ml-5 space-y-3 print:space-y-2">
         <li>
-          Aparece «Este número no está registrado…» → pide a tu coordinador
-          que verifique que tu celular esté dado de alta en la institución.
+          Aparece «Este número no está registrado…» → envía un correo a{" "}
+          <a
+            href="mailto:soporte@edukcontrol.net"
+            className="text-accent underline underline-offset-2"
+          >
+            soporte@edukcontrol.net
+          </a>{" "}
+          indicando:
+          <ul className="list-disc ml-5 space-y-1 pt-2 print:pt-1">
+            <li>
+              <strong>Nombre de la escuela</strong>
+            </li>
+            <li>
+              <strong>Nombre completo del alumno</strong>, grado y grupo
+            </li>
+            <li>
+              <strong>Nombre del familiar o tutor legal</strong>
+            </li>
+            <li>
+              <strong>Número de teléfono</strong> con el que quiere iniciar
+              sesión
+            </li>
+            <li>
+              <strong>Parentesco</strong>
+            </li>
+          </ul>
         </li>
         <li>
           ¿No te llegó el código? → verifica que el número tenga 10 dígitos y
@@ -192,15 +208,32 @@ export function ActivationGuide({ platform }: { platform: Platform }) {
           <li>
             ¿Quieres usar <strong>«Iniciar sesión con Apple»</strong> y no te
             aparece o no entra? → tu correo aún no está vinculado a tu cuenta:
-            envía a{" "}
+            envía un correo a{" "}
             <a
               href="mailto:soporte@edukcontrol.net"
               className="text-accent underline underline-offset-2"
             >
               soporte@edukcontrol.net
             </a>{" "}
-            tu <strong>correo de Apple</strong> indicando el{" "}
-            <strong>nombre, grado y grupo del alumno</strong>.
+            indicando:
+            <ul className="list-disc ml-5 space-y-1 pt-2 print:pt-1">
+              <li>
+                <strong>Nombre de la escuela</strong>
+              </li>
+              <li>
+                <strong>Nombre completo del alumno</strong>, grado y grupo
+              </li>
+              <li>
+                <strong>Nombre del familiar o tutor legal</strong>
+              </li>
+              <li>
+                <strong>Correo de Apple</strong> (el mismo con el que
+                entrarás)
+              </li>
+              <li>
+                <strong>Parentesco</strong>
+              </li>
+            </ul>
           </li>
         )}
         <li>

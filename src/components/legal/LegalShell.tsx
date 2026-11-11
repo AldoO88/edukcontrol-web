@@ -20,7 +20,7 @@ export function LegalShell({ title, subtitle, updatedLabel, children }: LegalShe
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header de marca */}
       <header className="border-b border-border bg-card">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-6 py-4 print:py-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-9 h-9 bg-primary rounded-xl">
               <GraduationCap size={18} className="text-white" />
@@ -38,20 +38,20 @@ export function LegalShell({ title, subtitle, updatedLabel, children }: LegalShe
       </header>
 
       {/* Contenido */}
-      <main className="flex-1 px-6 py-10">
-        <div className="max-w-4xl mx-auto bg-card border border-border rounded-2xl shadow-sm px-8 py-10 md:px-12 md:py-12">
+      <main className="flex-1 px-6 py-10 print:pt-4 print:pb-4">
+        <div className="max-w-4xl mx-auto bg-card border border-border rounded-2xl shadow-sm px-8 py-10 md:px-12 md:py-12 print:pt-6 print:pb-6">
           <h1 className="text-3xl font-bold text-text-primary mb-2">{title}</h1>
           {subtitle && <p className="text-text-secondary mb-1">{subtitle}</p>}
           {updatedLabel && (
-            <p className="text-sm text-text-muted mb-8">{updatedLabel}</p>
+            <p className="text-sm text-text-muted mb-8 print:mb-4">{updatedLabel}</p>
           )}
-          <div className="space-y-8">{children}</div>
+          <div className="space-y-8 print:space-y-4">{children}</div>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="border-t border-border bg-card">
-        <div className="max-w-4xl mx-auto px-6 py-5 text-center text-sm text-text-muted">
+        <div className="max-w-4xl mx-auto px-6 py-5 print:py-2 text-center text-sm text-text-muted">
           EdukControl — Sistema de Gestión Escolar
         </div>
       </footer>
@@ -71,8 +71,8 @@ export function LegalSection({
 }) {
   return (
     <section id={id} className="scroll-mt-24">
-      <h2 className="text-lg font-semibold text-text-primary mb-3">{heading}</h2>
-      <div className="space-y-3 text-text-secondary leading-relaxed text-[15px]">
+      <h2 className="text-lg font-semibold text-text-primary mb-3 print:mb-2">{heading}</h2>
+      <div className="space-y-3 text-text-secondary leading-relaxed text-[15px] print:space-y-2">
         {children}
       </div>
     </section>
