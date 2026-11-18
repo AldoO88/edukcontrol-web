@@ -111,13 +111,14 @@ export async function changePassword(
 
 // Fuente ÚNICA de home por rol (patrón roleHomeHref de la app móvil —
 // prevenir bucles de redirect: NUNCA calcular destinos con ternarios
-// repartidos por la UI). El prefecto tiene su propio namespace
-// /prefect/*; el resto de staff/super_admin vive en el panel de
-// administración (/dashboard...). El rol tutor no tiene panel web (la
-// app es su superficie) — si llegara a loguearse cae al dashboard
-// admin, que mostrará sus endpoints con datos vacíos/403, pero nunca
-// un bucle.
+// repartidos por la UI). El prefecto y el trabajador social tienen su
+// propio namespace (/prefect/* y /social-worker/*); el resto de
+// staff/super_admin vive en el panel de administración (/dashboard...).
+// El rol tutor no tiene panel web (la app es su superficie) — si
+// llegara a loguearse cae al dashboard admin, que mostrará sus
+// endpoints con datos vacíos/403, pero nunca un bucle.
 export function homeHrefForRole(role: UserRole): string {
   if (role === "prefect") return "/prefect/dashboard";
+  if (role === "social_worker") return "/social-worker/dashboard";
   return "/dashboard";
 }

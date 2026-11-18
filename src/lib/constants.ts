@@ -90,6 +90,27 @@ export const ENDPOINTS = {
   PREFECT_TEACHER_SCHEDULE: (id: string) => `/api/prefect/teacher-schedule/${id}`,
   PREFECT_SCHOOL_ABSENCES: "/api/prefect/school-absences",
 
+  // Área del trabajador social (/social-worker/*) — endpoints del rol
+  // (router social-worker: attachSchoolContext + attachActiveSchoolYear).
+  SOCIAL_WORKER_DASHBOARD: "/api/social-worker/dashboard",
+  // Listado de expedientes + summary global (barra de progreso).
+  // ?summary_only=1 devuelve solo el summary (dashboard).
+  SOCIAL_WORKER_EXPEDIENTES: "/api/social-worker/expedientes",
+  // Marcar "completed" / revertir a "in_progress" (manual).
+  SOCIAL_WORKER_EXPEDIENTE_STATUS: (id: string) =>
+    `/api/social-worker/students/${id}/expediente-status`,
+  // Guardado por sección de la ficha (auto pending → in_progress).
+  STUDENT_HEALTH: (id: string) => `/api/students/${id}/health`,
+  // Intervenciones: acuerdos con padres y canalizaciones externas.
+  SOCIAL_WORKER_AGREEMENTS: (id: string) =>
+    `/api/social-worker/students/${id}/agreements`,
+  SOCIAL_WORKER_AGREEMENT_BY_ID: (id: string) =>
+    `/api/social-worker/agreements/${id}`,
+  SOCIAL_WORKER_REFERRALS: (id: string) =>
+    `/api/social-worker/students/${id}/referrals`,
+  SOCIAL_WORKER_REFERRAL_BY_ID: (id: string) =>
+    `/api/social-worker/referrals/${id}`,
+
   // Operación del prefecto — genéricos de staff (compartidos con teacher)
   ANNOUNCEMENTS: "/api/announcements",
   CITATIONS: "/api/citations",

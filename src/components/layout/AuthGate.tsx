@@ -4,9 +4,19 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { homeHrefForRole } from "@/lib/auth";
+import type { UserRole } from "@/lib/types";
 
 // Rutas que no requieren autenticación
 const PUBLIC_ROUTES = ["/login"];
+
+// Áreas con namespace propio (fuente única del gate por rol): un
+// usuario solo puede estar DENTRO del área de SU rol, y nadie más
+// puede entrar en ella. Los roles sin área (admin, principal, etc.)
+// viven en el panel de administración /dashboard.
+const ROLE_AREAS: Array<{ prefix: string; roles: UserRole[] }> = [
+  { prefix: "/prefect", roles: ["prefect"] },
+  { prefix: "/social-worker", roles: ["social_worker"] },
+];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -14,19 +24,24 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
-  // El área del prefecto vive en su propio namespace /prefect/* (ver
-  // src/app/prefect/). Cualquier otro rol dentro de ese namespace — o un
-  // prefecto fuera de él — está en la sección equivocada.
-  const isPrefectArea = pathname.startsWith("/prefect");
 
   // Gate por rol (mismo patrón que los _layout de la app móvil, pero
   // resuelto aquí en un solo lugar para todo el web). Sin bucles:
   // homeHrefForRole es la fuente única de destinos por rol.
+  const userRole = (user?.role ?? null) as UserRole | null;
+  const pathArea = ROLE_AREAS.find((a) => pathname.startsWith(a.prefix));
+  const userArea = userRole
+    ? ROLE_AREAS.find((a) => a.roles.includes(userRole))
+    : undefined;
   const roleMismatch =
     isAuthenticated &&
-    !!user &&
-    ((user.role === "prefect" && !isPrefectArea) ||
-      (user.role !== "prefect" && isPrefectArea));
+    !!userRole &&
+    // Rol ajeno dentro de un área con namespace (prefecto en
+    // /social-worker, admin en /prefect, …) → fuera de ahí.
+    ((!!pathArea && !pathArea.roles.includes(userRole)) ||
+      // Rol con área propia fuera de ella (social_worker en
+      // /dashboard) → a SU home.
+      (!!userArea && !pathname.startsWith(userArea.prefix)));
 
   useEffect(() => {
     if (isLoading) return;

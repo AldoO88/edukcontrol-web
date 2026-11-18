@@ -484,10 +484,17 @@ export interface PrefectStudent {
   address?: string;
   date_of_birth?: string;
   medical_notes?: string;
+  phone?: string;
   health_inclusion?: HealthInclusion | null;
   guardians?: PrefectStudentGuardian[];
   current_group_id?: string | { _id: string; grade?: number; section?: string } | null;
   workshop_group_id?: string | null;
+  // Estado del expediente (sección web del trabajador social —
+  // campos nuevos en Student; los lee GET /api/social-worker/expedientes
+  // y GET /api/students/:id).
+  expediente_status?: ExpedienteStatus;
+  expediente_last_saved_at?: string | null;
+  expediente_completed_at?: string | null;
 }
 
 // Tutor/guardián (en el modelo usan `name` + `lastname`, no
@@ -503,20 +510,71 @@ export interface PrefectStudentGuardian {
 }
 
 // health_inclusion del alumno (modal Trabajo Social — mismos campos
-// que TrabajoSocialModal.jsx de la app).
+// que TrabajoSocialModal.jsx de la app; la sección web del expediente
+// además escribe family_socioeconomic, emergency_contacts, home_visits,
+// notes y alerts — ver TAB_FIELDS de student-health/[studentId].jsx).
 export interface HealthInclusion {
   learning_style?: string;
   style_hint?: string;
   diagnosis?: string;
   disability_type?: string;
   disability_severity?: string;
+  medical_conditions?: string[];
   medications?: string[];
-  alerts?: Array<{
-    _id?: string;
-    type?: "medica" | "comportamental" | "academica" | "otra" | string;
-    label?: string;
-    description?: string;
-  }>;
+  allergies?: string;
+  health_insurance?: string;
+  vaccination_authorization?: boolean;
+  protection_civil_authorization?: boolean;
+  // Datos familiares y socioeconómicos (sección Familia)
+  family_socioeconomic?: FamilySocioeconomic;
+  // Contactos de emergencia (sección Emergencia)
+  emergency_contacts?: EmergencyContact[];
+  // Visitas domiciliarias (sección Intervenciones)
+  home_visits?: HomeVisit[];
+  // Notas / alertas (sección Notas)
+  notes?: string;
+  last_evaluation_date?: string;
+  alerts?: HealthAlert[];
+}
+
+// Miembro del hogar (subdoc de family_socioeconomic.family_members).
+export interface FamilyMember {
+  name?: string;
+  relationship?: string;
+  age?: number;
+  occupation?: string;
+  education_level?: string;
+}
+
+export interface FamilySocioeconomic {
+  family_members?: FamilyMember[];
+  family_dynamics?: string;
+  monthly_income?: string;
+  income_sources?: string;
+  housing_type?: string;
+  housing_materials?: string;
+  basic_services?: string;
+}
+
+export interface EmergencyContact {
+  name?: string;
+  phone?: string;
+  relationship?: string;
+  is_primary?: boolean;
+}
+
+export interface HomeVisit {
+  date?: string; // ISO
+  observations?: string;
+  // El backend admite null (visitas nuevas lo guardan así).
+  conducted_by?: string | { _id: string; name?: string; last_name?: string } | null;
+}
+
+export interface HealthAlert {
+  _id?: string;
+  type?: "medica" | "comportamental" | "academica" | "otra" | string;
+  label?: string;
+  description?: string;
 }
 
 // Envoltorio paginado de GET /api/students y /api/citations,
@@ -662,3 +720,126 @@ export interface ExitPassListResponse {
   pagination?: { total: number; page?: number; limit?: number };
 }
 
+
+// =====================================================================
+// ÁREA DEL TRABAJADOR SOCIAL (/social-worker/*)
+// =====================================================================
+
+// Estado del expediente de un alumno (Student.expediente_status).
+// "pending" nace por defecto; "in_progress" lo setea el backend solo
+// al guardar datos; "completed" lo marca el trabajador social a mano.
+export type ExpedienteStatus = "pending" | "in_progress" | "completed";
+
+// GET /api/social-worker/expedientes → ítem del padrón del ciclo.
+export interface ExpedienteItem {
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  controlNumber?: string | null;
+  photoUrl?: string | null;
+  group: {
+    _id: string | null;
+    grade: number | null;
+    section: string | null;
+    label: string | null; // "1A"
+  };
+  expediente_status: ExpedienteStatus;
+  expediente_last_saved_at?: string | null;
+  expediente_completed_at?: string | null;
+  alerts_count: number;
+}
+
+// Contadores globales (barra de progreso — sin filtros, siempre es
+// el avance de TODA la escuela).
+export interface ExpedientesSummary {
+  total: number;
+  pending: number;
+  in_progress: number;
+  completed: number;
+}
+
+// GET /api/social-worker/expedientes (con ?summary_only=1 solo viene summary).
+export interface ExpedientesResponse {
+  items?: ExpedienteItem[];
+  summary: ExpedientesSummary;
+}
+
+// PATCH /api/social-worker/students/:id/expediente-status → data.
+export interface ExpedienteStatusData {
+  studentId: string;
+  expedienteStatus: ExpedienteStatus;
+  expedienteCompletedAt?: string | null;
+}
+
+// GET /api/social-worker/dashboard — mismo shape que el del prefecto
+// pero con `socialWorker` en vez de `prefect`.
+export interface SocialWorkerDashboardData {
+  socialWorker: {
+    name: string;
+    fullName?: string;
+    email?: string;
+    phoneNumber?: string;
+    role: string;
+    sex?: string | null;
+  };
+  school: {
+    name: string;
+    cct?: string;
+    logoUrl?: string | null;
+    cycle?: string;
+    school_year_id?: string;
+  };
+  currentDate: string;
+  stats: {
+    totalStudents: number;
+    maleCount: number;
+    femaleCount: number;
+    totalGroups: number;
+    dayPresent: number;
+    dayRetard: number;
+    dayAbsent: number;
+    dayTotal: number;
+  };
+  recentAnnouncements: DashboardAnnouncementItem[];
+  pendingCitationsCount: number;
+  recentConductLogs: DashboardConductLogItem[];
+}
+
+// Acuerdo con padres (ParentAgreement — sección Intervenciones).
+// GET /api/social-worker/students/:id/agreements → array plano.
+export interface ParentAgreementItem {
+  _id: string;
+  student_id?: string;
+  title: string;
+  description?: string;
+  agreement_type?: "conducta" | "academico" | "salud" | "inclusion" | "otro" | string;
+  status?: "active" | "completed" | "cancelled" | string;
+  agreed_date?: string;
+  review_date?: string | null;
+  notes?: string;
+  reported_by?: { _id?: string; name?: string; last_name?: string; role?: string } | string;
+}
+
+// Canalización externa (InstitutionReferral — sección Intervenciones).
+// GET /api/social-worker/students/:id/referrals → array plano.
+export interface InstitutionReferralItem {
+  _id: string;
+  student_id?: string;
+  institution_name: string;
+  institution_type?:
+    | "hospital"
+    | "clinica"
+    | "psicologia"
+    | "terapia"
+    | "trabajo_social"
+    | "educacion_especial"
+    | "otro"
+    | string;
+  contact_info?: string;
+  reason: string;
+  status?: "pending" | "sent" | "in_progress" | "completed" | "cancelled" | string;
+  referral_date?: string;
+  response_date?: string | null;
+  response_notes?: string;
+  reported_by?: { _id?: string; name?: string; last_name?: string; role?: string } | string;
+}

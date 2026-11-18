@@ -39,6 +39,10 @@ const DEFAULT_LABEL_BY_SECTION: Record<string, string> = {
   promotions: "Promover",
   bulk: "Carga Masiva",
   import: "Importar",
+
+  // Área del trabajador social (/social-worker/*)
+  "social-worker": "Trabajo Social",
+  expedientes: "Expedientes",
 };
 
 // Segmentos que se saltan al generar el breadcrumb (no se muestran).
@@ -75,7 +79,9 @@ const labelForSegment = (segment: string, section: string): string => {
       ? "Detalle de Escuela"
       : section === "school-years"
         ? "Ciclo"
-        : "Detalle";
+        : section === "expedientes"
+          ? "Expediente"
+          : "Detalle";
   }
   // Si el segmento parece kebab-case, capitalizarlo
   if (segment.includes("-")) {

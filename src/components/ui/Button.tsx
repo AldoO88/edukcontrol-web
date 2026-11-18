@@ -3,7 +3,7 @@
 
 import { type ButtonHTMLAttributes, type ReactNode, forwardRef } from "react";
 
-type ButtonVariant = "primary" | "sky" | "secondary" | "danger" | "ghost";
+type ButtonVariant = "primary" | "sky" | "emerald" | "secondary" | "danger" | "ghost";
 type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -17,6 +17,8 @@ const variantStyles: Record<ButtonVariant, string> = {
   primary:
     "bg-primary text-white hover:bg-primary-light active:bg-slate-800 shadow-sm",
   sky: "bg-accent-dark text-white hover:bg-accent-deeper active:bg-sky-700 shadow-sm",
+  emerald:
+    "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-sm",
   secondary:
     "bg-white text-text-primary border border-border hover:bg-slate-50 active:bg-slate-100",
   danger:
