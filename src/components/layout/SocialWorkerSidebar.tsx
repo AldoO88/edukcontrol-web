@@ -1,19 +1,19 @@
 // Sidebar del área del trabajador social (/social-worker/*)
 // Variante del Sidebar de administración con las secciones del rol
-// trabajador social: Inicio (dashboard) y Expedientes (listado con
-// barra de progreso → ficha por alumno).
-//
-// Fase A+B del portal web: solo lo implementado — sin links
-// placeholder a Consulta/Operación (llegan en las fases C y D).
+// trabajador social: Inicio (dashboard), Consulta (grupos/alumnos/
+// maestros) y Expedientes (listado con barra de progreso → ficha por
+// alumno). La sección Operación llega en la Fase D.
 
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Briefcase,
   FolderOpen,
   GraduationCap,
   LayoutDashboard,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -36,6 +36,14 @@ const socialWorkerSections: NavSection[] = [
     title: "Inicio",
     items: [
       { label: "Dashboard", href: "/social-worker/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: "Consulta",
+    items: [
+      { label: "Grupos", href: "/social-worker/groups", icon: Users },
+      { label: "Alumnos", href: "/social-worker/students", icon: GraduationCap },
+      { label: "Maestros", href: "/social-worker/teachers", icon: Briefcase },
     ],
   },
   {

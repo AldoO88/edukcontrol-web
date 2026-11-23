@@ -110,6 +110,13 @@ export const ENDPOINTS = {
     `/api/social-worker/students/${id}/referrals`,
   SOCIAL_WORKER_REFERRAL_BY_ID: (id: string) =>
     `/api/social-worker/referrals/${id}`,
+  // Consulta (Fase C): grupos con stats, maestros y sus horarios.
+  SOCIAL_WORKER_GROUPS_SUMMARY: "/api/social-worker/groups-summary",
+  SOCIAL_WORKER_TEACHERS: "/api/social-worker/teachers",
+  SOCIAL_WORKER_TEACHER_BY_ID: (id: string) =>
+    `/api/social-worker/teachers/${id}`,
+  SOCIAL_WORKER_TEACHER_SCHEDULE: (id: string) =>
+    `/api/social-worker/teacher-schedule/${id}`,
 
   // Operación del prefecto — genéricos de staff (compartidos con teacher)
   ANNOUNCEMENTS: "/api/announcements",
