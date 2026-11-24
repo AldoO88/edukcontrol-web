@@ -1,19 +1,26 @@
 // Sidebar del área del trabajador social (/social-worker/*)
 // Variante del Sidebar de administración con las secciones del rol
 // trabajador social: Inicio (dashboard), Consulta (grupos/alumnos/
-// maestros) y Expedientes (listado con barra de progreso → ficha por
-// alumno). La sección Operación llega en la Fase D.
+// maestros), Operación (avisos, citatorios, reportes, pases de salida,
+// justificantes, inasistencias) y Expedientes (listado con barra de
+// progreso → ficha por alumno).
 
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AlertTriangle,
+  Bell,
   Briefcase,
+  FileCheck,
   FolderOpen,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
+  Mail,
   Users,
+  UserX,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -44,6 +51,17 @@ const socialWorkerSections: NavSection[] = [
       { label: "Grupos", href: "/social-worker/groups", icon: Users },
       { label: "Alumnos", href: "/social-worker/students", icon: GraduationCap },
       { label: "Maestros", href: "/social-worker/teachers", icon: Briefcase },
+    ],
+  },
+  {
+    title: "Operación",
+    items: [
+      { label: "Avisos", href: "/social-worker/announcements", icon: Bell },
+      { label: "Citatorios", href: "/social-worker/citations", icon: Mail },
+      { label: "Reportes", href: "/social-worker/reports", icon: AlertTriangle },
+      { label: "Pases de Salida", href: "/social-worker/exit-passes", icon: LogOut },
+      { label: "Justificantes", href: "/social-worker/justificantes", icon: FileCheck },
+      { label: "Inasistencias", href: "/social-worker/attendance-summary", icon: UserX },
     ],
   },
   {

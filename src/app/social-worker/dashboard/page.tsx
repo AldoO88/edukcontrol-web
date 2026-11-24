@@ -36,8 +36,29 @@ import {
   ArrowRight,
   Mars,
   Venus,
+  Bell,
+  Mail,
+  AlertTriangle,
+  LogOut,
+  FileCheck,
   type LucideIcon,
 } from "lucide-react";
+
+// Accesos rápidos a las áreas de Operación (espejo de los quick
+// actions de la app) — mismo orden que el sidebar.
+const QUICK_ACTIONS: {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  tint: string;
+}[] = [
+  { label: "Avisos", href: "/social-worker/announcements", icon: Bell, tint: "bg-sky-100 text-sky-700" },
+  { label: "Citatorios", href: "/social-worker/citations", icon: Mail, tint: "bg-rose-100 text-rose-700" },
+  { label: "Reportes", href: "/social-worker/reports", icon: AlertTriangle, tint: "bg-amber-100 text-amber-700" },
+  { label: "Pases de Salida", href: "/social-worker/exit-passes", icon: LogOut, tint: "bg-orange-100 text-orange-700" },
+  { label: "Justificantes", href: "/social-worker/justificantes", icon: FileCheck, tint: "bg-emerald-100 text-emerald-700" },
+  { label: "Inasistencias", href: "/social-worker/attendance-summary", icon: UserX, tint: "bg-rose-100 text-rose-700" },
+];
 
 // Tile de stat compacto (ícono + label + valor) que LLENA su celda
 // de grid (h-full) para que la tira de stats se vea alineada.
@@ -175,6 +196,44 @@ export default function SocialWorkerDashboardPage() {
             value={formatAsistPct(stats)}
             tint="bg-emerald-100 text-emerald-700"
           />
+        </div>
+      </div>
+
+      {/* Accesos rápidos a Operación — 6 tiles clickeables (3 columnas
+          en desktop / 2 en móvil), mismo orden que el sidebar. */}
+      <div>
+        <h3 className="text-sm font-semibold text-text-secondary mb-3">
+          Operación
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {QUICK_ACTIONS.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="group"
+                aria-label={action.label}
+              >
+                <Card className="h-full hover:shadow-md transition-shadow">
+                  <CardBody className="h-full flex items-center gap-3">
+                    <div
+                      className={`flex items-center justify-center w-10 h-10 rounded-xl ${action.tint} shrink-0`}
+                    >
+                      <Icon size={20} />
+                    </div>
+                    <p className="text-sm font-semibold text-text-primary group-hover:text-emerald-700 transition-colors">
+                      {action.label}
+                    </p>
+                    <ArrowRight
+                      size={14}
+                      className="ml-auto text-slate-300 group-hover:text-emerald-600 transition-colors"
+                    />
+                  </CardBody>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       </div>
 

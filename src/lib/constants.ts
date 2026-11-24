@@ -77,6 +77,8 @@ export const ENDPOINTS = {
   ATTENDANCE_DAILY_HISTORY: "/api/attendance/daily-history",
   ATTENDANCE_DAY_DETAIL: "/api/attendance/day-detail",
   ATTENDANCE_MANUAL_OVERRIDE: "/api/attendance/manual-override",
+  // Fase D (justificantes): PUT justifica un log con status "absent".
+  ATTENDANCE_JUSTIFY: (logId: string) => `/api/attendance/logs/${logId}/justify`,
 
   // Alumnos (directorio del prefecto) — ficha por id
   STUDENT_BY_ID: (id: string) => `/api/students/${id}`,
@@ -117,6 +119,8 @@ export const ENDPOINTS = {
     `/api/social-worker/teachers/${id}`,
   SOCIAL_WORKER_TEACHER_SCHEDULE: (id: string) =>
     `/api/social-worker/teacher-schedule/${id}`,
+  // Operación (Fase D): inasistencias del ciclo escolar del rol.
+  SOCIAL_WORKER_SCHOOL_ABSENCES: "/api/social-worker/school-absences",
 
   // Operación del prefecto — genéricos de staff (compartidos con teacher)
   ANNOUNCEMENTS: "/api/announcements",

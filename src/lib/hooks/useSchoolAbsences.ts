@@ -1,8 +1,9 @@
-// Faltas Escolares / Resumen de inasistencias del prefecto.
-// GET /api/prefect/school-absences (summary + topAbsentStudents) con
-// filtro opcional group_id (grupos regulares de GET /api/groups) —
-// el cambio de grupo re-fetchea, y seleccionar el mismo grupo lo
-// deselecciona (toggle, igual que la app).
+// Faltas Escolares / Resumen de inasistencias.
+// GET /api/prefect/school-absences (o el endpoint equivalente del
+// rol, vía el param `endpoint`) con filtro opcional group_id (grupos
+// regulares de GET /api/groups) — el cambio de grupo re-fetchea, y
+// seleccionar el mismo grupo lo deselecciona (toggle, igual que la
+// app). Default: endpoint del prefecto (los existentes no cambian).
 
 "use client";
 
@@ -24,7 +25,7 @@ export interface AbsenceGroupOption {
   label: string;
 }
 
-export function useSchoolAbsences() {
+export function useSchoolAbsences(endpoint: string = ENDPOINTS.PREFECT_SCHOOL_ABSENCES) {
   const [groups, setGroups] = useState<AbsenceGroupOption[]>([]);
   const [groupId, setGroupId] = useState<string | null>(null);
   const [data, setData] = useState<SchoolAbsencesData | null>(null);
@@ -51,16 +52,14 @@ export function useSchoolAbsences() {
     setError(null);
     try {
       const qs = groupId ? `?${new URLSearchParams({ group_id: groupId })}` : "";
-      const res = await api.get<SchoolAbsencesData>(
-        `${ENDPOINTS.PREFECT_SCHOOL_ABSENCES}${qs}`
-      );
+      const res = await api.get<SchoolAbsencesData>(`${endpoint}${qs}`);
       setData(res);
     } catch (e: unknown) {
       setError((e as Error)?.message || "No se pudo cargar el resumen de faltas.");
     } finally {
       setIsLoading(false);
     }
-  }, [groupId]);
+  }, [groupId, endpoint]);
 
   useEffect(() => {
     fetchAbsences();
