@@ -1,47 +1,75 @@
 // =====================================================================
 // src/app/social-worker/justificantes/page.tsx
 // ---------------------------------------------------------------------
-// Justificantes (Fase D — sección Operación del trabajador social).
-// Puerto con estilo propio (acento emerald, rutas /social-worker/*) de
-// justificantes/index.jsx de la app:
-//   - Segment tabs "Pendientes | Justificadas" (split CLIENT-SIDE por
-//     `justified`, con conteos — igual que la app)
-//   - Chips de filtro por grupo (regular; toggle) → re-fetchea
-//   - Búsqueda client por nombre de alumno
-//   - Lista en FILAS densas: pendiente → botón "Justificar" (modal);
-//     justificada → motivo + fecha del justificante
-//   - Alumno → FICHA DE EXPEDIENTE del rol
-// Fuente: hook useJustificantes (GET /api/attendance/logs
-// status=absent&event_type=entry + PUT .../justify).
+// Inasistencias y Justificantes — pantalla ÚNICA del trabajador social
+// (fusión 2026-11-25 de las antiguas justificantes/ y
+// attendance-summary/, que se redirigen aquí desde next.config.ts).
+// Puerto con estilo propio (acento emerald, rutas /social-worker/*):
+//   - Segment tabs "Por justificar | Justificadas | Por alumno" con
+//     conteos (los 2 primeros parten los logs por `justified` en
+//     cliente; el 3º lista TODOS los alumnos con faltas del rango).
+//   - Barra COMPARTIDA por tab: chips de grupo (regular, toggle) +
+//     búsqueda por nombre + rango ("Esta semana" default | "Todo el
+//     ciclo").
+//   - Filas densas: pendiente → botón "Justificar" (modal); justificada
+//     → motivo + fecha. Clic en el alumno (cualquier tab) → MODAL DE
+//     HISTORIAL (faltas sin justificar / justificadas del alumno).
+//   - "Cargar más" paginado en los tabs de logs (limit 200 del endpoint).
+// Fuente: hook useInasistencias (GET /api/attendance/logs +
+// GET /api/social-worker/school-absences + PUT .../justify).
 // =====================================================================
 
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card } from "@/components/ui/Card";
+import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SegmentTabs } from "@/app/prefect/_components/ListControls";
-import { useJustificantes, type JustificanteItem } from "@/lib/hooks/useJustificantes";
+import { StudentAvatar } from "@/app/prefect/_components/StudentAvatar";
+import {
+  useInasistencias,
+  type AbsenceLogItem,
+  type AbsenceRange,
+} from "@/lib/hooks/useInasistencias";
 import { JustifyAbsenceModal } from "@/app/social-worker/_components/JustifyAbsenceModal";
+import {
+  StudentAbsenceHistoryModal,
+  type HistoryStudent,
+} from "@/app/social-worker/_components/StudentAbsenceHistoryModal";
 import { formatFullDateTime, formatShortDate } from "@/lib/dates";
-import { CalendarX2, CheckCircle, FileCheck, Search } from "lucide-react";
+import {
+  CalendarX2,
+  CheckCircle,
+  FileCheck,
+  Search,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+
+type TabId = "pending" | "justified" | "students";
+
+// Opciones del rango compartido (default = semana actual).
+const RANGE_OPTIONS: { value: AbsenceRange; label: string }[] = [
+  { value: "week", label: "Esta semana" },
+  { value: "cycle", label: "Todo el ciclo" },
+];
 
 // Helpers de lectura sobre el ítem (student poblado por el endpoint).
-function studentNameOf(item: JustificanteItem): string {
+function studentNameOf(item: AbsenceLogItem): string {
   const s = item.student_id;
   if (!s) return "Sin alumno";
   return `${s.last_name || ""}, ${s.first_name || ""}`.replace(/^,\s*/, "") || "Sin alumno";
 }
 
-function studentIdOf(item: JustificanteItem): string {
+function studentIdOf(item: AbsenceLogItem): string {
   return item.student_id?._id || "";
 }
 
@@ -51,6 +79,8 @@ export default function SocialWorkerJustificantesPage() {
     groupId,
     toggleGroup,
     clearGroup,
+    range,
+    setRange,
     items,
     page,
     pages,
@@ -60,11 +90,16 @@ export default function SocialWorkerJustificantesPage() {
     refetch,
     loadMore,
     justify,
-  } = useJustificantes();
+    absences,
+    isLoadingAbsences,
+    absencesError,
+    refetchAbsences,
+  } = useInasistencias();
 
-  const [tab, setTab] = useState<"pending" | "justified">("pending");
+  const [tab, setTab] = useState<TabId>("pending");
   const [searchText, setSearchText] = useState("");
-  const [absenceToJustify, setAbsenceToJustify] = useState<JustificanteItem | null>(null);
+  const [absenceToJustify, setAbsenceToJustify] = useState<AbsenceLogItem | null>(null);
+  const [historyStudent, setHistoryStudent] = useState<HistoryStudent | null>(null);
 
   // Map de grupos para resolver current_group_id (ObjectId crudo del
   // populate, no viene poblado de forma anidada).
@@ -74,7 +109,7 @@ export default function SocialWorkerJustificantesPage() {
     return map;
   }, [groups]);
 
-  const groupLabelOf = (item: JustificanteItem): string => {
+  const groupLabelOf = (item: AbsenceLogItem): string => {
     const ref = item.student_id?.current_group_id;
     if (ref && typeof ref === "object" && ref.grade != null && ref.section) {
       return `${ref.grade}°${ref.section}`;
@@ -83,50 +118,89 @@ export default function SocialWorkerJustificantesPage() {
     return "";
   };
 
-  // Split de tabs por `justified` (mismo criterio que la app).
+  // Split de tabs 1-2 por `justified` (mismo criterio que la app).
   const pending = useMemo(() => items.filter((i) => !i.justified), [items]);
   const justified = useMemo(() => items.filter((i) => i.justified), [items]);
-  const baseItems = tab === "pending" ? pending : justified;
+  const students = useMemo(
+    () => absences?.topAbsentStudents ?? [],
+    [absences]
+  );
 
-  // Búsqueda client por nombre de alumno.
+  // Término de búsqueda (compartido, se aplica al tab ACTIVO).
+  const term = searchText.toLowerCase().trim();
+
   const filteredItems = useMemo(() => {
-    const term = searchText.toLowerCase().trim();
-    if (!term) return baseItems;
-    return baseItems.filter((i) => studentNameOf(i).toLowerCase().includes(term));
-  }, [baseItems, searchText]);
+    const base = tab === "justified" ? justified : pending;
+    if (!term) return base;
+    return base.filter((i) => studentNameOf(i).toLowerCase().includes(term));
+  }, [tab, pending, justified, term]);
+
+  const filteredStudents = useMemo(() => {
+    if (!term) return students;
+    return students.filter((s) => s.fullName.toLowerCase().includes(term));
+  }, [students, term]);
 
   // Cambio de tab → limpia búsqueda (como la app).
   const handleTabChange = (id: string) => {
-    setTab(id as "pending" | "justified");
+    setTab(id as TabId);
     setSearchText("");
   };
 
+  // Selección de alumno → MODAL DE HISTORIAL (desde cualquier tab).
+  const openHistoryFromLog = (item: AbsenceLogItem) => {
+    const sid = studentIdOf(item);
+    if (!sid) return;
+    setHistoryStudent({
+      _id: sid,
+      name: studentNameOf(item),
+      group: groupLabelOf(item),
+    });
+  };
+
+  const openHistoryFromRow = (row: (typeof students)[number]) => {
+    setHistoryStudent({ _id: row._id, name: row.fullName, group: row.group });
+  };
+
+  // Gate de carga inicial (como la página anterior).
   if (isLoading && items.length === 0 && !error) {
     return <LoadingState message="Cargando inasistencias…" />;
   }
   if (error && items.length === 0) {
-    return <ErrorState message={error} action={{ label: "Reintentar", onClick: refetch }} />;
+    return (
+      <ErrorState
+        message={error}
+        action={{
+          label: "Reintentar",
+          onClick: () => {
+            refetch();
+            refetchAbsences();
+          },
+        }}
+      />
+    );
   }
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Justificantes"
-        subtitle="Justificación de inasistencias registradas"
+        title="Inasistencias y Justificantes"
+        subtitle="Justificación de faltas y control de inasistencias por alumno"
         action={{ label: "← Volver", href: "/social-worker/dashboard" }}
       />
 
-      {/* Tabs: Pendientes | Justificadas (con conteos) */}
+      {/* Tabs: Por justificar | Justificadas | Por alumno (con conteos) */}
       <SegmentTabs
         tabs={[
-          { id: "pending", label: `Pendientes (${pending.length})` },
+          { id: "pending", label: `Por justificar (${pending.length})` },
           { id: "justified", label: `Justificadas (${justified.length})` },
+          { id: "students", label: `Por alumno (${students.length})` },
         ]}
         active={tab}
         onChange={handleTabChange}
       />
 
-      {/* Chips de grupo (toggle, como la app) — acento emerald */}
+      {/* Barra de filtros COMPARTIDA — chips de grupo (toggle) + rango
+          (default esta semana). Acento emerald. */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={clearGroup}
@@ -153,16 +227,147 @@ export default function SocialWorkerJustificantesPage() {
         ))}
       </div>
 
-      {/* Búsqueda */}
-      <Input
-        placeholder="Buscar alumno..."
-        value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
-        icon={<Search size={16} className="text-slate-400" />}
-      />
+      {/* Búsqueda (filtra el tab activo) + rango */}
+      <div className="flex flex-wrap gap-3 items-stretch">
+        <div className="flex-1 min-w-[220px]">
+          <Input
+            placeholder="Buscar alumno..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            icon={<Search size={16} className="text-slate-400" />}
+          />
+        </div>
+        <div className="w-44">
+          <Select
+            aria-label="Rango de fechas"
+            options={RANGE_OPTIONS}
+            value={range}
+            onChange={(e) => setRange(e.target.value as AbsenceRange)}
+          />
+        </div>
+      </div>
 
-      {/* Lista */}
-      {filteredItems.length === 0 && !isLoading ? (
+      {/* ───────────────────────── TAB: POR ALUMNO ───────────────────── */}
+      {tab === "students" ? (
+        isLoadingAbsences && !absences ? (
+          <LoadingState message="Cargando alumnos con faltas…" />
+        ) : absencesError && !absences ? (
+          <ErrorState
+            message={absencesError}
+            action={{ label: "Reintentar", onClick: refetchAbsences }}
+          />
+        ) : (
+          <div className="space-y-4">
+            {/* Stat cards (las del antiguo attendance-summary) */}
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="border-l-4 border-l-rose-500">
+                <CardBody>
+                  <p className="flex items-center gap-1.5 text-xs font-bold uppercase text-rose-600">
+                    <CalendarX2 size={12} />
+                    Total de Faltas
+                  </p>
+                  <p className="text-3xl font-extrabold text-rose-600 mt-1">
+                    {absences?.summary.totalAbsences ?? 0}
+                  </p>
+                </CardBody>
+              </Card>
+              <Card className="border-l-4 border-l-amber-500">
+                <CardBody>
+                  <p className="flex items-center gap-1.5 text-xs font-bold uppercase text-amber-600">
+                    <Users size={12} />
+                    Alumnos Afectados
+                  </p>
+                  <p className="text-3xl font-extrabold text-amber-600 mt-1">
+                    {absences?.summary.affectedStudents ?? 0}
+                  </p>
+                </CardBody>
+              </Card>
+            </div>
+
+            {/* Lista rankeada — clic → historial del alumno */}
+            <Card>
+              <CardBody>
+                <p className="flex items-center gap-1.5 text-sm font-bold text-text-primary mb-3">
+                  <TrendingUp size={16} className="text-rose-500" />
+                  Alumnos con más faltas
+                </p>
+                {filteredStudents.length === 0 ? (
+                  <EmptyState
+                    icon={<Users size={40} className="text-slate-300" />}
+                    title={term ? "Sin coincidencias" : "Sin faltas registradas"}
+                    description={
+                      term
+                        ? `Ningún alumno coincide con "${searchText.trim()}".`
+                        : "No hay inasistencias en el rango consultado."
+                    }
+                  />
+                ) : (
+                  <ol className="space-y-4">
+                    {filteredStudents.map((student, index) => {
+                      const absencesCount = student.absenceCount || 0;
+                      // Escala relativa al máximo VISIBLE (búsqueda
+                      // incluida) para que las barras sigan leyéndose.
+                      const maxVisible = filteredStudents.reduce(
+                        (max, s) => Math.max(max, s.absenceCount || 0),
+                        1
+                      );
+                      const pct = Math.max(
+                        Math.round((absencesCount / maxVisible) * 100),
+                        8
+                      );
+                      return (
+                        <li key={student._id}>
+                          <button
+                            onClick={() => openHistoryFromRow(student)}
+                            className="w-full text-left flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors"
+                            aria-label={`Ver historial de ${student.fullName}`}
+                          >
+                            <span
+                              className={`w-6 text-center text-sm font-extrabold shrink-0 ${
+                                index === 0
+                                  ? "text-rose-600"
+                                  : index === 1
+                                    ? "text-amber-600"
+                                    : "text-slate-400"
+                              }`}
+                            >
+                              #{student.rank ?? index + 1}
+                            </span>
+                            <StudentAvatar name={student.fullName} size={40} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-bold text-text-primary truncate">
+                                  {student.fullName}
+                                </p>
+                                <span className="text-xs font-extrabold text-rose-600 shrink-0">
+                                  {absencesCount} falta{absencesCount !== 1 ? "s" : ""}
+                                </span>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1">
+                                <div
+                                  className="h-full rounded-full bg-rose-500"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                {student.group || "—"}
+                                {student.controlNumber
+                                  ? ` • ${student.controlNumber}`
+                                  : ""}
+                              </p>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+        )
+      ) : filteredItems.length === 0 && !isLoading ? (
+        /* ───────────── TABS 1-2: LISTA DE LOGS ───────────── */
         <EmptyState
           icon={
             tab === "pending" ? (
@@ -172,12 +377,24 @@ export default function SocialWorkerJustificantesPage() {
             )
           }
           title={
-            tab === "pending" ? "Sin inasistencias pendientes" : "Sin justificantes"
+            tab === "pending"
+              ? term
+                ? "Sin coincidencias"
+                : "Sin inasistencias pendientes"
+              : term
+                ? "Sin coincidencias"
+                : "Sin justificantes"
           }
           description={
             tab === "pending"
-              ? "No hay faltas por justificar con los filtros actuales."
-              : "Las inasistencias justificadas aparecerán aquí."
+              ? term
+                ? `Ningún alumno coincide con "${searchText.trim()}".`
+                : range === "week"
+                  ? "No hay faltas por justificar esta semana con los filtros actuales."
+                  : "No hay faltas por justificar con los filtros actuales."
+              : term
+                ? `Ningún alumno coincide con "${searchText.trim()}".`
+                : "Las inasistencias justificadas aparecerán aquí."
           }
         />
       ) : (
@@ -192,21 +409,24 @@ export default function SocialWorkerJustificantesPage() {
               <div key={item._id} className="flex items-center gap-3 px-4 py-3">
                 <div
                   className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${
-                    isPending ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
+                    isPending
+                      ? "bg-rose-100 text-rose-700"
+                      : "bg-emerald-100 text-emerald-700"
                   }`}
                 >
                   {isPending ? <CalendarX2 size={16} /> : <CheckCircle size={16} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    {/* Alumno → FICHA DE EXPEDIENTE del rol */}
+                    {/* Alumno → HISTORIAL de faltas (el expediente vive
+                        dentro del modal, con link "Ver expediente"). */}
                     {sid ? (
-                      <Link
-                        href={`/social-worker/expedientes/${sid}`}
-                        className="text-sm font-bold text-text-primary truncate hover:text-emerald-700 transition-colors"
+                      <button
+                        onClick={() => openHistoryFromLog(item)}
+                        className="text-sm font-bold text-text-primary truncate hover:text-emerald-700 transition-colors text-left"
                       >
                         {name}
-                      </Link>
+                      </button>
                     ) : (
                       <p className="text-sm font-bold text-text-primary truncate">{name}</p>
                     )}
@@ -252,8 +472,8 @@ export default function SocialWorkerJustificantesPage() {
         </Card>
       )}
 
-      {/* Paginación server (limit 200 = cap del endpoint) */}
-      {filteredItems.length > 0 && (
+      {/* Paginación server (limit 200 = cap del endpoint) — solo tabs 1-2 */}
+      {tab !== "students" && filteredItems.length > 0 && (
         <div className="flex justify-center py-2">
           {isLoadingMore ? (
             <span className="flex items-center gap-2 text-sm text-text-secondary">
@@ -284,6 +504,12 @@ export default function SocialWorkerJustificantesPage() {
           }
           return justify(absenceToJustify._id, reason);
         }}
+      />
+
+      {/* Modal de HISTORIAL del alumno (compartido por los 3 tabs). */}
+      <StudentAbsenceHistoryModal
+        student={historyStudent}
+        onClose={() => setHistoryStudent(null)}
       />
     </div>
   );

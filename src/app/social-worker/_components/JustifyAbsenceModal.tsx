@@ -7,7 +7,7 @@
 //   - TextArea de motivo (obligatorio)
 //   - Estado de éxito (check + auto-cierre a los 1.2s, igual que la
 //     la app)
-// El PUT lo dispara la página vía `onSubmit` (el hook useJustificantes
+// El PUT lo dispara la página vía `onSubmit` (el hook useInasistencias
 // parchea el ítem en local y el item cambia de tab solo).
 
 "use client";
@@ -18,12 +18,12 @@ import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
 import { CheckCircle, FileCheck } from "lucide-react";
 import { formatShortDate } from "@/lib/dates";
-import type { JustificanteItem } from "@/lib/hooks/useJustificantes";
+import type { AbsenceLogItem } from "@/lib/hooks/useInasistencias";
 
 interface JustifyAbsenceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  absence: JustificanteItem | null;
+  absence: AbsenceLogItem | null;
   /** Etiqueta del grupo ("1°A") ya resuelta por la página. */
   groupLabel?: string;
   /** PUT justifica — resuelve { success, message }. */

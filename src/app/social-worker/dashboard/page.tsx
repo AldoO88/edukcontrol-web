@@ -45,7 +45,8 @@ import {
 } from "lucide-react";
 
 // Accesos rápidos a las áreas de Operación (espejo de los quick
-// actions de la app) — mismo orden que el sidebar.
+// actions de la app) — mismo orden que el sidebar. Fusión 2026-11-25:
+// justificantes + inasistencias → una sola pantalla con 3 tabs.
 const QUICK_ACTIONS: {
   label: string;
   href: string;
@@ -56,8 +57,7 @@ const QUICK_ACTIONS: {
   { label: "Citatorios", href: "/social-worker/citations", icon: Mail, tint: "bg-rose-100 text-rose-700" },
   { label: "Reportes", href: "/social-worker/reports", icon: AlertTriangle, tint: "bg-amber-100 text-amber-700" },
   { label: "Pases de Salida", href: "/social-worker/exit-passes", icon: LogOut, tint: "bg-orange-100 text-orange-700" },
-  { label: "Justificantes", href: "/social-worker/justificantes", icon: FileCheck, tint: "bg-emerald-100 text-emerald-700" },
-  { label: "Inasistencias", href: "/social-worker/attendance-summary", icon: UserX, tint: "bg-rose-100 text-rose-700" },
+  { label: "Inasistencias y Justificantes", href: "/social-worker/justificantes", icon: FileCheck, tint: "bg-emerald-100 text-emerald-700" },
 ];
 
 // Tile de stat compacto (ícono + label + valor) que LLENA su celda

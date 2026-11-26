@@ -2,7 +2,7 @@
 // Variante del Sidebar de administración con las secciones del rol
 // trabajador social: Inicio (dashboard), Consulta (grupos/alumnos/
 // maestros), Operación (avisos, citatorios, reportes, pases de salida,
-// justificantes, inasistencias) y Expedientes (listado con barra de
+// inasistencias+justificantes) y Expedientes (listado con barra de
 // progreso → ficha por alumno).
 
 "use client";
@@ -20,7 +20,6 @@ import {
   LogOut,
   Mail,
   Users,
-  UserX,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -60,8 +59,9 @@ const socialWorkerSections: NavSection[] = [
       { label: "Citatorios", href: "/social-worker/citations", icon: Mail },
       { label: "Reportes", href: "/social-worker/reports", icon: AlertTriangle },
       { label: "Pases de Salida", href: "/social-worker/exit-passes", icon: LogOut },
-      { label: "Justificantes", href: "/social-worker/justificantes", icon: FileCheck },
-      { label: "Inasistencias", href: "/social-worker/attendance-summary", icon: UserX },
+      // Fusión 2026-11-25: justificantes + inasistencias en una sola
+      // pantalla con 3 tabs (la ruta attendance-summary redirige aquí).
+      { label: "Inasistencias y Justificantes", href: "/social-worker/justificantes", icon: FileCheck },
     ],
   },
   {
