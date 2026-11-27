@@ -35,6 +35,7 @@ import {
   Trash2,
   Camera,
   Loader2,
+  Mail,
 } from "lucide-react";
 
 // --- Types ---
@@ -126,7 +127,7 @@ export default function StudentDetailPage() {
   // Tutor edit/add modal (también usado para agregar tutor cuando
   // el alumno no tiene ninguno — `editingGuardianId === null`).
   const [isTutorOpen, setIsTutorOpen] = useState(false);
-  const [tutorForm, setTutorForm] = useState({ name: "", lastname: "", phone: "", relationship: "" });
+  const [tutorForm, setTutorForm] = useState({ name: "", lastname: "", phone: "", relationship: "", email: "" });
   const [editingGuardianId, setEditingGuardianId] = useState<string | null>(null);
   const [isSavingTutor, setIsSavingTutor] = useState(false);
   const [customRelationship, setCustomRelationship] = useState("");
@@ -135,7 +136,7 @@ export default function StudentDetailPage() {
   const [tutorFormError, setTutorFormError] = useState<string | null>(null);
 
   const openAddTutorModal = () => {
-    setTutorForm({ name: "", lastname: "", phone: "", relationship: "" });
+    setTutorForm({ name: "", lastname: "", phone: "", relationship: "", email: "" });
     setCustomRelationship("");
     setEditingGuardianId(null);
     setTutorFormError(null);
@@ -390,6 +391,7 @@ export default function StudentDetailPage() {
     const name = tutorForm.name.trim();
     const lastname = tutorForm.lastname.trim();
     const phone = tutorForm.phone.trim();
+    const email = tutorForm.email.trim();
     const relationshipRaw =
       tutorForm.relationship === "otro" ? customRelationship.trim() : tutorForm.relationship;
 
@@ -409,6 +411,11 @@ export default function StudentDetailPage() {
       setTutorFormError("Selecciona un parentesco.");
       return;
     }
+    // Correo opcional: si viene se valida formato (vacío = ok).
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setTutorFormError("El correo no tiene un formato válido.");
+      return;
+    }
 
     setIsSavingTutor(true);
     setTutorFormError(null);
@@ -418,6 +425,7 @@ export default function StudentDetailPage() {
         lastname,
         phone,
         relationship: relationshipRaw,
+        email,
       };
       if (editingGuardianId) {
         // Modo edición: actualiza el tutor existente.
@@ -438,7 +446,7 @@ export default function StudentDetailPage() {
       setIsTutorOpen(false);
       setEditingGuardianId(null);
       setCustomRelationship("");
-      setTutorForm({ name: "", lastname: "", phone: "", relationship: "" });
+      setTutorForm({ name: "", lastname: "", phone: "", relationship: "", email: "" });
       await fetchData();
     } catch (err) {
       setTutorFormError(err instanceof Error ? err.message : "Error al guardar tutor.");
@@ -610,6 +618,11 @@ export default function StudentDetailPage() {
                             <p className="mt-0.5 flex items-center gap-1">
                               <Phone size={12} /> {guardian.phone}
                             </p>
+                            {guardian.email && (
+                              <p className="mt-0.5 flex items-center gap-1 text-xs text-text-secondary break-all">
+                                <Mail size={12} /> {guardian.email}
+                              </p>
+                            )}
                           </div>
                           <div>
                             <span className="text-text-muted">Parentesco</span>
@@ -630,10 +643,10 @@ export default function StudentDetailPage() {
                             const rel = guardian.relationship || "";
                             const predefined = ["madre", "padre", "abuelo", "tutor legal"];
                             if (rel && !predefined.includes(rel)) {
-                              setTutorForm({ name: guardian.name, lastname: guardian.lastname ?? "", phone: guardian.phone, relationship: "otro" });
+                              setTutorForm({ name: guardian.name, lastname: guardian.lastname ?? "", phone: guardian.phone, relationship: "otro", email: guardian.email ?? "" });
                               setCustomRelationship(rel);
                             } else {
-                              setTutorForm({ name: guardian.name, lastname: guardian.lastname ?? "", phone: guardian.phone, relationship: rel });
+                              setTutorForm({ name: guardian.name, lastname: guardian.lastname ?? "", phone: guardian.phone, relationship: rel, email: guardian.email ?? "" });
                               setCustomRelationship("");
                             }
                             setIsTutorOpen(true);
@@ -1202,6 +1215,13 @@ export default function StudentDetailPage() {
               value={tutorForm.phone}
               onChange={(e) => setTutorForm({ ...tutorForm, phone: e.target.value })}
               placeholder="10 digitos"
+            />
+            <Input
+              label="Correo (opcional)"
+              type="email"
+              value={tutorForm.email}
+              onChange={(e) => setTutorForm({ ...tutorForm, email: e.target.value })}
+              placeholder="para iniciar sesión con Apple"
             />
             <Select
               label="Parentesco"

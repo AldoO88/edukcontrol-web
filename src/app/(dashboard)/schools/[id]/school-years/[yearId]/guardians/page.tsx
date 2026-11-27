@@ -33,6 +33,7 @@ import {
   ChevronRight,
   UserX,
   CheckCircle2,
+  Mail,
 } from "lucide-react";
 
 interface GuardiansStats {
@@ -218,7 +219,7 @@ export default function GuardiansPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleSaveEdit = async (form: { name: string; lastname: string; phone: string; relationship: string }) => {
+  const handleSaveEdit = async (form: { name: string; lastname: string; phone: string; relationship: string; email: string }) => {
     if (!editing) return;
     setEditSaving(true);
     try {
@@ -463,6 +464,7 @@ export default function GuardiansPage() {
                   name: "",
                   lastname: "",
                   phone: "",
+                  email: "",
                   relationship: "tutor legal",
                   isActive: true,
                 } as Guardian);
@@ -499,6 +501,7 @@ export default function GuardiansPage() {
                     <th className="text-center px-4 py-3 font-semibold text-text-primary w-12">No.</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Nombre</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Teléfono</th>
+                    <th className="text-left px-4 py-3 font-semibold text-text-primary">Correo</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Parentesco</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Alumnos</th>
                     <th className="text-left px-4 py-3 font-semibold text-text-primary">Cuenta</th>
@@ -524,6 +527,14 @@ export default function GuardiansPage() {
                         </td>
                         <td className="px-4 py-3 text-text-secondary font-mono text-xs">
                           {g.phone}
+                        </td>
+                        {/* Correo del Apple ID: prioriza la ficha del
+                            Guardian, con fallback al User asociado
+                            (vínculos manuales previos por soporte). */}
+                        <td className="px-4 py-3 text-text-secondary text-xs">
+                          {g.email ||
+                            (typeof g.user_id === "object" ? g.user_id?.email : "") ||
+                            "—"}
                         </td>
                         <td className="px-4 py-3 text-text-secondary">{g.relationship}</td>
                         <td className="px-4 py-3 max-w-xs">
@@ -896,7 +907,7 @@ interface GuardianEditFormProps {
   initial: Guardian;
   saving: boolean;
   onCancel: () => void;
-  onSubmit: (form: { name: string; lastname: string; phone: string; relationship: string }) => void | Promise<void>;
+  onSubmit: (form: { name: string; lastname: string; phone: string; relationship: string; email: string }) => void | Promise<void>;
 }
 
 function GuardianEditForm({ initial, saving, onCancel, onSubmit }: GuardianEditFormProps) {
@@ -904,6 +915,14 @@ function GuardianEditForm({ initial, saving, onCancel, onSubmit }: GuardianEditF
   const [lastname, setLastname] = useState(initial.lastname || "");
   const [phone, setPhone] = useState(initial.phone || "");
   const [relationship, setRelationship] = useState(initial.relationship || "tutor legal");
+  // Prefill: ficha del Guardian → User asociado (por si el correo se
+  // ligó manualmente por soporte sin pasar por este form).
+  const [email, setEmail] = useState(
+    initial.email ||
+      (typeof initial.user_id === "object" ? initial.user_id?.email : "") ||
+      ""
+  );
+  const emailInvalid = !!email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   return (
     <div className="space-y-3">
@@ -943,13 +962,26 @@ function GuardianEditForm({ initial, saving, onCancel, onSubmit }: GuardianEditF
           <option value="tía" />
         </datalist>
       </div>
+      <div>
+        <label className="block text-sm font-medium text-text-primary mb-1">
+          <Mail size={12} className="inline mr-1" />
+          Correo (opcional)
+        </label>
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="para iniciar sesión con Apple"
+          error={emailInvalid ? "Ingresa un correo válido." : undefined}
+        />
+      </div>
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
         <Button
           variant="primary"
           isLoading={saving}
-          disabled={!name || !/^\d{10}$/.test(phone)}
-          onClick={() => onSubmit({ name, lastname, phone, relationship })}
+          disabled={!name || !/^\d{10}$/.test(phone) || emailInvalid}
+          onClick={() => onSubmit({ name, lastname, phone, relationship, email: email.trim() })}
         >
           Guardar
         </Button>

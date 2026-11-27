@@ -58,6 +58,15 @@ const registerSchema = z.object({
   guardian_lastname: z.string().optional(),
   guardian_phone: z.string().optional(),
   guardian_relationship: z.string().optional(),
+  // Correo opcional del Apple ID (Sign in with Apple matchea por
+  // User.email). Vacío = ok; con contenido debe tener formato válido.
+  guardian_email: z
+    .string()
+    .refine(
+      (v) => !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),
+      "Correo inválido"
+    )
+    .optional(),
   // Segundo tutor (opcional): otro padre con capacidad de trámite.
   // NO es el tutor legal (el de arriba, en [0]). Requiere los 3
   // datos (nombre, celular, parentesco) para guardarse; si viene
@@ -66,6 +75,13 @@ const registerSchema = z.object({
   guardian2_lastname: z.string().optional(),
   guardian2_phone: z.string().optional(),
   guardian2_relationship: z.string().optional(),
+  guardian2_email: z
+    .string()
+    .refine(
+      (v) => !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),
+      "Correo inválido"
+    )
+    .optional(),
 });
 type RegisterFormData = z.infer<typeof registerSchema>;
 
@@ -446,10 +462,12 @@ export default function StudentsPage() {
         guardian_lastname,
         guardian_phone,
         guardian_relationship,
+        guardian_email,
         guardian2_name,
         guardian2_lastname,
         guardian2_phone,
         guardian2_relationship,
+        guardian2_email,
         grade,
         ...studentData
       } = data;
@@ -486,6 +504,7 @@ export default function StudentsPage() {
             lastname: guardian_lastname,
             phone: guardian_phone,
             relationship: guardian_relationship || "tutor legal",
+            email: (guardian_email || "").trim(),
             school: schoolId,
             students: [studentId],
           });
@@ -519,6 +538,7 @@ export default function StudentsPage() {
             lastname: (guardian2_lastname || "").trim(),
             phone: g2Phone,
             relationship: g2Relationship,
+            email: (guardian2_email || "").trim(),
             school: schoolId,
             students: [studentId],
           });
@@ -1443,6 +1463,16 @@ export default function StudentsPage() {
                 {...register("guardian_relationship")}
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Correo del Tutor (opcional)"
+                type="email"
+                placeholder="para iniciar sesión con Apple"
+                disabled={!!selectedGuardian}
+                error={errors.guardian_email?.message}
+                {...register("guardian_email")}
+              />
+            </div>
 
             {/* Aviso: el tutor NO se guarda si falta alguno de los
                 datos de identificación (nombre O celular). El
@@ -1529,6 +1559,15 @@ export default function StudentsPage() {
                   { value: "otro", label: "Otro" },
                 ]}
                 {...register("guardian2_relationship")}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Correo (opcional)"
+                type="email"
+                placeholder="para iniciar sesión con Apple"
+                error={errors.guardian2_email?.message}
+                {...register("guardian2_email")}
               />
             </div>
             {/* Aviso: el segundo tutor es opcional, pero si se empezó a

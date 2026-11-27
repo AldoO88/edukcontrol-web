@@ -89,6 +89,11 @@ export interface Guardian {
   name: string;
   lastname?: string;
   phone: string;
+  // Correo opcional del Apple ID (capturado en el registro de papás;
+  // es lo que consulta Sign in with Apple vía User.email). Puede venir
+  // null y el User asociado puede tener el correo aunque esta ficha
+  // no (vínculo manual previo por soporte).
+  email?: string | null;
   relationship: string;
   // `false` = dado de baja (registro conservado como historial pero
   // sin vínculos a estudiantes y con la cuenta User tutor
