@@ -5,9 +5,16 @@
 // (fusión de las antiguas justificantes/ y attendance-summary/, web).
 // 3 tabs con filtros COMPARTIDOS:
 //   - "Por justificar" / "Justificadas": logs status=absent
-//     (GET /api/attendance/logs), partidos en cliente por `justified`
-//     (mismo split que la app; el server también admite
-//     ?justified=true|false desde 2026-11-25 por si se necesita).
+//     (GET /api/attendance/logs). Split SERVER-SIDE por `justified`
+//     (?justified=false|true, param desde 2026-11-25): cada tab paga su
+//     propia paginación y sus counts salen del `total` del server
+//     (EXACTOS). Fix 2026-11-27: antes se partía en cliente sobre UNA
+//     fetch paginada (límite 200, orden desc) y con "Todos los grupos"
+//     el ciclo tiene 2,434 faltas = 13 páginas → las 27 justificadas
+//     (de octubre) nunca caían en la página 1 y el tab quedaba vacío
+//     SIN botón "Cargar más" (la condición dependía de la lista
+//     filtrada). Ahora cada tab consulta lo suyo con el filtro del
+//     server, igual que la web de expedientes.
 //   - "Por alumno": TODOS los alumnos con faltas del rango
 //     (GET /api/social-worker/school-absences — SIN cap desde
 //     2026-11-25; antes top-20).
@@ -15,14 +22,18 @@
 //   - group_id → chips de grupos regulares (toggle).
 //   - range: "week" (lun–dom de la semana actual, DEFAULT) | "cycle"
 //     (sin from/to → el backend usa el inicio del ciclo escolar).
-//   - search → client-side por nombre (lo aplica la página).
-// Justificar: PUT /api/attendance/logs/:id/justify con parcheo local
-// (el ítem cambia de tab sin re-fetch, igual que la app).
+//   - search → client-side por nombre (lo aplica la página, sobre la
+//     lista CARGADA del tab activo — limitación conocida: con "Por
+//     justificar" a 13 páginas, buscar un alumno viejo requiere
+//     "Cargar más" antes).
+// Justificar: PUT /api/attendance/logs/:id/justify → el ítem se quita
+// de pendientes en local (total--) y se refetchea la lista de
+// justificadas (corta) para insertarla en su posición por fecha.
 // =====================================================================
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { ENDPOINTS } from "@/lib/constants";
 
@@ -65,12 +76,32 @@ export interface AbsenceLogItem {
   justified_at?: string | null;
 }
 
-// Envelope paginado de /api/attendance/logs (items + pages).
+// Envelope paginado de /api/attendance/logs (items + total/page/pages).
 interface LogsEnvelope {
   items: AbsenceLogItem[];
   total?: number;
   page?: number;
   pages?: number;
+}
+
+// Estado de UNA lista paginada (una por tab de logs: pendientes y
+// justificadas). `total` es el conteo EXACTO del server para el filtro
+// activo (lo pintan los tabs como conteo).
+export interface AbsenceListState {
+  items: AbsenceLogItem[];
+  page: number;
+  pages: number;
+  total: number;
+}
+
+const EMPTY_LIST: AbsenceListState = { items: [], page: 1, pages: 1, total: 0 };
+
+// Dedupe defensivo por si el server repite un doc entre páginas.
+function dedupeById(items: AbsenceLogItem[]): AbsenceLogItem[] {
+  const seen = new Set<string>();
+  return items.filter((it) =>
+    seen.has(it._id) ? false : (seen.add(it._id), true)
+  );
 }
 
 // Fila del tab "Por alumno" (GET /api/social-worker/school-absences).
@@ -127,13 +158,17 @@ export function useInasistencias() {
   const [groupId, setGroupId] = useState<string | null>(null);
   const [range, setRange] = useState<AbsenceRange>("week");
 
-  // Tabs 1-2: logs de inasistencias.
-  const [items, setItems] = useState<AbsenceLogItem[]>([]);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
+  // Tabs 1-2: UNA lista paginada por estado (split server-side).
+  const [pendingList, setPendingList] = useState<AbsenceListState>(EMPTY_LIST);
+  const [justifiedList, setJustifiedList] = useState<AbsenceListState>(EMPTY_LIST);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Contador de fetches iniciales en vuelo: hay 2 (pendientes +
+  // justificadas) por cada cambio de filtro — isLoading solo baja cuando
+  // AMBAS terminan, para no parpadear un tab vacío a media carga.
+  const initialInFlight = useRef(0);
 
   // Tab 3: alumnos con faltas.
   const [absences, setAbsences] = useState<SchoolAbsencesResponse | null>(null);
@@ -158,16 +193,24 @@ export function useInasistencias() {
     })();
   }, []);
 
-  // Inasistencias del rango/grupo activos (tabs 1-2).
-  const fetchPage = useCallback(
-    async (pageNum: number, append: boolean) => {
-      if (append) setIsLoadingMore(true);
-      else setIsLoading(true);
+  // Una lista de logs (PENDIENTES o JUSTIFICADAS) del rango/grupo
+  // activos. `justified` va al server (?justified=true|false) para que
+  // cada tab pague SU paginación y su `total` sea el conteo exacto.
+  const fetchList = useCallback(
+    async (justified: boolean, pageNum: number, append: boolean) => {
+      const setList = justified ? setJustifiedList : setPendingList;
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        initialInFlight.current += 1;
+        setIsLoading(true);
+      }
       setError(null);
       try {
         const qs = new URLSearchParams({
           status: "absent",
           event_type: "entry",
+          justified: justified ? "true" : "false",
           limit: "200",
           page: String(pageNum),
           ...rangeParams(range),
@@ -177,14 +220,21 @@ export function useInasistencias() {
           `${ENDPOINTS.ATTENDANCE_LOGS}?${qs.toString()}`
         );
         const incoming = res?.items || [];
-        setPage(pageNum);
-        setPages(res?.pages ?? 1);
-        setItems((prev) => (append ? [...prev, ...incoming] : incoming));
+        setList((prev) => ({
+          items: append ? dedupeById([...prev.items, ...incoming]) : incoming,
+          page: pageNum,
+          pages: res?.pages ?? 1,
+          total: res?.total ?? incoming.length,
+        }));
       } catch (e: unknown) {
         setError((e as Error)?.message || "No se pudieron cargar las inasistencias.");
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (append) {
+          setIsLoadingMore(false);
+        } else {
+          initialInFlight.current -= 1;
+          if (initialInFlight.current <= 0) setIsLoading(false);
+        }
       }
     },
     [groupId, range]
@@ -211,24 +261,28 @@ export function useInasistencias() {
     }
   }, [groupId, range]);
 
-  // Re-fetch al cambiar grupo o rango (ambas fuentes).
+  // Re-fetch al cambiar grupo o rango: AMBAS listas de logs + resumen.
   useEffect(() => {
-    fetchPage(1, false);
+    fetchList(false, 1, false);
+    fetchList(true, 1, false);
     fetchAbsences();
-  }, [fetchPage, fetchAbsences]);
+  }, [fetchList, fetchAbsences]);
 
-  // Siguiente página de logs (dedupe defensivo por si el server repite un doc).
-  const loadMore = useCallback(() => {
-    if (isLoading || isLoadingMore || page >= pages) return;
-    fetchPage(page + 1, true).then(() => {
-      setItems((prev) => {
-        const seen = new Set<string>();
-        return prev.filter((it) =>
-          seen.has(it._id) ? false : (seen.add(it._id), true)
-        );
-      });
-    });
-  }, [isLoading, isLoadingMore, page, pages, fetchPage]);
+  // Siguiente página de la lista del tab ACTIVO.
+  const loadMore = useCallback(
+    (justified: boolean) => {
+      const list = justified ? justifiedList : pendingList;
+      if (isLoading || isLoadingMore || list.page >= list.pages) return;
+      fetchList(justified, list.page + 1, true);
+    },
+    [isLoading, isLoadingMore, pendingList, justifiedList, fetchList]
+  );
+
+  // Re-fetch de ambas listas (botón Reintentar del estado de error).
+  const refetch = useCallback(() => {
+    fetchList(false, 1, false);
+    fetchList(true, 1, false);
+  }, [fetchList]);
 
   // Toggle: clic en el grupo activo lo deselecciona (como la app).
   const toggleGroup = useCallback((id: string) => {
@@ -237,8 +291,9 @@ export function useInasistencias() {
 
   const clearGroup = useCallback(() => setGroupId(null), []);
 
-  // Justificar → PUT + parcheo local del ítem (sin re-fetch: el ítem
-  // se mueve de tab al instante; también re-contar es client-side).
+  // Justificar → PUT + parcheo local: el ítem sale de pendientes
+  // (total--) y se refetchea la lista de justificadas (corta: 27 hoy)
+  // para insertarlo en su posición por fecha con el total exacto.
   const justify = useCallback(
     async (
       logId: string,
@@ -249,21 +304,17 @@ export function useInasistencias() {
           justified: true,
           justified_reason: reason || "Justificado por trabajo social",
         });
-        const now = new Date().toISOString();
-        setItems((prev) =>
-          prev.map((item) =>
-            item._id === logId
-              ? {
-                  ...item,
-                  justified: true,
-                  justified_reason: reason || "Justificado por trabajo social",
-                  justified_at: now,
-                }
-              : item
-          )
-        );
-        // El resumen del tab "Por alumno" también cuenta faltas → refetch
-        // best-effort para que los totales no queden desfasados.
+        setPendingList((prev) => {
+          if (!prev.items.some((it) => it._id === logId)) return prev;
+          return {
+            ...prev,
+            items: prev.items.filter((it) => it._id !== logId),
+            total: Math.max(prev.total - 1, 0),
+          };
+        });
+        fetchList(true, 1, false);
+        // El tab "Por alumno" también cuenta faltas → refetch best-effort
+        // para que los totales no queden desfasados.
         fetchAbsences();
         return { success: true, message: "Inasistencia justificada." };
       } catch (e: unknown) {
@@ -273,7 +324,7 @@ export function useInasistencias() {
         };
       }
     },
-    [fetchAbsences]
+    [fetchList, fetchAbsences]
   );
 
   return {
@@ -283,13 +334,12 @@ export function useInasistencias() {
     clearGroup,
     range,
     setRange,
-    items,
-    page,
-    pages,
+    pendingList,
+    justifiedList,
     isLoading,
     isLoadingMore,
     error,
-    refetch: () => fetchPage(1, false),
+    refetch,
     loadMore,
     justify,
     absences,

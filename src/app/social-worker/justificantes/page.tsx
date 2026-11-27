@@ -6,8 +6,11 @@
 // attendance-summary/, que se redirigen aquí desde next.config.ts).
 // Puerto con estilo propio (acento emerald, rutas /social-worker/*):
 //   - Segment tabs "Por justificar | Justificadas | Por alumno" con
-//     conteos (los 2 primeros parten los logs por `justified` en
-//     cliente; el 3º lista TODOS los alumnos con faltas del rango).
+//     conteos EXACTOS del server (los 2 primeros consultan
+//     ?justified=false|true por separado — fix 2026-11-27, antes el
+//     split era en cliente sobre UNA fetch paginada y con "Todos los
+//     grupos" las justificadas viejas nunca cabían en la página 1; el
+//     3º lista TODOS los alumnos con faltas del rango).
 //   - Barra COMPARTIDA por tab: chips de grupo (regular, toggle) +
 //     búsqueda por nombre + rango ("Esta semana" default | "Todo el
 //     ciclo").
@@ -81,9 +84,8 @@ export default function SocialWorkerJustificantesPage() {
     clearGroup,
     range,
     setRange,
-    items,
-    page,
-    pages,
+    pendingList,
+    justifiedList,
     isLoading,
     isLoadingMore,
     error,
@@ -118,13 +120,19 @@ export default function SocialWorkerJustificantesPage() {
     return "";
   };
 
-  // Split de tabs 1-2 por `justified` (mismo criterio que la app).
-  const pending = useMemo(() => items.filter((i) => !i.justified), [items]);
-  const justified = useMemo(() => items.filter((i) => i.justified), [items]);
+  // Tabs 1-2: cada lista viene YA filtrada por el server
+  // (?justified=false|true) con su propia paginación y su `total`
+  // exacto (fix 2026-11-27 — antes el split era en cliente sobre UNA
+  // fetch paginada y con "Todos los grupos" el tab quedaba vacío).
+  const pending = pendingList.items;
+  const justified = justifiedList.items;
   const students = useMemo(
     () => absences?.topAbsentStudents ?? [],
     [absences]
   );
+
+  // Estado de la lista del tab ACTIVO (para paginación y conteos).
+  const activeList = tab === "justified" ? justifiedList : pendingList;
 
   // Término de búsqueda (compartido, se aplica al tab ACTIVO).
   const term = searchText.toLowerCase().trim();
@@ -161,11 +169,12 @@ export default function SocialWorkerJustificantesPage() {
     setHistoryStudent({ _id: row._id, name: row.fullName, group: row.group });
   };
 
-  // Gate de carga inicial (como la página anterior).
-  if (isLoading && items.length === 0 && !error) {
+  // Gate de carga inicial (espera a AMBAS listas: pendientes + justificadas).
+  const bothEmpty = pending.length === 0 && justified.length === 0;
+  if (isLoading && bothEmpty && !error) {
     return <LoadingState message="Cargando inasistencias…" />;
   }
-  if (error && items.length === 0) {
+  if (error && bothEmpty) {
     return (
       <ErrorState
         message={error}
@@ -191,8 +200,8 @@ export default function SocialWorkerJustificantesPage() {
       {/* Tabs: Por justificar | Justificadas | Por alumno (con conteos) */}
       <SegmentTabs
         tabs={[
-          { id: "pending", label: `Por justificar (${pending.length})` },
-          { id: "justified", label: `Justificadas (${justified.length})` },
+          { id: "pending", label: `Por justificar (${pendingList.total})` },
+          { id: "justified", label: `Justificadas (${justifiedList.total})` },
           { id: "students", label: `Por alumno (${students.length})` },
         ]}
         active={tab}
@@ -472,20 +481,24 @@ export default function SocialWorkerJustificantesPage() {
         </Card>
       )}
 
-      {/* Paginación server (limit 200 = cap del endpoint) — solo tabs 1-2 */}
-      {tab !== "students" && filteredItems.length > 0 && (
+      {/* Paginación server (limit 200 = cap del endpoint) — solo tabs
+          1-2. Condición SOLO sobre la paginación del tab activo (nunca
+          sobre la lista filtrada por búsqueda): si la búsqueda no
+          matchea nada, "Cargar más" sigue disponible para seguir
+          cargando. */}
+      {tab !== "students" && activeList.total > 0 && (
         <div className="flex justify-center py-2">
           {isLoadingMore ? (
             <span className="flex items-center gap-2 text-sm text-text-secondary">
               <Spinner size="sm" /> Cargando…
             </span>
-          ) : page < pages ? (
-            <Button variant="secondary" onClick={loadMore}>
-              Cargar más ({items.length} cargados)
+          ) : activeList.page < activeList.pages ? (
+            <Button variant="secondary" onClick={() => loadMore(tab === "justified")}>
+              Cargar más ({activeList.items.length} de {activeList.total})
             </Button>
           ) : (
             <span className="text-xs text-text-muted">
-              {items.length} inasistencia{items.length !== 1 ? "s" : ""}
+              {activeList.total} inasistencia{activeList.total !== 1 ? "s" : ""}
             </span>
           )}
         </div>
